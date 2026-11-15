@@ -11,12 +11,23 @@ import TrillPitch from '../theory/trill-pitch.ts';
 import ScorePedal from '../score/score-pedal.ts';
 import ArticulationPerformance from './articulation-performance.ts';
 import ScoreFermata from '../score/score-fermata.ts';
-import type { ScoreProject, PianoStaffName } from '../score/types.ts';
+import type { ScoreProject, PianoStaffName, PianoPitch } from '../score/types.ts';
+
+/** Identity and fingering travel with the performed attack, including ornaments. */
+export type PerformancePitch = {
+  hand: 'left' | 'right';
+  voice: string;
+  fingering?: PianoPitch['fingering'];
+  substitutionFingering?: PianoPitch['substitutionFingering'];
+  noteId: string;
+  pitchIndex: number;
+};
 
 export type PlaybackEvent = {
   startSeconds: number;
   durationSeconds: number;
   pitches: number[];
+  performance?: PerformancePitch[];
   /** Per-pitch lengths are used when a chord's pitches articulate differently. */
   pitchDurationsSeconds?: number[];
   graceNote?: boolean;
@@ -129,6 +140,10 @@ namespace ScorePlaybackPlan {
       for (const members of groups) {
         const first = members[0];
         const last = members[members.length - 1];
+        const identity = (pitches: PianoPitch[], noteId = first.note.id): PerformancePitch[] => pitches.map((pitch, pitchIndex) => ({
+          hand: staff === 'upperStaff' ? 'right' : 'left', voice: `${staff}:${voiceIndex}`,
+          fingering: pitch.fingering, substitutionFingering: pitch.substitutionFingering, noteId, pitchIndex,
+        }));
         const noteStart = first.measureStartSixteenths + first.positionSixteenths;
         const noteEnd = last.measureStartSixteenths + last.positionSixteenths + last.lengthSixteenths;
         if (noteStart >= endPosition || first.note.pitches.length === 0) continue;
@@ -160,7 +175,8 @@ namespace ScorePlaybackPlan {
               const duration = nextOnset - effectiveOnset;
               if (duration <= 0) return;
               graceEvents.push({ startSeconds: effectiveOnset - startSeconds, durationSeconds: duration,
-                pitches: [attack.midi], sourceNoteId: `${first.note.id}-grace-${index}`, graceNote: true, notationNoteIds: [first.note.beforeGraceNotes![index].id] });
+                pitches: [attack.midi], performance: identity(first.note.beforeGraceNotes![index].pitches, first.note.beforeGraceNotes![index].id),
+                sourceNoteId: `${first.note.id}-grace-${index}`, graceNote: true, notationNoteIds: [first.note.beforeGraceNotes![index].id] });
             });
           }
         }
@@ -183,6 +199,7 @@ namespace ScorePlaybackPlan {
             const onset = Math.max(attack.offset, elapsedSeconds);
             noteEvents.push({ startSeconds: trillStartSeconds - startSeconds + onset,
               durationSeconds: attackEnd - onset, pitches: [attack.midi],
+              performance: [{ ...identity(first.note.pitches)[0], fingering: trill.settings.fingerings?.[index], substitutionFingering: undefined }],
               sourceNoteId: `${first.note.id}-trill-${index}` });
           });
         } else if (performedEndSeconds > effectiveStartSeconds && first.note.arpeggio && ScoreArpeggio.canApply(first.note)) {
@@ -199,13 +216,14 @@ namespace ScorePlaybackPlan {
             if (effectiveAttackSeconds >= performedEndSeconds) return;
             noteEvents.push({ startSeconds: effectiveAttackSeconds - startSeconds,
               durationSeconds: performedEndSeconds - effectiveAttackSeconds, pitches: [attack.midi],
+              performance: [{ ...identity(first.note.pitches)[first.note.pitches.findIndex(pitch => pitch.midi === attack.midi)] }],
               sourceNoteId: `${first.note.id}-arpeggio-${index}` });
           });
         } else if (performedEndSeconds > effectiveStartSeconds) {
           const eventStart = effectiveStartSeconds - startSeconds;
           const eventEnd = performedEndSeconds - startSeconds;
           noteEvents.push({ startSeconds: eventStart, durationSeconds: eventEnd - eventStart,
-            pitches: first.note.pitches.map(pitch => pitch.midi), sourceNoteId: first.note.id });
+            pitches: first.note.pitches.map(pitch => pitch.midi), performance: identity(first.note.pitches), sourceNoteId: first.note.id });
         }
         for (const event of noteEvents) {
           event.notationNoteIds ??= members.map(member => member.note.id);

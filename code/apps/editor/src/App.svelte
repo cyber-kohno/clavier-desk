@@ -17,6 +17,7 @@
   import TimelinePanel from './components/TimelinePanel.svelte';
   import NoteMenu from './components/NoteMenu.svelte';
   import ExpressionModal from './components/ExpressionModal.svelte';
+  import AnimationModal, { type AnimationSnapshot } from './components/AnimationModal.svelte';
   import FloatingTextInput from './components/FloatingTextInput.svelte';
   import FloatingText, { type FloatingTextState } from './state/floating-text-input.ts';
   import EditorDialog from './components/EditorDialog.svelte';
@@ -54,9 +55,10 @@
     getEditorState: draftProject => ({ project: draftProject, editor: { mode, outlineCursor: { ...outlineCursor }, timelineCursor: { ...timelineCursor },
       selectedNoteIds: selectedTimelineNotes.map(entry => entry.note.id), pedalMode, pedalCursor: { ...pedalCursor },
       ottavaMode, ottavaCursor: { ...ottavaCursor }, playbackActive: playback?.playing ?? false,
-      hasUncommittedDialogInput: noteSettings !== null || sectionTextInput !== null || fingeringTextInput !== null },
+      hasUncommittedDialogInput: animationOpen || noteSettings !== null || sectionTextInput !== null || fingeringTextInput !== null },
       file: { dirty: ScoreProjectFileController.fingerprint(draftProject) !== savedProjectFingerprint, name: currentProjectFile?.name ?? null } }),
     checkoutBlocker: () => {
+      if (animationOpen) return 'Close the animation view before checkout.';
       if (noteSettings || sectionTextInput || fingeringTextInput) return 'Finish or cancel the current input before checkout.';
       if (EditorDialogController.isOpen() || menuPath) return 'Close the current dialog or menu before checkout.';
       if (fileOperationInProgress) return 'Wait for the file operation to finish before checkout.';
@@ -141,6 +143,14 @@
   let mode = $state<'outline' | 'timeline'>('outline');
   const keyHold = createKeyHold();
   let menuPath = $state<number[] | null>(null);
+  let animationOpen = $state(false);
+  let animationSnapshot = $state.raw<AnimationSnapshot | null>(null);
+  let animationReturnFocus: HTMLElement | null = null;
+  function closeAnimation() {
+    animationOpen = false;
+    keyHold.reset();
+    requestAnimationFrame(() => animationReturnFocus?.isConnected && animationReturnFocus.focus());
+  }
   let noteSettings=$state<NoteSettingsState|null>(null);
   let passageClipboard = $state<ScorePassageData | null>(null);
   let sectionTextInput = $state<({ blockId: string; anchor: HTMLElement } & FloatingTextState) | null>(null);
@@ -503,6 +513,11 @@
     }
     if (!uiEditAllowed()) { event.preventDefault(); keyHold.reset(); return; }
     if (EditorDialogController.controlKey(event)) { keyHold.reset(); return; }
+    if (animationOpen) {
+      event.preventDefault(); keyHold.reset();
+      if (event.key === 'Escape') closeAnimation();
+      return;
+    }
     if (sectionTextInput || fingeringTextInput) { controlFloatingText(event); return; }
     if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && !event.isComposing && event.key.toLowerCase() === 'm') {
       event.preventDefault();
@@ -539,6 +554,15 @@
     }
     if (event.defaultPrevented || event.isComposing || (targetElement instanceof HTMLElement &&
       (targetElement.isContentEditable || targetElement.closest('input, textarea, select')))) return;
+    if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'p') {
+      event.preventDefault();
+      if (!event.repeat && !fileOperationInProgress) {
+        playback?.stop(); notePreview?.stop(); keyHold.reset();
+        animationReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+        animationOpen = true;
+      }
+      return;
+    }
     const historyKey = event.key.toLowerCase();
     if ((event.ctrlKey || event.metaKey) && !event.altKey &&
       (historyKey === 'z' || historyKey === 'y')) {
@@ -758,7 +782,7 @@
     <button type="button" onclick={stopMcpEditing}>Stop MCP editing (Ctrl+Shift+M)</button>
   </div>
 {/if}
-<div class="editor" inert={mcpCheckout}>
+<div class="editor" inert={mcpCheckout || animationOpen}>
   <header class="app-header">
     <h1>CLAVIER<span>DESK</span></h1>
     <div class="mode-labels" aria-label="Editing modes">
@@ -825,6 +849,10 @@
   <ExpressionModal {project} target={noteSettings.target} editor={noteSettings.expression}
     tab={noteSettings.tab} changesEditor={noteSettings.changes} selectTab={(tab)=>{if(uiEditAllowed()&&noteSettings)noteSettings={...noteSettings,tab};}}
     note={ScoreTimeline.note(project.outline,noteSettings.target.noteId,noteSettings.target.staff)!.note} close={closeExpressionModal} />
+{/if}
+{#if animationOpen}
+  <AnimationModal {project} snapshot={animationSnapshot} instrument={notePreview} close={closeAnimation}
+    generated={value => animationSnapshot = value} />
 {/if}
 <EditorDialog />
 
