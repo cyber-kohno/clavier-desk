@@ -6,6 +6,7 @@ import ScoreNotes from './score-notes.ts';
 import ScoreTies from './score-ties.ts';
 
 import MusicalTime from '../theory/musical-time.ts';
+import TieFingerings from './tie-fingerings.ts';
 
 import RestSpelling from './rest-spelling.ts';
 import type { NoteTarget,NoteTimeResult } from './note-target.ts';
@@ -39,7 +40,7 @@ namespace NoteDeletion {
         }
       };
     }) as ScoreProject['outline'];
-    return { project: { ...next,outline: ScoreTies.reconcile(outline) },positionSixteenths: replacementPosition };
+    return { project: TieFingerings.reconcile(previous, { ...next,outline: ScoreTies.reconcile(outline) }),positionSixteenths: replacementPosition };
   }
 
   export function remove(project: ScoreProject,target: NoteTarget,noteIds: readonly string[],pitchOnly=false): NoteTimeResult|undefined {

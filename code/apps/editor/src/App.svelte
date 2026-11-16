@@ -16,8 +16,13 @@
   import OutlinePanel from './components/OutlinePanel.svelte';
   import TimelinePanel from './components/TimelinePanel.svelte';
   import NoteMenu from './components/NoteMenu.svelte';
+  import FingeringModal from './components/FingeringModal.svelte';
+  import FingeringEditor from './action/editor/fingering-editor.ts';
+  import type { FingeringSelection, FingeringAssignment } from './domain/score/fingering-selection.ts';
   import ExpressionModal from './components/ExpressionModal.svelte';
   import AnimationModal, { type AnimationSnapshot } from './components/AnimationModal.svelte';
+  import AnimationSelection from './state/animation-selection.ts';
+  import type { AnimationRange } from './domain/performance/animation-range.ts';
   import FloatingTextInput from './components/FloatingTextInput.svelte';
   import FloatingText, { type FloatingTextState } from './state/floating-text-input.ts';
   import EditorDialog from './components/EditorDialog.svelte';
@@ -40,6 +45,7 @@
   import EditorHistory, { type EditorHistorySnapshot } from './service/history/editor-history.ts';
   import EditorDialogController from './service/dialog/editor-dialog-controller.ts';
   import ScoreProjectFileController, { type FileOperationResult } from './service/project/score-project-file-controller.ts';
+  import MusicXmlFileController from './service/project/musicxml-file-controller.ts';
   import { createProjectFingerprint } from './service/project/project-fingerprint.ts';
   import type { ScorePassage as ScorePassageData } from './domain/score/score-passage.ts';
   import { invoke, isTauri } from '@tauri-apps/api/core';
@@ -55,9 +61,10 @@
     getEditorState: draftProject => ({ project: draftProject, editor: { mode, outlineCursor: { ...outlineCursor }, timelineCursor: { ...timelineCursor },
       selectedNoteIds: selectedTimelineNotes.map(entry => entry.note.id), pedalMode, pedalCursor: { ...pedalCursor },
       ottavaMode, ottavaCursor: { ...ottavaCursor }, playbackActive: playback?.playing ?? false,
-      hasUncommittedDialogInput: animationOpen || noteSettings !== null || sectionTextInput !== null || fingeringTextInput !== null },
+      hasUncommittedDialogInput: animationOpen || fingeringSession !== null || noteSettings !== null || sectionTextInput !== null || fingeringTextInput !== null },
       file: { dirty: ScoreProjectFileController.fingerprint(draftProject) !== savedProjectFingerprint, name: currentProjectFile?.name ?? null } }),
     checkoutBlocker: () => {
+      if (fingeringSession) return 'Close Auto Fingering before checkout.';
       if (animationOpen) return 'Close the animation view before checkout.';
       if (noteSettings || sectionTextInput || fingeringTextInput) return 'Finish or cancel the current input before checkout.';
       if (EditorDialogController.isOpen() || menuPath) return 'Close the current dialog or menu before checkout.';
@@ -144,6 +151,21 @@
   const keyHold = createKeyHold();
   let menuPath = $state<number[] | null>(null);
   let animationOpen = $state(false);
+  let animationRange = $state.raw<AnimationRange | null>(null);
+  let fingeringSession = $state.raw<{ project: ScoreProject; selection: FingeringSelection } | null>(null);
+  function closeFingering() { fingeringSession = null; keyHold.reset(); }
+  function applyFingering(assignments: readonly FingeringAssignment[]) {
+    if (!uiEditAllowed() || !fingeringSession) return;
+    if (project !== fingeringSession.project) {
+      closeFingering();
+      EditorDialogController.alert({ title: 'Score Changed', messageLines: ['The score changed after this draft was opened. Select the range and calculate again.'] });
+      return;
+    }
+    const previous = project;
+    project = FingeringEditor.apply(project, fingeringSession.selection, assignments);
+    if (project === previous) return;
+    closeFingering(); recordProjectChange(previous);
+  }
   let animationSnapshot = $state.raw<AnimationSnapshot | null>(null);
   let animationReturnFocus: HTMLElement | null = null;
   function closeAnimation() {
@@ -184,7 +206,8 @@
     const focused = ScoreTimeline.note(project.outline, timelineCursor.focusedNoteId, timelineCursor.staff);
     const grace = getFocusedGrace(project.outline, timelineCursor)?.grace;
     if (timelineCursor.focusedGraceId && !grace) return false;
-    const pitch = (grace?.pitches ?? focused?.note.pitches)?.[timelineCursor.focusedPitchIndex];
+    const owner = grace ? focused?.note : ScoreFingerings.owner(project, timelineCursor.focusedNoteId, timelineCursor.staff);
+    const pitch = (grace?.pitches ?? owner?.pitches)?.[timelineCursor.focusedPitchIndex];
     if (!focused || !pitch) return false;
     const trill = grace ? undefined : ScoreTrill.forNote(project, focused.note.id);
     const target = `${grace?.id ?? focused.note.id}:${timelineCursor.focusedPitchIndex}`;
@@ -196,7 +219,7 @@
       graceNoteId: grace?.id,
       pitchIndex: timelineCursor.focusedPitchIndex,
       anchor,
-      rules: ScoreFingerings.rules(focused.note, timelineCursor.focusedPitchIndex, grace?.id),
+      rules: ScoreFingerings.rules(owner ?? focused.note, timelineCursor.focusedPitchIndex, grace?.id),
       ...(trill ? {trill:{id:trill.id,attackCount:trill.settings.attackCount}} : {}),
       ...FloatingText.create(trill ? trill.settings.fingerings?.join('') ?? ''
         : pitch.fingering === undefined ? '' : `${pitch.fingering}${pitch.substitutionFingering === undefined ? '' : `-${pitch.substitutionFingering}`}`),
@@ -218,14 +241,14 @@
       return;
     }
     const parsed = FingeringInput.parse(value, fingeringTextInput.rules);
-    if (!parsed) return;
+    if (parsed === undefined) return;
     const previousProject = project;
     project = NoteEditor.setPitchFingering(project, {
       ...timelineCursor,
       focusedNoteId: fingeringTextInput.noteId,
       focusedGraceId: fingeringTextInput.graceNoteId ?? null,
       focusedPitchIndex: fingeringTextInput.pitchIndex,
-    }, parsed.fingering, parsed.substitutionFingering);
+    }, parsed?.fingering ?? null, parsed?.substitutionFingering);
     fingeringTextInput = null;
     recordProjectChange(previousProject);
   }
@@ -265,6 +288,11 @@
     if (result.action === 'expression') openExpressionModal();
     if (result.action === 'add-slur') project = NoteEditor.connectSlur(project, ids);
     if (result.action === 'remove-slur') project = NoteEditor.disconnectSlur(project, ids);
+    if (result.action === 'auto-fingering') {
+      playback?.stop(); notePreview?.stop();
+      fingeringSession = { project, selection: { staff: timelineCursor.staff, noteIds: ids } };
+    }
+    if (result.action === 'clear-fingering') project = FingeringEditor.clear(project, { staff: timelineCursor.staff, noteIds: ids });
     recordProjectChange(previousProject);
   }
   let pedalMode = $state(false);
@@ -394,11 +422,11 @@
     currentProjectFile = result.value.handle;
     savedProjectFingerprint = result.value.fingerprint;
   }
-  function applyLoadedProject(handle: ScoreProjectFileController.Handle, loadedProject: ScoreProject) {
+  function applyLoadedProject(handle: ScoreProjectFileController.Handle | null, loadedProject: ScoreProject) {
     if (!uiEditAllowed()) return;
     project = loadedProject;
     currentProjectFile = handle;
-    savedProjectFingerprint = ScoreProjectFileController.fingerprint(loadedProject);
+    savedProjectFingerprint = handle ? ScoreProjectFileController.fingerprint(loadedProject) : '';
     outlineCursor = createOutlineCursor(loadedProject.outline);
     timelineCursor = createTimelineCursor();
     mode = 'outline';
@@ -436,6 +464,41 @@
       return;
     }
     applyLoadedProject(handle, loadedProject);
+  }
+  async function importMusicXml() {
+    if (!uiEditAllowed() || fileOperationInProgress || playback?.playing) return;
+    fileOperationInProgress = true;
+    const result = await MusicXmlFileController.load();
+    fileOperationInProgress = false;
+    if (result.type === 'cancelled' || !uiEditAllowed()) return;
+    if (result.type === 'error') {
+      EditorDialogController.alert({ tone: 'danger', title: 'MusicXML Import Failed', messageLines: [result.message, 'The current project has not been replaced.'] });
+      return;
+    }
+    const applyImport = () => {
+      if (!uiEditAllowed()) return;
+      playback?.stop(); notePreview?.stop();
+      applyLoadedProject(null, result.value.project);
+      const groups = new Map<string, { message: string; count: number; measures: number[] }>();
+      for (const warning of result.value.warnings) {
+        const key = `${warning.code}:${warning.message}`;
+        const group = groups.get(key) ?? { message: warning.message, count: 0, measures: [] };
+        group.count += warning.count;
+        if (warning.measure !== undefined) group.measures.push(warning.measure);
+        groups.set(key, group);
+      }
+      EditorDialogController.alert({ title: groups.size ? 'MusicXML Imported with Warnings' : 'MusicXML Imported',
+        messageLines: [
+          'Imported as a new, unsaved project. Save it as a .clavierdesk file.',
+          ...Array.from(groups.values(), group => `${group.message} (${group.count}${group.measures.length
+            ? `; measures ${group.measures.slice(0, 8).join(', ')}${group.measures.length > 8 ? ', …' : ''}` : ''})`),
+        ] });
+    };
+    if (projectIsDirty) {
+      EditorDialogController.confirm({ tone: 'danger', title: 'Discard Unsaved Changes?',
+        messageLines: ['The current project has unsaved changes.', 'Import the selected MusicXML file and discard them?'],
+        confirmLabel: 'Discard and Import', onConfirm: applyImport });
+    } else applyImport();
   }
   const isEditingInitialKey = $derived(mode === 'outline' &&
     project.outline.some(block => block.id === outlineCursor.blockId && (block.type === 'init' || block.type === 'key-change')) && keyHold.keySignatureEditing);
@@ -513,6 +576,7 @@
     }
     if (!uiEditAllowed()) { event.preventDefault(); keyHold.reset(); return; }
     if (EditorDialogController.controlKey(event)) { keyHold.reset(); return; }
+    if (fingeringSession) { keyHold.reset(); return; }
     if (animationOpen) {
       event.preventDefault(); keyHold.reset();
       if (event.key === 'Escape') closeAnimation();
@@ -557,6 +621,12 @@
     if (event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'p') {
       event.preventDefault();
       if (!event.repeat && !fileOperationInProgress) {
+        const selection = AnimationSelection.resolve(project.outline, outlineCursor, mode);
+        if (selection.error) {
+          EditorDialogController.alert({ title: 'Animation Range Unavailable', messageLines: [selection.error] });
+          return;
+        }
+        animationRange = selection.range;
         playback?.stop(); notePreview?.stop(); keyHold.reset();
         animationReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         animationOpen = true;
@@ -577,10 +647,11 @@
       return;
     }
     if ((event.ctrlKey || event.metaKey) && !event.altKey &&
-      (historyKey === 's' || historyKey === 'l')) {
+      (historyKey === 's' || historyKey === 'l' || (historyKey === 'i' && !event.shiftKey))) {
       event.preventDefault();
       if (event.repeat || fileOperationInProgress || playback?.playing) return;
       if (historyKey === 'l') void loadProject();
+      else if (historyKey === 'i') void importMusicXml();
       else void saveProject(event.shiftKey);
       return;
     }
@@ -658,7 +729,7 @@
       return;
     }
     if (event.key.toLowerCase() === 'm' && !event.ctrlKey && !event.altKey && !event.metaKey) {
-      if (mode === 'timeline' && !pedalMode && !ottavaMode && !getFocusedGrace(project.outline, timelineCursor) && selectedTimelineNotes.length >= 1) {
+      if (!fileOperationInProgress && mode === 'timeline' && !pedalMode && !ottavaMode && !getFocusedGrace(project.outline, timelineCursor) && selectedTimelineNotes.length >= 1) {
         event.preventDefault();
         if (!event.repeat) { keyHold.reset(); menuPath = [0]; }
       }
@@ -782,7 +853,7 @@
     <button type="button" onclick={stopMcpEditing}>Stop MCP editing (Ctrl+Shift+M)</button>
   </div>
 {/if}
-<div class="editor" inert={mcpCheckout || animationOpen}>
+<div class="editor" inert={mcpCheckout || animationOpen || fingeringSession !== null}>
   <header class="app-header">
     <h1>CLAVIER<span>DESK</span></h1>
     <div class="mode-labels" aria-label="Editing modes">
@@ -840,6 +911,7 @@
 {#if !mcpCheckout && fingeringTextInput}
   <FloatingTextInput anchor={fingeringTextInput.anchor} draft={fingeringTextInput}
     label={fingeringTextInput.trill ? `Trill fingering (${fingeringTextInput.trill.attackCount} digits, 1–5; empty clears)` : 'Piano fingering'}
+    hint="Enter: Apply · Empty + Enter: Clear · Esc: Cancel"
     accept={(value) => fingeringTextInput !== null && (fingeringTextInput.trill
       ? FingeringInput.parseTrill(value, fingeringTextInput.trill.attackCount) !== undefined
       : FingeringInput.parse(value, fingeringTextInput.rules) !== undefined)}
@@ -851,8 +923,11 @@
     note={ScoreTimeline.note(project.outline,noteSettings.target.noteId,noteSettings.target.staff)!.note} close={closeExpressionModal} />
 {/if}
 {#if animationOpen}
-  <AnimationModal {project} snapshot={animationSnapshot} instrument={notePreview} close={closeAnimation}
+  <AnimationModal {project} range={animationRange} snapshot={animationSnapshot} instrument={notePreview} close={closeAnimation}
     generated={value => animationSnapshot = value} />
+{/if}
+{#if fingeringSession}
+  <FingeringModal project={fingeringSession.project} selection={fingeringSession.selection} apply={applyFingering} close={closeFingering} />
 {/if}
 <EditorDialog />
 

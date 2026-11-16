@@ -2,10 +2,11 @@
   import { onMount } from 'svelte';
   import type { FloatingTextState } from '../state/floating-text-input.ts';
 
-  let { anchor, draft, label = 'Text', accept, onCancel }: {
+  let { anchor, draft, label = 'Text', hint, accept, onCancel }: {
     anchor: HTMLElement;
     draft: FloatingTextState;
     label?: string;
+    hint?: string;
     accept?: (value: string) => boolean;
     onCancel: () => void;
   } = $props();
@@ -59,6 +60,7 @@
   tabindex="-1"
   style:left={`${position.left}px`} style:top={`${position.top}px`} style:min-width={`${position.width}px`}>
   <span>{draft.value.slice(0, draft.cursor)}</span><span bind:this={caret} class="cursor" aria-hidden="true"></span><span>{draft.value.slice(draft.cursor)}</span>
+  {#if hint}<p class="hint">{hint}</p>{/if}
 </div>
 
 <style>
@@ -86,6 +88,7 @@
   }
   .frame.error { border-color: #ff8f8f; background-color: #2a0505; }
   .frame::-webkit-scrollbar { display: none; }
+  .hint { margin: 4px 0 0; color: #b8c8cf; font-family: sans-serif; font-size: 11px; font-weight: 400; line-height: 16px; white-space: normal; }
   .cursor {
     display: inline-block;
     width: 1px;

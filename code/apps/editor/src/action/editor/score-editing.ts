@@ -13,6 +13,7 @@ import ScoreFermata from '../../domain/score/score-fermata.ts';
 import ScoreDynamics from '../../domain/score/score-dynamics.ts';
 import NotePitches from '../../domain/score/note-pitches.ts';
 import ScoreFingerings from '../../domain/score/score-fingerings.ts';
+import TieFingerings from '../../domain/score/tie-fingerings.ts';
 import MusicalTime from '../../domain/theory/musical-time.ts';
 import type { DynamicLevel, KeySignature, PianoNote, PianoStaffName, ScoreProject, TrillSettings, StaccatoSettings, ArpeggioSettings, GracePerformanceSettings, PianoFingering } from '../../domain/score/types.ts';
 
@@ -182,7 +183,7 @@ namespace ScoreEditing {
           const pitch = (grace?.pitches ?? target.item.pitches)[op.pitchIndex as number];
           if (!pitch) fail('Pitch index not found.', 'TARGET_NOT_FOUND');
           if (op.fingering !== null && !ScoreFingerings.allows(
-            ScoreFingerings.rules(target.item, op.pitchIndex as number, grace?.id),
+            ScoreFingerings.rules(grace ? target.item : ScoreFingerings.owner(candidate, target.item.id, target.staff) ?? target.item, op.pitchIndex as number, grace?.id),
             op.fingering as PianoFingering, (op.substitutionFingering ?? undefined) as PianoFingering | undefined,
           )) fail('Fingering is already used by a related pitch, or substitution is not allowed.');
           candidate = NotePitches.setFingering(candidate, {
@@ -198,6 +199,8 @@ namespace ScoreEditing {
             const target = note(op.toNoteId).item;
             if (target.tieFrom && target.tieFrom !== source.id) fail('Detach the existing incoming tie first.');
             source.tieTo = target.id; target.tieFrom = source.id;
+            if (TieFingerings.resolve(candidate, source.id, note(source.id).staff)?.conflicts.length)
+              fail('Tied attacks have conflicting fingerings. Resolve them before joining the notes.');
             ids.push(target.id);
           }
           ids.push(source.id);
@@ -294,6 +297,7 @@ namespace ScoreEditing {
       }
     });
     // Validate metrical structure before deriving timing from a possibly multi-operation edit.
+    candidate = TieFingerings.reconcile(project, candidate);
     Authoring.validate(candidate, nextState, false);
     candidate = ScoreFermata.reconcileCaptured(fermataTiming, candidate, reappliedFermatas);
     candidate = ScoreDynamics.reconcile(candidate);

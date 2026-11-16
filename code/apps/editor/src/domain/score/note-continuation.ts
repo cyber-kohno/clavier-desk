@@ -7,6 +7,7 @@ import NotePlacement from './note-placement.ts';
 import TupletNotes from './tuplet-notes.ts';
 import ScoreNotes from './score-notes.ts';
 import MusicalTime from '../theory/musical-time.ts';
+import TieFingerings from './tie-fingerings.ts';
 namespace NoteContinuation {
   export function toggleAdjacent(project: ScoreProject, target: NoteTarget): ScoreProject | undefined {
     if (!NoteTargets.resolve(project, target)) return undefined;
@@ -26,6 +27,10 @@ namespace NoteContinuation {
     }
 
     if (!isTied && (next.note.arpeggio || current.note.fermata)) return undefined;
+    if (!isTied) {
+      const merged = [...ScoreTimeline.tieChain(project.outline, current.note.id, target.staff), ...ScoreTimeline.tieChain(project.outline, next.note.id, target.staff)];
+      if (TieFingerings.read(merged.map(entry => entry.note)).conflicts.length) return undefined;
+    }
     if (!isTied && (current.note.tieTo !== undefined || next.note.tieFrom !== undefined)) return undefined;
     const updated = ScoreNotes.map(project, new Set([current.note.id, next.note.id]), (note) => {
       const copy = { ...note };
@@ -39,7 +44,7 @@ namespace NoteContinuation {
       }
       return copy;
     }, target.staff);
-    return { ...updated, outline: ScoreTies.reconcile(updated.outline) };
+    return TieFingerings.reconcile(project, { ...updated, outline: ScoreTies.reconcile(updated.outline) });
   }
 
   export function place(project: ScoreProject, scope: VoiceScope, position: number, value: NoteValue, pitch: number): NoteTimeResult | undefined {
@@ -59,7 +64,8 @@ namespace NoteContinuation {
     const nextProject = ScoreNotes.map(result.project, new Set(tied ? [selected.note.id, nextId] : [nextId]), note => {
       if (note.id === selected.note.id) return { ...note, tieTo: nextId };
       return {        
-...note, pitches: selected.note.pitches.map(pitch => ({ ...pitch })),
+...note, pitches: (TieFingerings.resolve(project, selected.note.id, target.staff)?.pitches ?? selected.note.pitches).map(pitch =>
+          tied ? TieFingerings.strip(pitch) : selected.note.tieFrom ? { ...TieFingerings.strip(pitch), ...(pitch.fingering === undefined ? {} : { fingering: pitch.fingering }) } : { ...pitch }),
         ...(tied ? { tieFrom: selected.note.id } : {
           ...(selected.note.fermata ? { fermata: { ...selected.note.fermata } } : {}),
           ...(selected.note.arpeggio ? { arpeggio: { ...selected.note.arpeggio } } : {}),

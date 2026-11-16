@@ -8,9 +8,11 @@ namespace FingeringInput {
     if(!Number.isInteger(attackCount)||attackCount<2||attackCount>128||value.length!==attackCount||!/^[1-5]+$/.test(value)) return undefined;
     return [...value].map(digit=>Number(digit) as PianoFingering);
   }
+  /** Empty/whitespace input clears both fingers; undefined is invalid text. */
   export function parse(value: string, rules: FingeringRules): {
     fingering: PianoFingering; substitutionFingering?: PianoFingering;
-  } | undefined {
+  } | null | undefined {
+    if (value.trim() === '') return null;
     const match = /^([1-5])(?:-([1-5]))?$/.exec(value);
     if (!match) return undefined;
     const fingering = Number(match[1]) as PianoFingering;

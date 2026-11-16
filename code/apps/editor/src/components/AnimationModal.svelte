@@ -9,16 +9,18 @@
   import { editorDialogStore } from '../state/editor-dialog.ts';
   import type { createScene } from '../infra/motion/scene.ts';
   import { createAnimationCameraKeyboard } from '../state/animation-camera-keyboard.ts';
+  import AnimationRange, { type AnimationRange as Range } from '../domain/performance/animation-range.ts';
 
-  export type AnimationSnapshot = { project: ScoreProject; performance: AnimationPerformance };
-  let { project, snapshot = null, instrument, close, generated: saveSnapshot }: {
+  export type AnimationSnapshot = { project: ScoreProject; performance: AnimationPerformance; range?: Range | null };
+  let { project, range = null, snapshot = null, instrument, close, generated: saveSnapshot }: {
     project: ScoreProject; snapshot: AnimationSnapshot | null; instrument: PlaybackInstrumentPort | null;
+    range?: Range | null;
     close: () => void; generated: (value: AnimationSnapshot | null) => void;
   } = $props();
   let panel: HTMLElement;
   let viewport: HTMLDivElement;
   let scene: ReturnType<typeof createScene> | undefined;
-  let result = $state.raw<AnimationSnapshot | null>(untrack(() => snapshot));
+  let result = $state.raw<AnimationSnapshot | null>(untrack(() => snapshot && AnimationRange.key(snapshot.range) === AnimationRange.key(range) ? snapshot : null));
   let position = $state(0);
   let playing = $state(false);
   let speed = $state(1);
@@ -35,7 +37,7 @@
     if (!open && hadDialog) requestAnimationFrame(() => { if (alive) panel?.focus(); });
     hadDialog = open;
   });
-  const inspection = $derived(inspectAnimation(project));
+  const inspection = $derived(inspectAnimation(project, range));
   const stale = $derived(result !== null && result.project !== project);
   const duration = $derived(result?.performance.duration ?? 0);
   const transport = createAnimationTransport(untrack(() => instrument), error => {
@@ -61,7 +63,7 @@
     if (!alive) return;
     try {
       const performance = generateAnimation(inspection.performance);
-      result = { project, performance }; saveSnapshot(result);
+      result = { project, performance, range }; saveSnapshot(result);
       transport.setSequence(animationAudio(performance));
     } catch (error) { showError('Animation Generation Failed', error instanceof Error ? error.message : String(error)); }
     finally { loading = false; panel?.focus(); }
@@ -155,7 +157,7 @@
 <div class="overlay">
   <div class="animation-modal" role="dialog" aria-modal="true" aria-labelledby="animation-title" aria-describedby="animation-help"
     tabindex="-1" bind:this={panel} onkeydown={control} inert={$editorDialogStore !== null}>
-    <header><h2 id="animation-title">Hand Animation</h2><button onclick={close}>Close <kbd>Esc</kbd></button></header>
+    <header><h2 id="animation-title">Hand Animation · {inspection.scopeLabel}</h2><button onclick={close}>Close <kbd>Esc</kbd></button></header>
     <div class="status" aria-live="polite">
       <span>{sceneError || (loading ? 'Generating animation…' : result ? (stale ? 'Score updated — regenerate to apply changes.' : 'Animation ready') :
         `Fingering ${inspection.assigned}/${inspection.attacks} · ${inspection.issues.length ? 'Score needs attention' : 'Ready to generate'}`)}{!instrument ? ' · Audio unavailable' : ''}</span>
@@ -163,7 +165,7 @@
     </div>
     <div class="stage">
       <div class="viewport" bind:this={viewport}></div>
-      {#if !result}<div class="placeholder">{loading ? 'Preparing hand motion…' : sceneError || 'Generate an animation from the current score.'}</div>{/if}
+      {#if !result}<div class="placeholder">{loading ? 'Preparing hand motion…' : sceneError || (range ? 'Generate an animation from the selected measures.' : 'Generate an animation from the current score.')}</div>{/if}
       <nav aria-label="Camera views">
         <button aria-pressed={showNotes} onclick={() => showNotes = !showNotes}>Notes {showNotes ? 'on' : 'off'} <kbd>N</kbd></button>
         <button onclick={() => scene?.view('notes')}>Note view <kbd>V</kbd></button>

@@ -79,15 +79,15 @@ export function createScene(container: HTMLElement) {
   );
   const noteBounds = framingBounds.clone();
   noteBounds.min.z = NOTE_FAR_Z - 0.03;
-  let currentView: boolean | 'notes' = 'notes';
+  let currentView: boolean | 'notes' = false;
   function view(mode: boolean | 'notes') {
     currentView = mode;
     // Clear residual OrbitControls damping before applying the preset.
     controls.enableDamping=false; controls.update();
-    controls.target.copy(fitCamera(camera, mode === 'notes' ? noteBounds : framingBounds, mode !== false));
+    controls.target.copy(fitCamera(camera, mode === true ? framingBounds : noteBounds, mode !== false));
     controls.update(); controls.enableDamping=true;
   }
-  view('notes');
+  view(false);
   const observer = new ResizeObserver(() => {
     const {width,height} = container.getBoundingClientRect();
     camera.aspect = width/Math.max(height,1); camera.updateProjectionMatrix();

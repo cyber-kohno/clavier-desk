@@ -3,8 +3,11 @@ import { Box3, MathUtils, PerspectiveCamera, Vector3 } from 'three';
 // Fit every corner in perspective space, including the near side of the keyboard.
 export function fitCamera(camera: PerspectiveCamera, bounds: Box3, top: boolean) {
   const center = bounds.getCenter(new Vector3());
-  const backward = new Vector3(0, top ? 1 : 0.85, top ? 0 : 1).normalize();
-  camera.up.set(0, top ? 0 : 1, top ? -1 : 0);
+  // Keep the same world-up axis as OrbitControls across every preset. Changing
+  // up to -Z for a top view leaves subsequent orbiting visibly rolled.
+  // A tiny tilt avoids the lookAt singularity without changing the top layout.
+  const backward = new Vector3(0, top ? 1 : 0.85, top ? 0.002 : 1).normalize();
+  camera.up.set(0, 1, 0);
   camera.position.copy(center).add(backward);
   camera.lookAt(center);
   const inverse = camera.quaternion.clone().invert();

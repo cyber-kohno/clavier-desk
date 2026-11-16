@@ -755,7 +755,7 @@ test('D movement without a valid selected note does nothing', () => {
   assert.equal(moveFocusedTimelineNote(state.project, { ...state.cursor, focusedNoteId: 'missing' }, 1), undefined);
 });
 
-test('F+A copies the chord and fingering using the input value, then focuses the corresponding new pitch', () => {
+test('F+A extends the chord using the input value, keeps fingering on the head and focuses the corresponding pitch', () => {
   const initial = singleNote();
   const quarter = setFocusedTimelineNoteType(initial.project, initial.cursor, '3');
   const chord = addFocusedNotePitch(quarter.project, quarter.cursor);
@@ -767,7 +767,8 @@ test('F+A copies the chord and fingering using the input value, then focuses the
   const chain = getTimelineTieChain(result.project.outline, result.cursor.focusedNoteId);
   assert.equal(chain.length, 2);
   assert.deepEqual(chain.map(({ note }) => note.value), [{ type: 'quarter', dots: 0 }, { type: 'eighth', dots: 0 }]);
-  assert.deepEqual(chain[1].note.pitches, pitchesOf(chord));
+  assert.deepEqual(chain[0].note.pitches, pitchesOf(chord));
+  assert.deepEqual(chain[1].note.pitches, pitchesOf(chord).map(({ fingering, substitutionFingering, ...pitch }) => pitch));
   assert.notEqual(chain[1].note.pitches, chain[0].note.pitches);
   assert.notEqual(chain[1].note.pitches[0], chain[0].note.pitches[0]);
   assert.equal(chain[0].note.tieTo, chain[1].note.id);
@@ -1012,7 +1013,8 @@ test('cross-bar resize consumes only the required rests and preserves chord fing
   assert.deepEqual(chain.map((entry) => [entry.measure.id, entry.positionSixteenths, entry.note.value.type]), [
     ['measure-0', 12, 'quarter'], ['measure-1', 0, 'eighth'],
   ]);
-  assert.deepEqual(chain[1].note.pitches, pitchesOf(chord));
+  assert.deepEqual(chain[0].note.pitches, pitchesOf(chord));
+  assert.deepEqual(chain[1].note.pitches, pitchesOf(chord).map(({ fingering, substitutionFingering, ...pitch }) => pitch));
   assert.notEqual(chain[1].note.pitches, chain[0].note.pitches);
   assert.equal(grown.cursor.focusedPitchIndex, 1);
   assert.equal(getLocatedTimelineNote(grown.project.outline, later.cursor.focusedNoteId).positionSixteenths, 4);

@@ -66,7 +66,7 @@
   }
   .dialog[data-tone='danger'] { border-color: #a64a4a; }
   h2 { margin: 0 0 12px; font-size: 18px; line-height: 1.35; }
-  .message { font-size: 14px; line-height: 1.55; }
+  .message { font-size: 14px; line-height: 1.55; max-height: 55vh; overflow-y: auto; }
   .message p { margin: 4px 0; }
   .choices { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
   button {

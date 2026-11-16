@@ -2,6 +2,7 @@ import MusicalTime from '../theory/musical-time.ts';
 import ScoreTimeline, { type LocatedTimelineNote } from './score-timeline.ts';
 import ScoreVoice from './score-voice.ts';
 import ScoreTies from './score-ties.ts';
+import TieFingerings from './tie-fingerings.ts';
 import VoiceCollision from './voice-collision.ts';
 import NotationGrid from './notation-grid.ts';
 import RestSpelling from './rest-spelling.ts';
@@ -107,9 +108,24 @@ namespace ScorePassage {
     }
     atoms.sort((a, b) => a.offsetSixteenths - b.offsetSixteenths);
     if (!atoms.length || atoms.flatMap(atom => noteIds(atom.element)).length !== selectedIds.size) return undefined;
+    const inheritDetachedHead = (note: PianoNote): PianoNote => {
+      if (!note.tieFrom || selectedIds.has(note.tieFrom)) return note;
+      const chain = ScoreTimeline.tieChain(outline, note.id, staff);
+      const state = TieFingerings.read(chain.map(entry => entry.note));
+      if (state.conflicts.length) return note;
+      return { ...note, pitches: note.pitches.map(pitch => {
+        const inherited = state.pitches.find(p => p.midi === pitch.midi)?.fingering;
+        return pitch.fingering === undefined && inherited !== undefined ? { ...pitch, fingering: inherited } : pitch;
+      }) };
+    };
     return {
       durationSixteenths: MusicalTime.addNumbers(end, -start),
-      atoms: atoms.map(atom => ({ ...atom, element: snapshotAtom(atom.element) })),
+      atoms: atoms.map(atom => {
+        const element = snapshotAtom(atom.element);
+        return { ...atom, element: element.kind === 'note' ? inheritDetachedHead(element) : {
+          ...element, elements: element.elements.map(child => child.kind === 'note' ? inheritDetachedHead(child) : child),
+        } };
+      }),
     };
   }
 

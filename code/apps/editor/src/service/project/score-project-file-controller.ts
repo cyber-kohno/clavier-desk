@@ -2,6 +2,7 @@ import ProjectFile, { type ProjectFileHandle } from '../../infra/tauri/project-f
 import ScoreProjectValidator from '../../domain/score/score-project-validator.ts';
 import ScoreFermata from '../../domain/score/score-fermata.ts';
 import ScoreDynamics from '../../domain/score/score-dynamics.ts';
+import TieFingerings from '../../domain/score/tie-fingerings.ts';
 import type { ScoreProject } from '../../domain/score/types.ts';
 
 export type FileOperationResult<T> =
@@ -64,7 +65,7 @@ namespace ScoreProjectFileController {
       return { type: 'error', reason: 'parse', error };
     }
     if (!ScoreProjectValidator.isValid(parsed) || ScoreFermata.hasConflicts(parsed) || !ScoreDynamics.isValid(parsed)) return { type: 'error', reason: 'invalid-project' };
-    return { type: 'success', value: { handle, project: parsed } };
+    return { type: 'success', value: { handle, project: TieFingerings.normalize(parsed) } };
   }
 }
 

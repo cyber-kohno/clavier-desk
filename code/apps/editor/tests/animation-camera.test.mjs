@@ -41,6 +41,29 @@ test('rotation preserves the target and orbit radius, including top-view presets
   assert.ok(controls.getPolarAngle() >= 0.001 - 1e-8);
 });
 
+test('preset changes keep world-up stable so horizontal orbit changes the viewing direction without roll', () => {
+  const { camera, controls, move } = fixture();
+  const bounds = new Box3(new Vector3(-0.8, -0.15, -0.84), new Vector3(0.8, 0.17, 0.5));
+  const checkHorizontalOrbit = () => {
+    const target = controls.target.clone(), before = camera.position.clone(), height = camera.position.y;
+    for (let index = 0; index < 30; index++) move(input({ horizontal: 1, rotate: true }), 1 / 30);
+    assert.ok(camera.position.distanceTo(before) > 0.1);
+    near(camera.position.y, height);
+    near(controls.target.distanceTo(target), 0);
+    camera.updateMatrixWorld();
+    near(new Vector3().setFromMatrixColumn(camera.matrixWorld, 0).y, 0);
+    assert.deepEqual(camera.up.toArray(), [0, 1, 0]);
+  };
+  controls.target.copy(fitCamera(camera, bounds, false)); controls.update();
+  checkHorizontalOrbit();
+  controls.target.copy(fitCamera(camera, bounds, true)); controls.update();
+  // Lower the top camera to an oblique/side angle, then orbit horizontally.
+  for (let index = 0; index < 25; index++) move(input({ vertical: -1, rotate: true }), 0.05);
+  checkHorizontalOrbit();
+  controls.target.copy(fitCamera(camera, bounds, false)); controls.update();
+  checkHorizontalOrbit();
+});
+
 test('zoom approaches the target without passing through it and respects both distance limits', () => {
   const { camera, controls, move } = fixture(), target = controls.target.clone();
   const before = camera.position.distanceTo(target);

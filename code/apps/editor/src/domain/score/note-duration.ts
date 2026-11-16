@@ -11,6 +11,7 @@ import NotationGrid from './notation-grid.ts';
 import type { NoteTarget,NoteTimeResult } from './note-target.ts';
 import NoteSpan from './note-span.ts';
 import RhythmSpelling from './rhythm-spelling.ts';
+import TieFingerings from './tie-fingerings.ts';
 namespace NoteDuration {
   export function setValue(
     project: ScoreProject,target: NoteTarget,value: NoteValue,
@@ -93,6 +94,8 @@ namespace NoteDuration {
     if(!chain.length) return undefined;
     const first=chain[0];
     const last=chain[chain.length-1];
+    const fingering = TieFingerings.read(chain.map(entry => entry.note));
+    const pitchesFor = (note: PianoNote) => fingering.conflicts.length ? note.pitches : fingering.pitches;
     const start=first.measureStartSixteenths+first.positionSixteenths;
     const oldEnd=last.measureStartSixteenths+last.positionSixteenths+last.lengthSixteenths;
     const step=direction===0? 1:unit;
@@ -127,8 +130,8 @@ namespace NoteDuration {
     for(const entry of chain) {
       const previousId=chain[chain.indexOf(entry)-1]?.note.id;
       const slurBoundary=project.slurs?.some(slur => slur.startNoteId===entry.note.id||slur.endNoteId===entry.note.id||slur.endNoteId===previousId);
-      if(!groups.length||slurBoundary||project.tempoChanges?.some(change => change.noteId===entry.note.id)||project.clefChanges?.some(change => change.noteId===entry.note.id)||project.dynamicChanges?.some(change => change.noteId===entry.note.id)||entry.note.staccato||entry.note.accent||entry.note.fermata||entry.note.arpeggio||entry.note.beforeGraceNotes?.length||!samePitches(groups[groups.length-1].pitches,entry.note.pitches)) {
-        groups.push({ start: entry.measureStartSixteenths+entry.positionSixteenths,pitches: entry.note.pitches });
+      if(!groups.length||slurBoundary||project.tempoChanges?.some(change => change.noteId===entry.note.id)||project.clefChanges?.some(change => change.noteId===entry.note.id)||project.dynamicChanges?.some(change => change.noteId===entry.note.id)||entry.note.staccato||entry.note.accent||entry.note.fermata||entry.note.arpeggio||entry.note.beforeGraceNotes?.length||!samePitches(groups[groups.length-1].pitches,pitchesFor(entry.note))) {
+        groups.push({ start: entry.measureStartSixteenths+entry.positionSixteenths,pitches: pitchesFor(entry.note) });
       }
     }
     const usedIds=new Set(project.outline.flatMap((block) => block.type!=='measure'? []:
@@ -147,7 +150,7 @@ namespace NoteDuration {
         const values=RhythmSpelling.spell(onset-location.startSixteenths,stop-onset,project.outline[0].data.timeSignature);
         if(!values) return undefined;
         for(const value of values) {
-          const previous=chain.find((entry) => entry.measureStartSixteenths+entry.positionSixteenths===onset&&samePitches(entry.note.pitches,group.pitches));
+          const previous=chain.find((entry) => entry.measureStartSixteenths+entry.positionSixteenths===onset&&samePitches(pitchesFor(entry.note),group.pitches));
           while(usedIds.has(`note-${number}`)) number+=1;
           const id=previous?.note.id??`note-${number++}`;
           usedIds.add(id);
@@ -155,7 +158,7 @@ namespace NoteDuration {
           plans.push({
             measureId: location.measure.id,position: onset-location.startSixteenths,onset,
             note: {
-              id,kind: 'note',value: { ...value },pitches: group.pitches.map((pitch) => ({ ...pitch })),
+              id,kind: 'note',value: { ...value },pitches: group.pitches.map(pitch => onset === start || fingering.conflicts.length && onset === group.start ? { ...pitch } : TieFingerings.strip(pitch)),
               ...(previous?.note.beforeGraceNotes?.length? { beforeGraceNotes: previous.note.beforeGraceNotes }:{}),
               ...(previous?.note.gracePerformance? { gracePerformance: { ...previous.note.gracePerformance } }:{}),
               ...(previous?.note.arpeggio? { arpeggio: { ...previous.note.arpeggio } }:{}),

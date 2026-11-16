@@ -70,7 +70,7 @@ namespace NoteEditor {
     return result && finish(project,{project:result.project,cursor:{...cursor,pitch:result.midi,focusedPitchIndex:result.pitchIndex}});
   }
   export function setPitchFingering(project: ScoreProject, cursor: Timeline.TimelineCursor,
-    fingering: PianoFingering, substitutionFingering?: PianoFingering): ScoreProject {
+    fingering: PianoFingering | null, substitutionFingering?: PianoFingering): ScoreProject {
     if (!cursor.focusedNoteId || cursor.focusedPitchIndex === null) return project;
     const next = NotePitches.setFingering(project, {
       noteId: cursor.focusedNoteId, staff: cursor.staff, pitchIndex: cursor.focusedPitchIndex,

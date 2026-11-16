@@ -6,6 +6,12 @@ import NotePitches from '../src/domain/score/note-pitches.ts';
 import Factory from '../src/domain/score/score-project.ts';
 import Measure from '../src/domain/score/score-measure.ts';
 import Timeline from '../src/domain/score/score-timeline.ts';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+import NoteEditor from '../src/action/editor/note-editor.ts';
+import ScoreTrill from '../src/domain/score/score-trill.ts';
+import FloatingText from '../src/state/floating-text-input.ts';
+import History from '../src/service/history/editor-history.ts';
 
 const grace = (id, midi, fingering) => ({id, value:{type:'eighth',dots:0}, slash:true,
   pitches:[{midi,...(fingering === undefined ? {} : {fingering})}]});
@@ -17,8 +23,15 @@ test('chord input excludes itself, reserves only sibling initial fingers, and ch
   assert.deepEqual([...rules.usedFingerings],[1,3]);
   assert.deepEqual(FingeringInput.parse('5',rules),{fingering:5});
   assert.deepEqual(FingeringInput.parse('2-4',rules),{fingering:2,substitutionFingering:4});
-  for(const value of ['1','3','1-4','4-1','3-2','2-3','2-2','','0','6','1-2-3']) {
+  for(const value of ['1','3','1-4','4-1','3-2','2-3','2-2','0','6','1-2-3']) {
     assert.equal(FingeringInput.parse(value,rules),undefined,value);
+  }
+});
+
+test('empty and whitespace-only input request removal independently of reserved fingers',()=>{
+  for (const rules of [ScoreFingerings.rules(chord(), 0), { usedFingerings: new Set([1,2,3,4,5]), allowSubstitution: false }]) {
+    for (const value of ['', ' ', '   ', '\t\n', '　']) assert.equal(FingeringInput.parse(value, rules), null);
+    for (const value of ['0', '6', '-', '1-', '1-1']) assert.equal(FingeringInput.parse(value, rules), undefined);
   }
 });
 
@@ -54,4 +67,67 @@ test('domain refuses sibling collisions atomically and allows reuse of a sibling
   assert.deepEqual(project,before);
   const cleared=NotePitches.setFingering(updated,target,null);
   assert.deepEqual(Timeline.note(cleared.outline,'chord').note.pitches[0],{midi:67});
+});
+
+function floatingEditor({ tied = false, graceFocus = false, unassigned = false } = {}) {
+  const initial = Factory.create(), data = Measure.create({ unit: 4, cnt: 4 });
+  data.upperStaff.voices[0].elements = [{ id: 'head', kind: 'note', value: { type: 'quarter', dots: 0 },
+    pitches: [{ midi: 60, ...(unassigned ? {} : { fingering: 1, substitutionFingering: 2 }) }],
+    ...(tied ? { tieTo: 'tail' } : {}), ...(graceFocus ? { beforeGraceNotes: [grace('g', 59, 4)] } : {}) },
+    ...(tied ? [{ id: 'tail', kind: 'note', value: { type: 'quarter', dots: 0 }, pitches: [{ midi: 60 }], tieFrom: 'head' }] : [])];
+  initial.outline.push({ id: 'm', type: 'measure', data });
+  const source = readFileSync(new URL('../src/App.svelte', import.meta.url), 'utf8').match(/<script lang="ts">([\s\S]*?)<\/script>/)[1];
+  const ast = ts.createSourceFile('App.ts', source, ts.ScriptTarget.Latest, true);
+  const names = ['openFingeringTextInput', 'controlFloatingText', 'commitFingeringText'];
+  const handlers = ast.statements.filter(node => ts.isFunctionDeclaration(node) && names.includes(node.name?.text)).map(node => node.getText(ast)).join('\n');
+  const js = ts.transpileModule(handlers, { compilerOptions: { target: ts.ScriptTarget.ES2022 } }).outputText;
+  return new Function('deps', `
+    const {initial,tied,graceFocus,ScoreTimeline,ScoreTrill,ScoreFingerings,FloatingText,FingeringInput,NoteEditor,History}=deps;
+    let project=initial, fingeringTextInput=null, sectionTextInput=null, writes=0;
+    const mode='timeline',pedalMode=false,ottavaMode=false,playback=null,selectedTimelineNotes=[{}];
+    const focusedNoteId=tied&&!graceFocus?'tail':'head';
+    const timelineCursor={staff:'upperStaff',voiceIndex:0,focusedNoteId,focusedPitchIndex:0,focusedGraceId:graceFocus?'g':null};
+    const document={querySelectorAll:()=>[{dataset:{fingeringPitch:(graceFocus?'g':focusedNoteId)+':0'}}]};
+    const getFocusedGrace=()=>graceFocus?{grace:ScoreTimeline.note(project.outline,'head').note.beforeGraceNotes[0]}:undefined;
+    const keyHold={reset(){}},uiEditAllowed=()=>true,history=History.create({project});
+    const recordProjectChange=before=>{if(before!==project){writes++;history.record({project});}};
+    const commitSectionText=()=>{};
+    ${js}
+    return {open:openFingeringTextInput,key:key=>controlFloatingText({key,preventDefault(){}}),history,
+      get project(){return project},get draft(){return fingeringTextInput},get writes(){return writes}};
+  `)({ initial, tied, graceFocus, ScoreTimeline: Timeline, ScoreTrill, ScoreFingerings, FloatingText, FingeringInput, NoteEditor, History });
+}
+
+test('actual W input allows empty drafts, cancels without edits, and clears ordinary/substitution/tie/grace fingers in one undo', () => {
+  for (const options of [{}, { tied: true }, { tied: true, graceFocus: true }]) {
+    const ui = floatingEditor(options), original = ui.project, before = structuredClone(original);
+    assert.equal(ui.open(), true);
+    const originalText = ui.draft.value;
+    for (const _ of originalText) ui.key('Backspace');
+    assert.equal(ui.draft.value, ''); assert.strictEqual(ui.project, original);
+    ui.key('Escape'); assert.equal(ui.draft, null); assert.equal(ui.writes, 0);
+    ui.open(); for (const _ of originalText) ui.key('Backspace');
+    ui.key(' '); ui.key(' '); ui.key('Enter');
+    assert.equal(ui.draft, null); assert.equal(ui.writes, 1);
+    const head = Timeline.note(ui.project.outline, 'head').note;
+    if (options.graceFocus) {
+      assert.deepEqual(head.beforeGraceNotes[0].pitches, [{ midi: 59 }]);
+      assert.deepEqual(head.pitches, [{ midi: 60, fingering: 1, substitutionFingering: 2 }]);
+    } else assert.deepEqual(head.pitches, [{ midi: 60 }]);
+    if (options.tied) assert.deepEqual(Timeline.note(ui.project.outline, 'tail').note.pitches, [{ midi: 60 }]);
+    assert.deepEqual(original, before);
+    const cleared = ui.project;
+    assert.strictEqual(ui.history.undo().project, original); assert.strictEqual(ui.history.redo().project, cleared);
+  }
+});
+
+test('actual W input keeps invalid text uncommitted and empty confirmation on an unassigned pitch adds no history', () => {
+  const ui = floatingEditor(), original = ui.project;
+  ui.open(); for (const _ of ui.draft.value) ui.key('Backspace');
+  ui.key('-'); ui.key('Enter');
+  assert.equal(ui.draft.value, '-'); assert.strictEqual(ui.project, original); assert.equal(ui.writes, 0);
+  ui.key('Escape'); assert.equal(ui.draft, null);
+  const empty = floatingEditor({ unassigned: true }), untouched = empty.project;
+  empty.open(); empty.key('Enter');
+  assert.equal(empty.draft, null); assert.strictEqual(empty.project, untouched); assert.equal(empty.writes, 0);
 });

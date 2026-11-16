@@ -51,7 +51,7 @@ Native buttons retain their Enter/Space behavior. The playback bar uses arrow ke
 
 ## Falling notes
 
-The single 3D scene includes a note field behind the keyboard. Bars travel toward a strike line at the keyboard's rear edge, aligned with each key's X position. The initial camera is the `V` overview; `R` and `T` retain the existing close keyboard presets. All presets and free camera movement use the same scene and renderer. Toggling notes or regenerating does not reset the camera.
+The single 3D scene includes a note field behind the keyboard. Bars travel toward a strike line at the keyboard's rear edge, aligned with each key's X position. The initial camera and `R` use an oblique view including the note field; `T` is a close top view of the keyboard, and `V` is a top overview including notes. All presets and free camera movement use the same scene and renderer. Toggling notes or regenerating does not reset the camera.
 
 The field previews three performance seconds at 0.24 m/s. Notes are clipped at the far end. The leading edge reaches the strike line at the performed attack time, including the shared 600 ms lead-in. During key hold, the remaining bar stays at the line and shortens until release. Left-hand bars are blue and right-hand bars orange; held bars use a lighter color. Lane centers share the keyboard geometry, and widths leave space between adjacent black/white key lanes. There is no bloom, particle or afterimage effect.
 
@@ -89,3 +89,7 @@ Added 2026-11-16. Camera movement shares the existing OrbitControls target with 
 Added 2026-11-16. Six new tests cover attack/release boundaries, clipped long holds and future notes, reverse seeks, all 88 lane alignments and non-overlap, per-pitch releases, substitution/pedal semantics, a dense 300-bar instance window and overview framing. All 20 related animation/camera/note-stream tests pass. Type checking and production build pass with the same existing warnings.
 
 Browser verification at 1100 × 800 used a disposable three-note score. Verified synchronized playback, a held bar at the strike line at 1 second, note visibility without a camera or time change, and rotation/zoom with notes and hands remaining in the same 3D scene. The native user's score was not edited.
+
+## Camera orientation correction — 2026-11-17
+
+The falling-note integration had changed the initial view to directly overhead, so horizontal orbit appeared to spin the keyboard in the image plane. The initial view is oblique again, with the note field included. Top presets also now preserve the world Y-up axis used by OrbitControls, avoiding roll when tilting and orbiting after a top view. A near-imperceptible tilt avoids the exact overhead lookAt singularity. Shift+Left/Right still controls azimuth; Shift+Up/Down controls elevation. Added a regression test for level horizontal orbit before and after switching presets.

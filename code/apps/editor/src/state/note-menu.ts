@@ -1,17 +1,27 @@
 
 import ScoreSlur from "../domain/score/score-slur.ts";
+import FingeringSelection from '../domain/score/fingering-selection.ts';
+import ScoreTimeline from '../domain/score/score-timeline.ts';
 
 import type { ScoreProject } from "../domain/score/types.ts";
-export type MenuItem = { label: string; children?: MenuItem[]; action?: 'expression' | 'add-slur' | 'remove-slur' | 'exit'; disabled?: boolean; reason?: string };
+export type MenuItem = { label: string; children?: MenuItem[]; action?: 'expression' | 'add-slur' | 'remove-slur' | 'auto-fingering' | 'clear-fingering' | 'exit'; disabled?: boolean; reason?: string };
 export const noteMenuItems: MenuItem[] = [
   { label: 'Expression…', action: 'expression' },
   { label: 'Add slur to selection', action: 'add-slur' },
   { label: 'Remove slur', action: 'remove-slur' },
+  { label: 'Fingering', children: [
+    { label: 'Auto Assign…', action: 'auto-fingering' },
+    { label: 'Clear', action: 'clear-fingering' },
+  ] },
   { label: 'Exit', action: 'exit' },
 ];
 export function createNoteMenuItems(project: ScoreProject, ids: readonly string[]): MenuItem[] {
   const slur = ScoreSlur.availability(project, ids);
-  return noteMenuItems.map(item => item.action === 'expression' ? { ...item, disabled: ids.length !== 1, reason: 'Select one note.' }
+  const staff = ids[0] && ScoreTimeline.note(project.outline, ids[0], 'lowerStaff') ? 'lowerStaff' : 'upperStaff';
+  const clear = FingeringSelection.clearAvailability(project, { staff, noteIds: ids });
+  return noteMenuItems.map(item => item.children ? { ...item, children: item.children.map(child => child.action === 'clear-fingering'
+    ? { ...child, disabled: !clear.allowed, reason: clear.reason } : { ...child, disabled: !ids.length, reason: 'Select notes.' }) }
+    : item.action === 'expression' ? { ...item, disabled: ids.length !== 1, reason: 'Select one note.' }
     : item.action === 'add-slur' ? { ...item, disabled: !slur.canAdd, reason: slur.addReason }
     : item.action === 'remove-slur' ? { ...item, disabled: !slur.canRemove, reason: slur.removeReason } : item);
 }

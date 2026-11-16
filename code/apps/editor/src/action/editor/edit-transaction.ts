@@ -9,6 +9,7 @@ import ScoreTrill from "../../domain/score/score-trill.ts";
 import ScoreFermata from '../../domain/score/score-fermata.ts';
 import ScoreDynamics from '../../domain/score/score-dynamics.ts';
 import ScoreTimeline from '../../domain/score/score-timeline.ts';
+import TieFingerings from '../../domain/score/tie-fingerings.ts';
 import type { ScoreProject } from "../../domain/score/types.ts";
 
 export type NormalizedRange = { oldNoteId: string; newNoteId: string };
@@ -17,7 +18,7 @@ namespace EditTransaction {
   /** Pitch-only actions preserve note IDs, written durations and expression anchors.
    * They still validate collisions in NotePitches and reconcile affected trills. */
   export function commitPitches(before: ScoreProject, after: ScoreProject): ScoreProject {
-    return before === after ? before : ScoreTrill.reconcile(before, after);
+    return before === after ? before : TieFingerings.reconcile(before, ScoreTrill.reconcile(before, after));
   }
   export function commit(before: ScoreProject, after: ScoreProject, normalized?: NormalizedRange): ScoreProject {
     if (before === after) return before;
@@ -44,7 +45,7 @@ namespace EditTransaction {
     return reconcileExpressions(before, next);
   }
   function reconcileExpressions(before: ScoreProject, next: ScoreProject, normalized?: NormalizedRange): ScoreProject {
-    return ScoreDynamics.reconcile(ScoreSlur.reconcile(ScoreClef.reconcile(ScoreTempo.reconcile(ScoreTrill.reconcile(before, next, normalized)))));
+    return TieFingerings.reconcile(before, ScoreDynamics.reconcile(ScoreSlur.reconcile(ScoreClef.reconcile(ScoreTempo.reconcile(ScoreTrill.reconcile(before, next, normalized))))));
   }
 }
 export default EditTransaction;

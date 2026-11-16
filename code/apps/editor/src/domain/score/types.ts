@@ -8,6 +8,7 @@ export type SpellingDirection = 'up' | 'down';
 export type PianoPitch = {
   midi: number;
   spellingDirection?: SpellingDirection;
+  /** Ordinary tied pitches store fingering on the attack/head only. */
   fingering?: PianoFingering;
   substitutionFingering?: PianoFingering;
 };

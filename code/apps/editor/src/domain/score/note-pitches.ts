@@ -7,6 +7,7 @@ import PitchSpelling from '../theory/pitch-spelling.ts';
 import ScoreKey from './score-key.ts';
 import ScoreFingerings from './score-fingerings.ts';
 import ScoreTrill from './score-trill.ts';
+import TieFingerings from './tie-fingerings.ts';
 export type PitchTarget={ noteId: string; staff: PianoStaffName; pitchIndex: number };
 export type FingeringTarget = PitchTarget & { graceNoteId?: string };
 export type PitchEditResult={ project: ScoreProject; midi: number; pitchIndex: number };
@@ -65,6 +66,25 @@ namespace NotePitches {
   export function setFingering(project: ScoreProject,target: FingeringTarget,fingering: PianoFingering | null,
     substitutionFingering?: PianoFingering): ScoreProject {
     if(!target.graceNoteId && ScoreTrill.forNote(project,target.noteId)) return project;
+    if (!target.graceNoteId) {
+      const owner = TieFingerings.resolve(project, target.noteId, target.staff);
+      const selected = ScoreTimeline.note(project.outline, target.noteId, target.staff)?.note.pitches[target.pitchIndex];
+      if (!owner || !selected) return project;
+      const index = owner.pitches.findIndex(pitch => pitch.midi === selected.midi);
+      if (index < 0 || fingering !== null && !ScoreFingerings.allows(ScoreFingerings.rules(owner.note, index), fingering, substitutionFingering)) return project;
+      const headId = owner.note.id;
+      return ScoreNotes.map(project, new Set(owner.chain.map(entry => entry.note.id)), note => {
+        const pitches = note.pitches.map(pitch => {
+          if (pitch.midi !== selected.midi) return pitch;
+          const finger = note.id === headId && fingering !== null ? fingering : undefined;
+          const substitution = finger === undefined ? undefined : substitutionFingering;
+          if (pitch.fingering === finger && pitch.substitutionFingering === substitution) return pitch;
+          return { ...TieFingerings.strip(pitch), ...(finger === undefined ? {} : { fingering: finger }),
+            ...(substitution === undefined ? {} : { substitutionFingering: substitution }) };
+        });
+        return pitches.every((pitch, i) => pitch === note.pitches[i]) ? note : { ...note, pitches };
+      }, target.staff);
+    }
     const located=ScoreTimeline.note(project.outline,target.noteId,target.staff);
     const pitches = target.graceNoteId === undefined ? located?.note.pitches
       : located?.note.beforeGraceNotes?.find(grace => grace.id === target.graceNoteId)?.pitches;

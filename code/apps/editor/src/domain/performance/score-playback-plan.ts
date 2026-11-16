@@ -11,6 +11,7 @@ import TrillPitch from '../theory/trill-pitch.ts';
 import ScorePedal from '../score/score-pedal.ts';
 import ArticulationPerformance from './articulation-performance.ts';
 import ScoreFermata from '../score/score-fermata.ts';
+import TieFingerings from '../score/tie-fingerings.ts';
 import type { ScoreProject, PianoStaffName, PianoPitch } from '../score/types.ts';
 
 /** Identity and fingering travel with the performed attack, including ornaments. */
@@ -140,9 +141,11 @@ namespace ScorePlaybackPlan {
       for (const members of groups) {
         const first = members[0];
         const last = members[members.length - 1];
+        const heldPitches = TieFingerings.read(members.map(member => member.note)).pitches;
         const identity = (pitches: PianoPitch[], noteId = first.note.id): PerformancePitch[] => pitches.map((pitch, pitchIndex) => ({
           hand: staff === 'upperStaff' ? 'right' : 'left', voice: `${staff}:${voiceIndex}`,
-          fingering: pitch.fingering, substitutionFingering: pitch.substitutionFingering, noteId, pitchIndex,
+          fingering: (noteId === first.note.id ? heldPitches[pitchIndex] : pitch).fingering,
+          substitutionFingering: (noteId === first.note.id ? heldPitches[pitchIndex] : pitch).substitutionFingering, noteId, pitchIndex,
         }));
         const noteStart = first.measureStartSixteenths + first.positionSixteenths;
         const noteEnd = last.measureStartSixteenths + last.positionSixteenths + last.lengthSixteenths;
