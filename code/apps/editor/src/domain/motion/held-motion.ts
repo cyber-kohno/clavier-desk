@@ -1,4 +1,5 @@
 import type { Note, HandFrame } from './motion.ts';
+import { MIN_REATTACK_GAP_SECONDS } from '../theory/performance-timing.ts';
 import { planChord } from './chords.ts';
 import type { ChordPlan } from './chords.ts';
 import { fingers, pointsForPose, solveFinger } from './fingers.ts';
@@ -8,7 +9,7 @@ import { ease } from './movement.ts';
 import { movingHeldFrame, planHeldPath } from './held-path.ts';
 import type { HeldPath } from './held-path.ts';
 
-export type FingerEvent={note:Note;approach:number;release:number;handoffFrom?:Note;handoffTo?:Note;opposed?:boolean};
+export type FingerEvent={note:Note;hover?:number;approach:number;release:number;handoffFrom?:Note;handoffTo?:Note;opposed?:boolean};
 export type HeldPlan={geometry:ChordPlan;events:FingerEvent[];path?:HeldPath};
 const HOVER=0.018,TRAVEL=0.01;
 const endOf=(n:Note)=>n.time+n.duration;
@@ -43,7 +44,7 @@ export function heldEvents(notes:Note[],approach:number,release:number):FingerEv
     }
     if(a.note.finger!==b.note.finger&&a.note.midiNote!==b.note.midiNote)continue;
     if(a.handoffTo===b.note)continue;
-    if(gap<0.01-1e-9)throw new Error(`Finger ${a.note.finger}, MIDI${a.note.midiNote}: ${gap<0?'overlapping notes':'insufficient release time'}. Reusing a finger or key requires at least 10 ms of release time.`);
+    if(gap<MIN_REATTACK_GAP_SECONDS-1e-9)throw new Error(`Finger ${a.note.finger}, MIDI${a.note.midiNote}: ${gap<0?'overlapping notes':'insufficient release time'}. Reusing a finger or key requires at least ${MIN_REATTACK_GAP_SECONDS * 1000} ms of release time.`);
     const share=a.note.midiNote===b.note.midiNote?0.5:0.3;
     a.release=Math.min(a.release,gap*share);b.approach=Math.min(b.approach,gap*share);
   }
@@ -51,20 +52,20 @@ export function heldEvents(notes:Note[],approach:number,release:number):FingerEv
 }
 
 export function fingerStroke(event:FingerEvent,time:number) {
-  const n=event.note,end=endOf(n);
+  const n=event.note,end=endOf(n),hover=event.hover??HOVER;
   if(event.handoffFrom) {
-    if(time<n.time)return {height:-TRAVEL+(HOVER+TRAVEL)*(1-ease((time-n.time+event.approach)/event.approach)),depth:1};
+    if(time<n.time)return {height:-TRAVEL+(hover+TRAVEL)*(1-ease((time-n.time+event.approach)/event.approach)),depth:1};
     if(time<end)return {height:-TRAVEL,depth:1};
   }
-  if(event.handoffTo&&time>=end)return {height:-TRAVEL+(HOVER+TRAVEL)*ease((time-end)/event.release),depth:1};
-  if(time<n.time)return {height:HOVER*(1-ease((time-n.time+event.approach)/event.approach)),depth:0};
+  if(event.handoffTo&&time>=end)return {height:-TRAVEL+(hover+TRAVEL)*ease((time-end)/event.release),depth:1};
+  if(time<n.time)return {height:hover*(1-ease((time-n.time+event.approach)/event.approach)),depth:0};
   const peak=event.handoffFrom?1:ease(Math.min(1,n.duration/0.06));
   if(time<end) {
     const depth=peak*ease((time-n.time)/Math.min(0.06,n.duration));
     return {height:-TRAVEL*depth,depth};
   }
   const u=(time-end)/event.release,depth=peak*(1-ease(u/0.65));
-  return {height:-TRAVEL*depth+HOVER*ease((u-0.65)/0.35),depth};
+  return {height:-TRAVEL*depth+hover*ease((u-0.65)/0.35),depth};
 }
 
 export function heldFrame(plan:HeldPlan,hand:Hand,time:number):HandFrame {
@@ -74,7 +75,7 @@ export function heldFrame(plan:HeldPlan,hand:Hand,time:number):HandFrame {
   const joints={...geometry.idleJoints} as Record<1|2|3|4|5,JointPose>;
   for(const contact of geometry.contacts) {
     const event=active.find(e=>e.note.finger===contact.finger);
-    const height=event?fingerStroke(event,time).height:HOVER;
+    const height=event?fingerStroke(event,time).height:(contact.preparationHeight??HOVER);
     const pose=solveFinger(hand,contact.finger,contact.target.map((v,i)=>v-geometry.position[i]+(i===1?height:0)) as Vec3);
     if(!pose)throw new Error('The held-note finger pose is outside the validated range.');
     joints[contact.finger]=pose;
@@ -106,6 +107,7 @@ export function planHeld(hand:Hand,events:FingerEvent[]):HeldPlan {
   let geometry:ChordPlan;
   try {geometry=planChord(hand,ordered.map(n=>({finger:n.finger,midiNote:n.midiNote,target:keys.find(k=>k.midiNote===n.midiNote)!.target})),HOVER,TRAVEL);}
   catch {return planHeldPath(hand,events);}
+  for(const event of events) event.hover=geometry.contacts.find(contact=>contact.finger===event.note.finger)?.preparationHeight??HOVER;
   const used=new Set(ordered.map(n=>n.finger));
   // Fill all free fingers as well, preserving the chord planner's safe pose.
   for(const finger of fingers)if(!used.has(finger)) {

@@ -15,15 +15,18 @@ export const noteMenuItems: MenuItem[] = [
   ] },
   { label: 'Exit', action: 'exit' },
 ];
-export function createNoteMenuItems(project: ScoreProject, ids: readonly string[]): MenuItem[] {
+export function createNoteMenuItems(project: ScoreProject, ids: readonly string[], checkClear = true): MenuItem[] {
   const slur = ScoreSlur.availability(project, ids);
-  const staff = ids[0] && ScoreTimeline.note(project.outline, ids[0], 'lowerStaff') ? 'lowerStaff' : 'upperStaff';
-  const clear = FingeringSelection.clearAvailability(project, { staff, noteIds: ids });
+  const clear = checkClear ? clearAvailability(project, ids) : undefined;
   return noteMenuItems.map(item => item.children ? { ...item, children: item.children.map(child => child.action === 'clear-fingering'
-    ? { ...child, disabled: !clear.allowed, reason: clear.reason } : { ...child, disabled: !ids.length, reason: 'Select notes.' }) }
+    ? { ...child, disabled: !clear?.allowed, reason: clear?.reason } : { ...child, disabled: !ids.length, reason: 'Select notes.' }) }
     : item.action === 'expression' ? { ...item, disabled: ids.length !== 1, reason: 'Select one note.' }
     : item.action === 'add-slur' ? { ...item, disabled: !slur.canAdd, reason: slur.addReason }
     : item.action === 'remove-slur' ? { ...item, disabled: !slur.canRemove, reason: slur.removeReason } : item);
+}
+function clearAvailability(project: ScoreProject, ids: readonly string[]) {
+  const staff = ids[0] && ScoreTimeline.note(project.outline, ids[0], 'lowerStaff') ? 'lowerStaff' : 'upperStaff';
+  return FingeringSelection.clearAvailability(project, { staff, noteIds: ids });
 }
 export function menuItemsAt(path: number[], rootItems = noteMenuItems) {
   let items = rootItems;

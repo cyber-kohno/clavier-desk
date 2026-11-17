@@ -28,42 +28,40 @@ is no nested scroll area or visible scrollbar. Tab navigation and mouse
 activation remain available.
 Apply also checks the immutable source revision.
 
-`Fingering > Clear` removes ordinary fingers, substitutions, and attached grace
-fingers from the selected notes in one Undo entry. It removes a trill's finger
-sequence only when its complete span is selected; a partial selection of an
-annotated trill disables Clear with a reason. Trill settings and every other
-musical property remain unchanged. Clear is disabled if there is nothing to clear.
+`Fingering > Clear` uses the written timeline to include same-hand voices that overlap the selected range and the complete ties attached to those notes. It clears ordinary fingers, substitutions, attached grace fingers and affected trill sequences in one Undo entry. Availability is checked when the Fingering submenu becomes visible, so an unannotated seed can clear annotated overlapping notes. Clear accepts techniques and conflicting anchors that Auto Assign rejects. It is disabled when no affected fingering remains.
 
 ## Scope
 
-Only selected notes influence fingering. No outside pitch, finger, voice,
-articulation or fermata constrains the result. The source score is never edited
-to build the calculation input. A detached score retains the selected notes,
-the rests between them, and their written/tuplet timing. Other notes become
-rests; other voices and pedal events are absent. Boundary transitions are not
-checked. A slur is retained only if both endpoints are selected. Tempo uses the
-project's initial tempo plus tempo marks anchored to selected notes; outside
-tempo marks are deliberately excluded by the range-only contract. Consequently,
-range validation does not guarantee animation of the full score, including its
-global timing and boundary contacts.
+Auto Assign expands the continuous seed selection and its ties to overlapping performed contacts in other voices of the same hand, including grace pre-roll. These additional voices and their ties do not enlarge the search window. The dialog reports the resulting measure range, voice count and added note count. All expanded missing pitches are assigned and applied atomically. Existing fingers remain fixed. The common full-score playback clock provides tempo, dynamics, fermata and articulation context. Opposite-hand contacts do not enter the fingering search.
 
-Supported: ordinary notes, simultaneous chords of up to five pitches, rests,
+Supported: ordinary notes, attached grace notes, simultaneous chords of up to five pitches, rests,
 tuplets, staccato, internal slurs and selected-note fermatas. A complete ordinary
 tie chain is one held contact; its head owns the finger and continuations inherit
 it without storing or displaying duplicate numbers. The dialog counts and lists
 performed attacks/chords, rather than every written tie member. A legacy fixed
 finger on a continuation constrains the same contact, provided all annotations
 agree. Missing fingers are filled only on the attack/head.
-Selection must include both ends of every tie it touches. Grace notes, trills,
-rolled chords, and existing held-note substitutions are explicitly rejected by
-Auto Assign for now, rather than skipped or partially processed. These remain
-manually editable, and Clear supports their existing finger data as above.
+Auto Assign includes whole ties automatically and uses the playback attack order
+for rolled chords. Each pitch is assigned once, and already depressed pitches
+retain their fingers as the roll continues. Trills and existing held-note
+substitutions are explicitly rejected by Auto Assign. These remain manually
+editable, and Clear supports their existing finger data as above.
+
+## Repeated-key timing — 2026-11-18
+
+The common playback plan reserves `max(5% of the same-key onset interval, 10 ms)` before a repeated key in the same staff/voice, including slurred repetitions and ornament attacks. Onsets remain fixed; only the preceding pitch's duration is shortened, and already shorter articulations stay short. This runs after fermata time conversion. The 10 ms minimum is shared with motion validation. Ties are already one event and do not acquire an internal gap. If a rolled attack repeats a key from another voice of the same hand, a note ending by the roll's principal onset leaves a physical release gap and keeps its audio duration. If reserving the gap leaves less than 1 ms of contact, the original event remains for motion validation. Same-finger movement to a different key remains a fingering/motion constraint.
+
+Regression verification includes 118 BPM sixteenth-note repetitions with and without a slur, successful automatic fingering and animation generation, same-key grace/principal transitions, tie continuity, per-pitch chord releases and unchanged shorter articulations.
 
 ## Engine and boundaries
 
+Prepared/pressed/held poses (2026-11-18): Chord planning first retains the existing 18 mm preparation. If that is infeasible, it searches independent positive preparation heights per finger (12, 6, 3 or 1 mm) and checks the press trajectory with unchanged joint and black-key limits. Evaluation uses the same per-contact heights. Held paths can reduce free-finger preparation/release windows, and a final bounded search varies palm X/Y/Z against the actual finger strokes at each time. Contact points remain fixed during holds; inactive fingers retain key-top clearance. Dense path validation remains required. Written note onsets, performed hold lengths and tie durations are not altered to make a path pass. Substitutions/crossings retain their established specialized paths.
+
+The local K310 measure-6 data, with left-hand fingers cleared only in an in-memory copy, produces bass D3/finger 5 plus F3/A3/C4 on fingers 4/2/1, followed by G3/B3 on 2/1. The resulting measure passes animation generation. The regression also samples the held bass contact through the other voice's transition. No published score is modified by this verification.
+
 - `domain/score/fingering-selection.ts`: resolve/validate selection, inspect
   anchors and coverage, perform atomic fill/clear. Preserve IDs and timing.
-- `domain/performance/fingering-passage.ts`: create detached selected-note
+- `domain/performance/fingering-passage.ts`: create expanded same-hand
   playback; use the existing performance interpretation for attack/release
   timing and merge tie targets.
 - `domain/performance/automatic-fingering.ts`: deterministic bounded beam
@@ -136,8 +134,7 @@ finger across combined chord annotations, or a substitution stored only on a
 continuation are retained and diagnosed by Auto Assign/animation. Explicit
 manual edits or complete-chain Clear can resolve them. There is no file format
 version change: optional per-pitch fields remain compatible, with a single
-canonical owner. Undo retains the original snapshot. Clear, like Auto Assign,
-requires every member of a selected ordinary tie.
+canonical owner. Undo retains the original snapshot. Clear, like Auto Assign, automatically includes every member of a selected ordinary tie.
 
 Verification: 11 tie-ownership tests cover editing from either hand, chord finger
 constraints, extension/re-spelling, split/head deletion, joining conflicts,
@@ -165,3 +162,9 @@ Fixed-layout revision: confirmation and results for 1 and 16 notes measured
 summary and footer coordinates unchanged; column headings stayed at the list
 top. Wheel scrolling also moved only the list. Scrollbars remained hidden, and
 type checking and the production build passed with the existing warnings.
+
+
+装飾音の自動運指対応（2026-11-18）: 選択した主音に付属する装飾音を含め、共通の再生計画の発音順・演奏時間で一続きに計算し、同じモーション検証を行います。指定済みの装飾音の指も固定します。未指定件数・結果一覧には装飾音を含みます。MCP候補の装飾音は親のnoteIdとgraceNoteIdで識別し、主音とまとめて原子的に適用します。アルペジオ・トリル・保持中の指替えは引き続き未対応です。
+
+
+Multiple-voice search (2026-11-18): Each onset includes all still-held contacts. Carried contacts retain their assigned fingers across every following onset until release; simultaneous notes share chord reach/order constraints. Motion validation and Apply use the same expanded set. MCP returns includedNoteIds, addedNotes and voiceCount. Its 256-note bound also applies after expansion. Model reach and motion-path limits remain and are reported as failures.

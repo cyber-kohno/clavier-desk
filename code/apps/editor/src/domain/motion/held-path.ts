@@ -6,10 +6,13 @@ import { fingerStroke } from './held-motion.ts';
 import type { FingerEvent, HeldPlan } from './held-motion.ts';
 import type { HandFrame } from './motion.ts';
 import { crossingDirection, scaleConnection } from './scale-motion.ts';
+import { planChord } from './chords.ts';
 
-export type HeldPath={times:number[];positions:Vec3[];targets:Vec3[];crossings?:{from:number;to:number}[]};
-type Range={low:number;high:number;target:Vec3};
+export type HeldPath={times:number[];positions:Vec3[];targets:Vec3[];linear?:boolean;crossings?:{from:number;to:number}[]};
+type Range={low:number;high:number;target:Vec3;hover:number};
 const HOVER=0.018,TRAVEL=0.01;
+// Reachability depends on geometry, not the onset or length of the note.
+const contactRanges=new Map<string,Range|undefined>();
 const begin=(e:FingerEvent)=>e.note.time-e.approach;
 const finish=(e:FingerEvent)=>e.note.time+e.note.duration+e.release;
 const raised=(f:Finger):JointPose=>({...restPose(f),proximal:-0.65,distal:0.35});
@@ -19,11 +22,15 @@ const mixPose=(a:JointPose,b:JointPose,u:number):JointPose=>({spread:a.spread+(b
 
 export function heldPalm(path:HeldPath,time:number):Vec3 {
   if(time<=path.times[0])return [...path.positions[0]];
-  for(let i=1;i<path.times.length;i++)if(time<path.times[i]) {
-    const u=ease((time-path.times[i-1])/(path.times[i]-path.times[i-1]));
-    return path.positions[i-1].map((v,j)=>v+(path.positions[i][j]-v)*u) as Vec3;
+  if(time>=path.times.at(-1)!)return [...path.positions.at(-1)!];
+  let low=0,high=path.times.length-1;
+  while(high-low>1) {
+    const middle=(low+high)>>1;
+    if(time<path.times[middle])high=middle;else low=middle;
   }
-  return [...path.positions.at(-1)!];
+  const fraction=(time-path.times[low])/(path.times[high]-path.times[low]);
+  const u=path.linear?fraction:ease(fraction);
+  return path.positions[low].map((v,j)=>v+(path.positions[high][j]-v)*u) as Vec3;
 }
 
 function poseFor(hand:Hand,event:FingerEvent,target:Vec3,position:Vec3,height:number) {
@@ -59,6 +66,27 @@ export function movingHeldFrame(plan:HeldPlan,hand:Hand,time:number):HandFrame {
       const start=begin(events[next]);joints[finger]=mixPose(wait,endpoint(next,start),ease((time-start+0.3)/0.3));
     } else joints[finger]=wait;
   }
+  // Keep idle transitions above the key tops even when the palm moves down
+  // into a wide pressed chord. Active/held contacts are never adjusted here.
+  const drops=new Map(active.map(({event})=>[event.note.midiNote,fingerStroke(event,time).depth*TRAVEL]));
+  if(events.some(event=>event.hover!==undefined))for(const finger of fingers) {
+    if(active.some(({event})=>event.note.finger===finger))continue;
+    const isClear=(pose:JointPose)=>{
+      const points=pointsForPose(hand,finger,pose).map(point=>point.map((v,i)=>v+position[i]) as Vec3);
+      return points[2][1]>=0.003&&clearsBlackKeys(points,new Set(),0,drops);
+    };
+    if(isClear(joints[finger]))continue;
+    const tip=pointsForPose(hand,finger,joints[finger])[2];
+    const raisedPose=tip[1]+position[1]<0.003?solveFinger(hand,finger,[tip[0],0.0035-position[1],tip[2]]):undefined;
+    if(raisedPose&&isClear(raisedPose)) { joints[finger]=raisedPose;continue; }
+    const original=joints[finger], raisedJoint=raised(finger);
+    // Lift the distal segment too if the usual raised pose brushes a black key.
+    const safe=isClear(raisedJoint)?raisedJoint:{...raisedJoint,distal:0};
+    for(let i=1;i<=32;i++) {
+      const pose=mixPose(original,safe,i/32);
+      if(isClear(pose)){joints[finger]=pose;break;}
+    }
+  }
   const depths=active.map(({event})=>fingerStroke(event,time).depth);
   const substituting=active.some(({event})=>event.handoffFrom);
   const crossing=path.crossings?.some(c=>time>=begin(events[c.from])&&time<finish(events[c.to]));
@@ -72,6 +100,15 @@ export function movingHeldFrame(plan:HeldPlan,hand:Hand,time:number):HandFrame {
 // Find a conservative interval of palm X positions that reaches the whole
 // vertical stroke. Contact Z remains fixed for this event for its entire life.
 function contactRangeFor(hand:Hand,event:FingerEvent,y:number,z:number,zone?:[number,number],xOffset=0):Range|undefined {
+  const id=JSON.stringify([hand,event.note.midiNote,event.note.finger,event.hover,!!event.opposed,y,z,zone,xOffset]);
+  if(contactRanges.has(id))return contactRanges.get(id);
+  const result=searchContactRange(hand,event,y,z,zone,xOffset);
+  if(contactRanges.size>=8192)contactRanges.delete(contactRanges.keys().next().value!);
+  contactRanges.set(id,result);
+  return result;
+}
+
+function searchContactRange(hand:Hand,event:FingerEvent,y:number,z:number,zone: [number,number]|undefined,xOffset:number):Range|undefined {
   const key=keys.find(k=>k.midiNote===event.note.midiNote)!,finger=event.note.finger;
   const range=contactRange(key,true),back=Math.max(range[0],zone?.[0]??-Infinity),front=Math.min(range[1],zone?.[1]??Infinity);
   if(back>front)return;
@@ -81,7 +118,7 @@ function contactRangeFor(hand:Hand,event:FingerEvent,y:number,z:number,zone?:[nu
   let best:Range|undefined,score=-Infinity;
   for(const depth of depths) {
     const target:Vec3=[key.target[0]+xOffset,key.target[1],depth];
-    const reachable=(x:number)=>[-TRAVEL,0,0.009,HOVER].every(height=>!!poseFor(hand,event,target,[x,y,z],height));
+    const reachable=(x:number)=>[-TRAVEL,0,(event.hover??HOVER)/2,event.hover??HOVER].every(height=>!!poseFor(hand,event,target,[x,y,z],height));
     const mirror=hand==='right'?1:-1;
     let first:number|undefined;
     for(let i=0;i<=40;i++) {
@@ -94,7 +131,7 @@ function contactRangeFor(hand:Hand,event:FingerEvent,y:number,z:number,zone?:[nu
         // Stay inside the sampled component; dense validation checks the path.
         a+=0.0002;b-=0.0002;
         const value=b-a-0.02*Math.abs(depth-preferred);
-        if(value>score+1e-10){best={low:a,high:b,target};score=value;}
+        if(value>score+1e-10){best={low:a,high:b,target,hover:event.hover??HOVER};score=value;}
         first=undefined;
       }
     }
@@ -126,6 +163,7 @@ function pathFor(events:FingerEvent[],ranges:Range[],y:number,z:number):HeldPath
 function pathClear(plan:HeldPlan,hand:Hand):boolean {
   const path=plan.path!,start=path.times[0],end=path.times.at(-1)!,count=Math.ceil((end-start)/0.003);
   const times=new Set([...path.times,...Array.from({length:count+1},(_,i)=>start+(end-start)*i/count)]);
+  for(let i=1;i<path.times.length;i++)times.add((path.times[i-1]+path.times[i])/2);
   for(const e of plan.events)for(const t of [e.note.time,e.note.time+Math.min(0.06,e.note.duration),e.note.time+e.note.duration,
     e.note.time+e.note.duration+e.release*0.65,begin(e)-0.3,finish(e)+0.18])if(t>=start&&t<=end)times.add(t);
   try {
@@ -155,7 +193,7 @@ export function planHeldPath(hand:Hand,events:FingerEvent[]):HeldPlan {
   // Substituting fingers use distinct depths on the same key, rather than
   // assigning both fingertips the same point. Longer fingers take the rear.
   const zones=events.map(e=>{
-    const peers=[...new Set(events.filter(p=>p.note.midiNote===e.note.midiNote).map(p=>p.note.finger))]
+    const peers=[...new Set([e.note.finger,...events.filter(p=>p.handoffFrom===e.note||e.handoffFrom===p.note).map(p=>p.note.finger)])]
       .sort((a,b)=>{const length=(f:Finger)=>{const p=pointsForPose(hand,f,restPose(f));return Math.hypot(...p[2].map((v,i)=>v-p[0][i]));};return length(b)-length(a)||a-b;});
     if(peers.length<2)return;
     const key=keys.find(k=>k.midiNote===e.note.midiNote)!,center=key.target[2]+(peers.indexOf(e.note.finger)-(peers.length-1)/2)*0.018;
@@ -166,14 +204,113 @@ export function planHeldPath(hand:Hand,events:FingerEvent[]):HeldPlan {
     const key=keys.find(k=>k.midiNote===events[i].note.midiNote)!;
     offsets[i]+=Math.sign(events[j].note.midiNote-events[i].note.midiNote)*(key.width/2-0.003);counts[i]++;
   }
-  for(const factor of crossings.length?[0,0.5,1]:[0])
+  // An octave can require an inset contact, including on a key held through
+  // later attacks. Keep that contact on the same point throughout the path.
+  for(const [i,a] of events.entries())for(const [j,b] of events.entries()) {
+    if(i===j||a.note.time>=end(b)||b.note.time>=end(a))continue;
+    const key=keys.find(k=>k.midiNote===a.note.midiNote)!;
+    const other=keys.find(k=>k.midiNote===b.note.midiNote)!;
+    if(Math.abs(key.target[0]-other.target[0])<0.14)continue;
+    offsets[i]+=Math.sign(other.target[0]-key.target[0])*(key.width/2-0.003);counts[i]++;
+  }
+  for(const hover of [HOVER,0.012,0.006,0.003,0.001])
+  for(const factor of counts.some(Boolean)?[0,0.5,1]:[0])
   for(const y of [-0.025,-0.02,-0.015,-0.01,-0.005,0,-0.03])for(const z of [0.03,0.02,0.01,0,-0.01,-0.02,-0.03,-0.04,0.04]) {
-    const ranges=events.map((e,i)=>contactRangeFor(hand,e,y,z,zones[i],factor*offsets[i]/Math.max(1,counts[i])));
+    const ranges=events.map((e,i)=>contactRangeFor(hand,{...e,hover},y,z,zones[i],factor*offsets[i]/Math.max(1,counts[i])));
     if(ranges.some(r=>!r))continue;
     const path=pathFor(events,ranges as Range[],y,z);if(!path)continue;
     if(crossings.length)path.crossings=crossings;
-    const plan:HeldPlan={events,path,geometry:{position:path.positions[0],contacts:[]}};
+    const plan:HeldPlan={events:events.map((event,i)=>({...event,hover:ranges[i]!.hover})),path,geometry:{position:path.positions[0],contacts:[]}};
     if(pathClear(plan,hand))return plan;
+  }
+  if(!crossings.length&&!events.some(event=>event.handoffFrom)) {
+    for(const preferDense of [false,true]) {
+      const targets=pressedTargets(hand,events,preferDense);
+      if(!targets)continue;
+      // Reconsider the starting contact of a sustained key if later attacks
+      // need a different palm position. Each trial keeps the target fixed.
+      const anchorOnsets=new Set(events.filter(event=>events.some(next=>
+        next.note.time>event.note.time&&next.note.time<end(event))).map(event=>event.note.time));
+      const targetOptions=[targets];
+      if(anchorOnsets.size)for(const shift of [-0.015,-0.025,-0.035,0.01]) {
+        targetOptions.push(targets.map((target,i)=>{
+          if(!anchorOnsets.has(events[i].note.time))return target;
+          const key=keys.find(key=>key.midiNote===events[i].note.midiNote)!;
+          const [back,front]=contactRange(key,true);
+          return [target[0],target[1],Math.max(back,Math.min(front,target[2]+shift))];
+        }));
+      }
+      for(const window of [0.12,0.06,0.03,0.01,0.003]) {
+        for(const contacts of targetOptions) {
+          const phased=phasePath(hand,events,window,contacts);
+          if(phased)return phased;
+        }
+      }
+    }
   }
   throw new Error('No continuous palm path satisfies the held contacts, joint limits and black-key clearance of this model.');
 }
+
+/** Fallback for chords whose press is reachable but whose fingers cannot all
+ * hover at one fixed palm height. Targets stay fixed; actual strokes constrain
+ * the palm at each time, including contacts held through another voice's onset. */
+function pressedTargets(hand:Hand,events:FingerEvent[],preferDense:boolean):Vec3[]|undefined {
+  const targets=events.map(event=>[...keys.find(key=>key.midiNote===event.note.midiNote)!.target] as Vec3);
+  const assigned=new Set<number>();
+  // Select contact depths from pressed poses, without imposing a hover on held fingers.
+  const activeSets=[...new Set(events.map(event=>event.note.time))].map(time=>
+    events.map((event,index)=>({event,index})).filter(({event})=>event.note.time<=time&&end(event)>time));
+  // On a roll, the largest set has the tightest geometry. Try choosing
+  // contacts from that pose before planning the earlier partial chords.
+  if(preferDense)activeSets.sort((a,b)=>b.length-a.length);
+  for(const active of activeSets) {
+    if(active.every(({index})=>assigned.has(index)))continue;
+    if(new Set(active.map(({event})=>event.note.finger)).size!==active.length)continue;
+    try {
+      const chord=planChord(hand,active.map(({event,index})=>({finger:event.note.finger,midiNote:event.note.midiNote,target:targets[index]})),0,TRAVEL);
+      for(const {event,index} of active) if(!assigned.has(index)){targets[index]=chord.contacts.find(contact=>contact.finger===event.note.finger)!.target;assigned.add(index);}
+    } catch {return;}
+  }
+  return targets;
+}
+
+function phasePath(hand:Hand,source:FingerEvent[],window:number,targets:Vec3[]):HeldPlan|undefined {
+  const first=Math.min(...source.map(event=>event.note.time));
+  const events=source.map(event=>({...event,hover:0.003,approach:event.note.time===first?event.approach:Math.min(event.approach,window),release:Math.min(event.release,window)}));
+  const start=Math.min(...events.map(begin)),stop=Math.max(...events.map(finish));
+  const count=Math.ceil((stop-start)/0.0015);
+  const times=[...new Set([start,stop,...events.flatMap(event=>[begin(event),event.note.time,event.note.time+Math.min(0.06,event.note.duration),end(event),finish(event)]),
+    ...Array.from({length:count+1},(_,i)=>start+(stop-start)*i/count)])].sort((a,b)=>a-b);
+  const positions:Vec3[]=[];
+  for(const time of times) {
+    const active=events.map((event,index)=>({event,index})).filter(({event})=>begin(event)<=time+1e-9&&finish(event)>=time-1e-9);
+    if(!active.length) { positions.push([...(positions.at(-1)??[0,0,0.02])] as Vec3);continue; }
+    const center=active.reduce((sum,{event,index})=>sum+targets[index][0]-pointsForPose(hand,event.note.finger,restPose(event.note.finger))[0][0],0)/active.length;
+    const strokes=active.map(({event})=>fingerStroke(event,time));
+    const drops=new Map(active.map(({event},i)=>[event.note.midiNote,strokes[i].depth*TRAVEL]));
+    const previous=positions.at(-1);
+    const reachable=(position:Vec3)=>active.every(({event,index},i)=>{
+      const pose=poseFor(hand,event,targets[index],position,strokes[i].height);
+      if(!pose)return false;
+      const points=pointsForPose(hand,event.note.finger,pose).map(point=>point.map((v,j)=>v+position[j]) as Vec3);
+      return clearsBlackKeys(points,new Set(),0,drops);
+    });
+    if(previous&&reachable(previous)){positions.push(previous);continue;}
+    let chosen:Vec3|undefined,best=Infinity;
+    for(const y of [-0.03,-0.025,-0.02,-0.015,-0.01,-0.005,0,0.005,0.01])
+    for(const z of [0.02,0.03,0.01,0,0.04,-0.01,-0.02,-0.03,-0.04])
+    for(let dx=-0.05;dx<=0.05001;dx+=0.0025) {
+      const position:Vec3=[center+dx,y,z];
+      const score=previous?position.reduce((sum,v,i)=>sum+(v-previous[i])**2,0):dx*dx+(z-0.02)**2+y*y*0.1;
+      if(score>=best)continue;
+      if(!reachable(position))continue;
+      if(score<best){best=score;chosen=position;}
+    }
+    if(!chosen)return;
+    positions.push(chosen);
+  }
+  const path:HeldPath={times,positions,targets,linear:true};
+  const plan:HeldPlan={events,path,geometry:{position:positions[0],contacts:[]}};
+  return pathClear(plan,hand)?plan:undefined;
+}
+const end=(event:FingerEvent)=>event.note.time+event.note.duration;

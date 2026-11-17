@@ -18,7 +18,12 @@ namespace McpScoreReader {
   export function capabilities(operation?: unknown) {
     if (operation !== undefined && (typeof operation !== 'string' || !Contract.names.includes(operation))) Input.fail('operation', 'Unknown operation.');
     const operationSchema = operation === undefined ? undefined : Contract.operations.items!.anyOf!.find(schema => schema.properties!.type.enum!.includes(operation));
-    return { operations: Contract.names, ...(operationSchema ? { operationSchema } : {}), limits: { operationsPerRequest: 64, newMeasuresPerRequest: 32, operationsBytes: 48 * 1024,
+    return { automaticFingering: { tools: ['request_auto_fingering', 'get_auto_fingering_result', 'apply_auto_fingering'],
+      requiresCheckout: true, fixedFingersPreserved: true, expandsOverlappingVoices: true, expandsTies: true, validation: 'existing Auto Assign motion validation',
+      graceNotes: 'Included with their principal note; assignments identify them by graceNoteId.',
+      restrictions: ['A continuous seed range in one staff/voice; overlapping same-hand voices and entire ties are included automatically.', 'Trills and substitutions are unsupported.'],
+      maxNotes: 256, maxJobsPerCheckout: 16 },
+      operations: Contract.names, ...(operationSchema ? { operationSchema } : {}), limits: { operationsPerRequest: 64, newMeasuresPerRequest: 32, operationsBytes: 48 * 1024,
       successfulRequestsPerCheckout: 64, rangeMeasures: 8, responseBytes: 200 * 1024, voicesPerStaff: 3, midi: [21, 108], measureAdditionScoreLimit: 512 },
       timeUnit: 'quarter note; offsets and durations are exact {numerator, denominator} fractions',
       readWithoutCheckout: true, batchRequiresExpectedRevision: true, editsAreAtomic: true,

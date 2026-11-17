@@ -1,4 +1,4 @@
-import ScorePlaybackPlan, { type PlaybackPlan } from './score-playback-plan.ts';
+import ScorePlaybackPlan, { keyHoldSeconds, type PlaybackPlan } from './score-playback-plan.ts';
 import ScoreTimeline from '../score/score-timeline.ts';
 import TieFingerings from '../score/tie-fingerings.ts';
 import type { ScoreProject } from '../score/types.ts';
@@ -28,7 +28,8 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
   const clipped = resolved ? AnimationRange.clip(fullPlayback, resolved, prepared.clock) : undefined;
   const playback = clipped?.playback ?? fullPlayback, offset = clipped?.startSeconds ?? 0;
   const originalEvents = new Map(fullPlayback.events.map(event => [event.sourceNoteId, event]));
-  const relevant = new Set(playback.events.flatMap(event => event.performance?.map(source => source.noteId) ?? []));
+  const relevant = new Set(playback.events.flatMap(event =>
+    event.performance?.filter((_, index) => keyHoldSeconds(event, index) > 0).map(source => source.noteId) ?? []));
   const measures = project.outline.filter(block => block.type === 'measure');
   const locations = new Map<string, string>();
   const issues: AnimationIssue[] = [];
@@ -50,6 +51,8 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
   let attacks = 0, assigned = 0;
   const add = (note: Note, origin: AnimationPerformance['origins'][number]) => { notes.push(note); origins.push(origin); };
   for (const event of playback.events) event.pitches.forEach((midiNote, index) => {
+    const duration = keyHoldSeconds(event, index);
+    if (duration <= 0) return;
     attacks++;
     const source = event.performance?.[index];
     const label = `${locations.get(source?.noteId ?? '') ?? 'Score'}, MIDI ${midiNote}`;
@@ -59,7 +62,6 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
     }
     assigned++;
     const origin = { noteId: source.noteId, pitchIndex: source.pitchIndex, label };
-    const duration = event.pitchDurationsSeconds?.[index] ?? event.durationSeconds;
     const note: Note = { time: event.startSeconds + ANIMATION_LEAD_IN, duration, midiNote,
       hand: source.hand, finger: source.fingering, voice: source.voice };
     if (source.substitutionFingering === undefined) add(note, origin);
@@ -68,7 +70,7 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
       // short overlap. Audio remains one uninterrupted note.
       const original = originalEvents.get(event.sourceNoteId)!;
       const originalIndex = original.pitches.indexOf(midiNote);
-      const originalDuration = original.pitchDurationsSeconds?.[originalIndex] ?? original.durationSeconds;
+      const originalDuration = keyHoldSeconds(original, originalIndex);
       const handoff = original.startSeconds + originalDuration / 2 - offset + ANIMATION_LEAD_IN;
       const end = note.time + duration;
       if (handoff <= note.time) add({ ...note, finger: source.substitutionFingering }, origin);
@@ -91,6 +93,7 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
 /** Audio shares motion's lead-in and keeps pedal sustain separate from key hold. */
 export function animationAudio(performance: AnimationPerformance): PlaybackPlan {
   return { ...performance.playback, durationSeconds: performance.duration,
-    events: performance.playback.events.map(event => ({ ...event, startSeconds: event.startSeconds + ANIMATION_LEAD_IN })),
+    events: performance.playback.events.map(event => ({ ...event, startSeconds: event.startSeconds + ANIMATION_LEAD_IN,
+      ...(event.rollAnchorSeconds !== undefined ? { rollAnchorSeconds: event.rollAnchorSeconds + ANIMATION_LEAD_IN } : {}) })),
     pedalEvents: performance.playback.pedalEvents.map(event => ({ ...event, atSeconds: event.atSeconds + ANIMATION_LEAD_IN })) };
 }

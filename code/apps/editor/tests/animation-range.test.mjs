@@ -4,7 +4,6 @@ import Factory from '../src/domain/score/score-project.ts';
 import Measure from '../src/domain/score/score-measure.ts';
 import Timeline from '../src/domain/score/score-timeline.ts';
 import Plan from '../src/domain/performance/score-playback-plan.ts';
-import Range from '../src/domain/performance/animation-range.ts';
 import Selection from '../src/state/animation-selection.ts';
 import { inspectAnimation, animationAudio, ANIMATION_LEAD_IN } from '../src/domain/performance/animation-performance.ts';
 import { generateAnimation } from '../src/service/playback/animation-generation.ts';

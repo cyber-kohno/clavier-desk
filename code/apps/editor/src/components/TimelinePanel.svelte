@@ -873,6 +873,8 @@
     grid-column: 2;
     grid-row: 2;
     position: relative;
+    /* Keep note and badge layers below the voice navigator overlay. */
+    isolation: isolate;
     min-width: 0;
     min-height: 0;
     overflow: hidden;

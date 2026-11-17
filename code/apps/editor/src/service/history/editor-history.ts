@@ -1,8 +1,6 @@
 import type { ScoreProject } from '../../domain/score/types.ts';
 import type { OutlineCursor } from '../../state/outline-cursor.ts';
 import type { TimelineCursor } from '../../state/timeline-cursor.ts';
-import type { PedalCursor } from '../../state/pedal.ts';
-import type { OttavaCursor } from '../../state/ottava.ts';
 
 export type EditorHistorySnapshot = {
   project: ScoreProject;
@@ -10,9 +8,7 @@ export type EditorHistorySnapshot = {
   timelineCursor: TimelineCursor;
   mode: 'outline' | 'timeline';
   pedalMode: boolean;
-  pedalCursor: PedalCursor;
   ottavaMode: boolean;
-  ottavaCursor: OttavaCursor;
 };
 
 export type EditorHistoryValue = {

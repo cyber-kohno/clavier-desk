@@ -4,7 +4,21 @@
 
 接続基盤については[MCP開発の引継ぎ資料](../../../docs/plan/mcp/handoff.md)、現在の編集・排他仕様については[チェックアウトとUI入力](../../../docs/plan/mcp/checkout-and-ui.md)を参照してください。
 
-空からの構築に加え、既存曲への追加・修正と、装飾音符・トリル・ペダル等の専門編集に対応しています。現行仕様は[継続的な譜面編集](../../../docs/plan/mcp/score-editing-api.md)、表現範囲は[対応表](../../../docs/plan/mcp/notation-capabilities.md)を参照してください。11ツールと28種類の編集操作があります。
+空からの構築に加え、既存曲への追加・修正と、装飾音符・トリル・ペダル等の専門編集に対応しています。現行仕様は[継続的な譜面編集](../../../docs/plan/mcp/score-editing-api.md)、表現範囲は[対応表](../../../docs/plan/mcp/notation-capabilities.md)を参照してください。14ツールと28種類の編集操作があります。
+
+## 自動運指
+
+既存ダイアログと同じWorker・自動運指エンジンを使用します。計算候補はエンジン内で既存のモーション検証を通過したものです。MCPから別途アニメーション生成・検証は行いません。
+
+1. `begin_checkout`で取得した`checkoutId`と`revision`を使用します。
+2. `request_auto_fingering(sessionId, checkoutId, expectedRevision, requestId, staff, noteIds)`で計算を開始します。`noteIds`は読み取った既存IDで、同じ段・声部の連続した開始範囲です。同じ手の重なる別声部・通常タイ列を自動追加し、追加後も最大256ノートです。返されたincludedNoteIds・addedNotes・voiceCountで実際の対象を確認できます。既存の指は固定されます。同一リクエストの再送では全引数を保持します。
+3. `get_auto_fingering_result(sessionId, checkoutId, jobId)`で進捗・結果を取得します。`ready`なら候補の指番号・評価・警告、`failed`なら理由を確認します。失敗時は適用できません。
+4. `apply_auto_fingering(sessionId, checkoutId, jobId, expectedRevision)`で候補を作業用譜面に適用します。計算開始後に版が変わると拒否します。同じjobの適用再送は元の結果を返します。
+5. `finish_checkout`でまとめて反映し、1回のUndoで戻せます。`cancel_checkout`、公開停止・強制停止では計算と候補を破棄します。
+
+同時計算は1つ、1チェックアウト最大16計算です。トリル・アルペジオ・保持中の指替えなどの既存Auto Assignの制限はそのまま結果に表示します。同じ手の追加対象をまとめて候補算出・検証・適用します。対象範囲の外や反対の手も含む全曲のアニメーション生成成功を保証するものではありません。
+
+更新後はエディターの再読込／再起動とMCPプロセスの再接続が必要です。既存の公開セッションで新しいツールが直ちに使えることを意味しません。
 
 ## ビルドと登録
 
@@ -83,3 +97,6 @@ node smoke.mjs ./target/release/clavierdesk-mcp.exe --absent <previousSessionId>
 ```
 
 MCP初期化、ツール一覧、セッション一覧、公開中の各WebViewへの疎通、不正なIDの拒否を確認します。公開セッションが0件でも、MCPサーバー単体の検証は成功します。
+
+
+装飾音の自動運指対応（2026-11-18）: 選択した主音に付属する装飾音を含め、共通の再生計画の発音順・演奏時間で一続きに計算し、同じモーション検証を行います。指定済みの装飾音の指も固定します。未指定件数・結果一覧には装飾音を含みます。MCP候補の装飾音は親のnoteIdとgraceNoteIdで識別し、主音とまとめて原子的に適用します。アルペジオ・トリル・保持中の指替えは引き続き未対応です。

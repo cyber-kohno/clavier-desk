@@ -1,3 +1,4 @@
+import ReattackPerformance from './reattack-performance.ts';
 import ScoreDynamics from '../score/score-dynamics.ts';
 import ScoreTimeline, { type LocatedTimelineNote } from '../score/score-timeline.ts';
 import ScoreClock from './score-clock.ts';
@@ -12,6 +13,7 @@ import ScorePedal from '../score/score-pedal.ts';
 import ArticulationPerformance from './articulation-performance.ts';
 import ScoreFermata from '../score/score-fermata.ts';
 import TieFingerings from '../score/tie-fingerings.ts';
+import { MIN_REATTACK_GAP_SECONDS } from '../theory/performance-timing.ts';
 import type { ScoreProject, PianoStaffName, PianoPitch } from '../score/types.ts';
 
 /** Identity and fingering travel with the performed attack, including ornaments. */
@@ -31,13 +33,22 @@ export type PlaybackEvent = {
   performance?: PerformancePitch[];
   /** Per-pitch lengths are used when a chord's pitches articulate differently. */
   pitchDurationsSeconds?: number[];
+  /** Upper bound on key hold when a slur extends the sounding duration. */
+  keyHoldLimitsSeconds?: number[];
   graceNote?: boolean;
+  /** Principal onset of the rolled chord, before distributing its attacks. */
+  rollAnchorSeconds?: number;
   /** Absolute MIDI attack velocity. */
   velocity?: number;
   sourceNoteId: string;
   notationNoteIds?: string[];
   notationRanges?: { noteId: string; startSeconds: number; endSeconds?: number }[];
 };
+
+export function keyHoldSeconds(event: PlaybackEvent, index: number): number {
+  return Math.min(event.pitchDurationsSeconds?.[index] ?? event.durationSeconds,
+    event.keyHoldLimitsSeconds?.[index] ?? Infinity);
+}
 export type PlaybackPedalEvent = { atSeconds: number; action: 'start' | 'change' | 'stop' };
 export type PlaybackPlan = {
   startPosition: number;
@@ -135,7 +146,7 @@ namespace ScorePlaybackPlan {
     const events: PlaybackEvent[] = [];
     const noteGroups: {
       staff: PianoStaffName; voiceIndex: number; slurIds: Set<string>; startPosition: number; endPosition: number;
-      startSeconds: number; endSeconds: number; hasStaccato: boolean; events: PlaybackEvent[];
+      startSeconds: number; endSeconds: number; hasStaccato: boolean; tied: boolean; events: PlaybackEvent[];
     }[] = [];
     for (const { staff, voiceIndex, groups } of prepared.voices) {
       for (const members of groups) {
@@ -220,6 +231,7 @@ namespace ScorePlaybackPlan {
             noteEvents.push({ startSeconds: effectiveAttackSeconds - startSeconds,
               durationSeconds: performedEndSeconds - effectiveAttackSeconds, pitches: [attack.midi],
               performance: [{ ...identity(first.note.pitches)[first.note.pitches.findIndex(pitch => pitch.midi === attack.midi)] }],
+              rollAnchorSeconds: principalStartSeconds + preRollShift - startSeconds,
               sourceNoteId: `${first.note.id}-arpeggio-${index}` });
           });
         } else if (performedEndSeconds > effectiveStartSeconds) {
@@ -248,7 +260,7 @@ namespace ScorePlaybackPlan {
         events.push(...noteEvents);
         noteGroups.push({ staff, voiceIndex, slurIds: new Set(members.flatMap(member => [...(prepared.slursByNote.get(member.note.id) ?? [])])),
           startPosition: noteStart, endPosition: noteEnd, startSeconds: clock.secondsAt(noteStart),
-          endSeconds: performedEndSeconds, hasStaccato: last.note.staccato !== undefined, events: noteEvents });
+          endSeconds: performedEndSeconds, hasStaccato: last.note.staccato !== undefined, tied: members.length > 1, events: noteEvents });
       }
     }
 
@@ -285,6 +297,15 @@ namespace ScorePlaybackPlan {
             (event.startSeconds + startSeconds));
         });
         if (ends.length > 0) {
+          if (slurred) {
+            // A legato sound tail does not require holding the previous key through
+            // the next attack. Keep written tie holds and let reattack timing handle repeated keys.
+            const release = nextOnsetSeconds - MIN_REATTACK_GAP_SECONDS;
+            const keyEnd = group.tied ? Math.max(release, group.endSeconds) : release;
+            const limit = Math.max(0.001, keyEnd - startSeconds - event.startSeconds);
+            event.keyHoldLimitsSeconds = event.pitches.map((pitch, index) =>
+              nextPitchOnsets.has(pitch) ? ends[index] : Math.min(ends[index], limit));
+          }
           event.pitchDurationsSeconds = ends;
           event.durationSeconds = Math.max(...ends);
         }
@@ -296,21 +317,24 @@ namespace ScorePlaybackPlan {
     const eventDuration = events.reduce((maximum, event) => Math.max(maximum, event.startSeconds + event.durationSeconds), 0);
     const plan = { startPosition, endPosition, durationSeconds: Math.max(scoreDuration, eventDuration),
       pedalInitiallyDown, pedalEvents, events };
-    if (prepared.playbackClock === clock) return plan;
+    if (prepared.playbackClock === clock) return { ...plan, events: ReattackPerformance.apply(plan.events) };
     // Build ornaments and articulations in base time first. Stretch each onset/release
     // afterwards, so attacks crossing a boundary slow only inside the fermata range.
     const performedStart = prepared.playbackClock.secondsAt(startPosition);
     const timeAt = (seconds: number) => prepared.playbackClock.secondsAt(clock.positionAt(startSeconds + seconds)) - performedStart;
     return { ...plan, durationSeconds: timeAt(plan.durationSeconds),
       pedalEvents: pedalEvents.map(event => ({ ...event, atSeconds: timeAt(event.atSeconds) })),
-      events: events.map(event => {
+      events: ReattackPerformance.apply(events.map(event => {
         const start = timeAt(event.startSeconds);
         const pitchDurationsSeconds = event.pitchDurationsSeconds?.map(duration => timeAt(event.startSeconds + duration) - start);
+        const keyHoldLimitsSeconds = event.keyHoldLimitsSeconds?.map(duration => timeAt(event.startSeconds + duration) - start);
         return { ...event, startSeconds: start,
+          ...(event.rollAnchorSeconds !== undefined ? { rollAnchorSeconds: timeAt(event.rollAnchorSeconds) } : {}),
           notationRanges: event.notationRanges?.map(range => ({ ...range, startSeconds: timeAt(range.startSeconds), endSeconds: range.endSeconds === undefined ? undefined : timeAt(range.endSeconds) })),
           durationSeconds: timeAt(event.startSeconds + event.durationSeconds) - start,
-          ...(pitchDurationsSeconds ? { pitchDurationsSeconds } : {}) };
-      }) };
+          ...(pitchDurationsSeconds ? { pitchDurationsSeconds } : {}),
+          ...(keyHoldLimitsSeconds ? { keyHoldLimitsSeconds } : {}) };
+      })) };
   }
 }
 export default ScorePlaybackPlan;

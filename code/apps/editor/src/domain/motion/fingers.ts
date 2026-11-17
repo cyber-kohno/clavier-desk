@@ -10,7 +10,9 @@ export const specs = {
   5: { x:0.039, z:0.055, lengths:[0.032,0.025], spread:-0.12 },
 };
 export type JointPose = { spread:number; proximal:number; distal:number; opposition?:number };
-export const spreadLimits = (finger:Finger):[number,number] => finger===1 ? [-0.4,0.4] : [-0.55,0.55];
+// The outer digits can open away from the palm for octave grips.
+export const spreadLimits = (finger:Finger):[number,number] =>
+  finger===1 ? [-0.4,0.55] : finger===5 ? [-0.75,0.55] : [-0.55,0.55];
 export function restPose(finger:Finger, spreadOffset=0):JointPose {
   return {spread:specs[finger].spread+spreadOffset,proximal:-0.15,distal:-0.1};
 }
@@ -46,7 +48,8 @@ export function solveFinger(hand:Hand,finger:Finger,target:Vec3,thumbUnder=false
   const spread=Math.atan2(-dx,dz), offset=spread-spec.spread;
   // Opposition for the scale experiment only. Manual splay and dyads keep their limits.
   // This is a geometric thumb swing, not an anatomical joint model.
-  const [min,max]=thumbUnder&&finger===1 ? [-1.9,0.4] : spreadLimits(finger);
+  const [ordinaryMin,max]=spreadLimits(finger);
+  const min=thumbUnder&&finger===1 ? -1.9 : ordinaryMin;
   if(offset<min||offset>max)return;
   const radial=Math.hypot(dx,dz),[a,b]=spec.lengths;
   const cosine=(radial*radial+down*down-a*a-b*b)/(2*a*b);

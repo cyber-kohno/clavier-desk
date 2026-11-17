@@ -18,7 +18,15 @@ Ordinary tied continuations need no repeated fingering. An explicit finger chang
 
 Motion and audio have the same 600 ms preparation lead-in. Full-score duration includes final rests and 620 ms for release/recovery. Playback speed scales the shared timeline rather than replanning motion.
 
-Generation uses the immutable current editor revision. The generated result survives closing and reopening the modal for the lifetime of the app. Reopening after editing marks it as outdated; the old result is still playable until explicitly regenerated. Nothing is added to the project file or editor Undo history. Reopening resets playback and camera to their initial state.
+Generation uses the immutable current editor revision. The latest generated result survives closing and reopening the modal for the lifetime of the app, provided the requested measure range matches. A different range or full-score request does not reuse that result. Reopening after editing marks a matching result as outdated; the old result is still playable until explicitly regenerated. Nothing is added to the project file or editor Undo history. Reopening resets playback and camera to their initial state.
+
+## Selected-measure preview — 2026-11-18
+
+Opening with `Ctrl+P` while the outline has a range-selection anchor previews only the selected measure blocks. Section blocks do not contribute notes: a section plus one measure still requests a partial preview of that one measure. A range with no measure reports an error. Opening without an outline range, including from the timeline, previews the full score. The modal title shows `Full score` or `Measures N–M`.
+
+Selected measures include both staves and all voices. The shared playback plan retains the original tempo, dynamics, fermatas and pedal context, then clips notes and pedal events to the selected interval. Unrelated outside notes do not require fingerings. Ties crossing the start inherit the original attack's finger, including an outside head; their held contact is prepared at the range start. Ties crossing the end stop at the range end. Substitutions keep their original full-hold midpoint, carrying the receiving finger when that midpoint precedes the range. Selected grace notes and rolled-chord preparation retain their pre-roll. The range includes its rests, the shared 600 ms preparation and 620 ms release/recovery; a held pedal is released at its end.
+
+Verification: nine range tests and all 24 related range/performance/note-stream tests passed. Type checking reports zero errors and the same three existing warnings. The production build passes. The full suite has 551 passes and the same 23 previously identified failures (574 tests). In a disposable browser score, selecting a section and one measure generated `Measures 1–1` successfully despite an unassigned finger in the next measure. Reopening retained the matching result; clearing the range showed full-score missing-fingering diagnostics without reusing the partial result.
 
 ## Validation and errors
 

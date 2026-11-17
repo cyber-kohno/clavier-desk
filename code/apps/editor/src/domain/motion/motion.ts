@@ -18,7 +18,8 @@ export type { Vec3, Hand } from './fingers.ts';
 export type Note = { time:number; duration:number; midiNote:number; hand:Hand; finger:Finger; action?:'substitute';voice?:string };
 export const TRAVEL=0.01, HOVER=0.018;
 export const APPROACH=0.12, RELEASE=0.12, MOVE=0.3;
-export const MIN_GAP=0.01;
+export { MIN_REATTACK_GAP_SECONDS as MIN_GAP } from '../theory/performance-timing.ts';
+import { MIN_REATTACK_GAP_SECONDS as MIN_GAP } from '../theory/performance-timing.ts';
 type Group={notes:Note[]; approach:number; release:number; plan?:ChordPlan;held?:HeldPlan;independent?:boolean;windows?:{note:Note;start:number;end:number}[]};
 const groupEnd=(group:Group)=>Math.max(...group.notes.map(n=>n.time+n.duration));
 const groupCache=new WeakMap<Note[],Record<Hand,Group[]>>();
@@ -34,11 +35,31 @@ function groupsFor(notes:Note[]) {
     const merged:Group[]=[];
     for(const group of result[hand]) {
       const previous=merged.at(-1);
-      if(previous&&group.notes[0].time-groupEnd(previous)<MIN_GAP-1e-9) {
+      const gap=previous?group.notes[0].time-groupEnd(previous):Infinity;
+      // Sequential single strikes have their own release and approach windows.
+      // A short silence alone does not need a joint path for held contacts.
+      const separateStrikes=gap>1e-9&&previous?.notes.length===1&&!previous.independent&&
+        group.notes.length===1&&group.notes[0].action!=='substitute';
+      if(previous&&gap<MIN_GAP-1e-9&&!separateStrikes) {
         previous.notes.push(...group.notes);previous.independent=true;
       } else merged.push({...group,independent:group.notes.some(n=>n.duration!==group.notes[0].duration||n.action==='substitute')});
     }
     result[hand]=merged;
+    const fingerEnds=new Map<number,number>(), keyEnds=new Map<number,number>();
+    for(const group of merged) {
+      // Within a group, heldEvents checks reuse and validates substitutions.
+      // Across groups there is no handoff and the same release gap still applies.
+      for(const note of group.notes) {
+        const end=Math.max(fingerEnds.get(note.finger)??-Infinity,keyEnds.get(note.midiNote)??-Infinity);
+        if(note.time-end<MIN_GAP-1e-9)
+          throw new Error(`${hand==='left'?'Left hand':'Right hand'} ${note.time.toFixed(3)} s: Finger ${note.finger}, MIDI${note.midiNote}: insufficient release time. Reusing a finger or key requires at least ${MIN_GAP*1000} ms of release time.`);
+      }
+      for(const note of group.notes) {
+        const end=note.time+note.duration;
+        fingerEnds.set(note.finger,Math.max(fingerEnds.get(note.finger)??-Infinity,end));
+        keyEnds.set(note.midiNote,Math.max(keyEnds.get(note.midiNote)??-Infinity,end));
+      }
+    }
   }
   for(const hand of ['left','right'] as const)for(const group of result[hand]) {
     if(group.notes.length>1&&!group.independent) {
@@ -70,7 +91,7 @@ function groupsFor(notes:Note[]) {
     try {
       const events=heldEvents(group.notes,group.approach,group.release);
       group.held=planHeld(hand,events);group.plan=group.held.geometry;
-      group.windows=events.map(e=>({note:e.note,start:e.note.time-e.approach,end:e.note.time+e.note.duration+e.release}));
+      group.windows=group.held.events.map(e=>({note:e.note,start:e.note.time-e.approach,end:e.note.time+e.note.duration+e.release}));
     } catch(error) {
       throw new Error(`${hand==='left'?'Left hand':'Right hand'} ${group.notes[0].time.toFixed(3)} s (held passage): ${error instanceof Error?error.message:String(error)}`);
     }

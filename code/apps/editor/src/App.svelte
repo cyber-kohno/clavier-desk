@@ -11,8 +11,6 @@
   import PedalInput from './state/pedal-input.ts';
   import OttavaInput from './state/ottava-input.ts';
   import { cycleGraceFocus, focusGraceParent, getFocusedGrace } from './state/grace-input';
-  import { createPedalCursor } from './state/pedal';
-  import { createOttavaCursor } from './state/ottava.ts';
   import OutlinePanel from './components/OutlinePanel.svelte';
   import TimelinePanel from './components/TimelinePanel.svelte';
   import NoteMenu from './components/NoteMenu.svelte';
@@ -29,7 +27,7 @@
 
   import NoteSettings, { type NoteSettingsState } from './state/note-settings.ts';
 
-  import { controlNoteMenu, createNoteMenuItems } from './state/note-menu';
+  import { controlNoteMenu, createNoteMenuItems, noteMenuItems } from './state/note-menu';
 
   import { type ScoreProject } from "./domain/score/types.ts";
   import ScoreFingerings, { type FingeringRules } from './domain/score/score-fingerings.ts';
@@ -281,8 +279,8 @@
   function menuKey(key: string, path = menuPath) {
     if (!uiEditAllowed() || !path) return;
     const previousProject = project;
-    const ids = selectedTimelineNotes.map(entry => entry.note.id);
-    const result = controlNoteMenu(path, key, createNoteMenuItems(project, ids));
+    const ids = selectedTimelineNoteIds;
+    const result = controlNoteMenu(path, key, currentNoteMenuItems);
     menuPath = result.path;
     if (!menuPath) keyHold.reset();
     if (result.action === 'expression') openExpressionModal();
@@ -296,9 +294,9 @@
     recordProjectChange(previousProject);
   }
   let pedalMode = $state(false);
-  let pedalCursor = $state(createPedalCursor());
+  const pedalCursor = $derived(EditorNavigation.timeCursor(timelineCursor));
   let ottavaMode = $state(false);
-  let ottavaCursor = $state(createOttavaCursor());
+  const ottavaCursor = $derived(EditorNavigation.timeCursor(timelineCursor));
   function captureHistorySnapshot(): EditorHistorySnapshot {
     return {
       project,
@@ -306,9 +304,7 @@
       timelineCursor: { ...timelineCursor },
       mode,
       pedalMode,
-      pedalCursor: { ...pedalCursor, value: { ...pedalCursor.value } },
       ottavaMode,
-      ottavaCursor: { ...ottavaCursor, value: { ...ottavaCursor.value } },
     };
   }
   const editorHistory = EditorHistory.create(captureHistorySnapshot());
@@ -367,9 +363,7 @@
     timelineCursor = { ...snapshot.timelineCursor };
     mode = snapshot.mode;
     pedalMode = snapshot.pedalMode;
-    pedalCursor = { ...snapshot.pedalCursor, value: { ...snapshot.pedalCursor.value } };
     ottavaMode = snapshot.ottavaMode;
-    ottavaCursor = { ...snapshot.ottavaCursor, value: { ...snapshot.ottavaCursor.value } };
   }
   function showProjectFileError(result: Extract<FileOperationResult<unknown>, { type: 'error' }>) {
     const messages = {
@@ -507,6 +501,9 @@
   const isEditingInitialMeter = $derived(mode === 'outline' &&
     outlineCursor.blockId === project.outline[0].id && keyHold.meterEditing && !keyHold.tempoEditing && !keyHold.keySignatureEditing);
   const selectedTimelineNotes = $derived(getSelectedTimelineNotes(project.outline, timelineCursor));
+  const selectedTimelineNoteIds = $derived(selectedTimelineNotes.map(entry => entry.note.id));
+  const fingeringMenuVisible = $derived(noteMenuItems[menuPath?.[0] ?? -1]?.children?.some(item => item.action === 'clear-fingering') ?? false);
+  const currentNoteMenuItems = $derived(createNoteMenuItems(project, selectedTimelineNoteIds, fingeringMenuVisible));
   const measureKeyCache = $derived(ScoreKey.buildMeasureCache(project.outline));
 
   const pitchClassNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -517,6 +514,10 @@
 
   function syncOutlineToTimelinePosition(positionSixteenths: number) {
     ({outlineCursor,timelineCursor}=EditorNavigation.sync(project.outline,outlineCursor,timelineCursor,positionSixteenths));
+  }
+
+  function syncTimeModePosition(position: number) {
+    ({ outlineCursor, timelineCursor } = EditorNavigation.moveToTime(project.outline, outlineCursor, timelineCursor, position));
   }
 
   function advancePlaybackPosition(positionSixteenths: number) {
@@ -694,8 +695,6 @@
                 ...timelineCursor, positionSixteenths: entry.startSixteenths,
                 focusedNoteId: null, focusedGraceId: null, focusedPitchIndex: null, selectionAnchorNoteId: null,
               }, entry.startSixteenths));
-            pedalCursor = { ...pedalCursor, position: entry.startSixteenths };
-            ottavaCursor = { ...ottavaCursor, position: entry.startSixteenths };
             keyHold.reset();
           } else playback.stop();
         } else playback.stop();
@@ -741,9 +740,7 @@
         pedalMode = !pedalMode;
         if (pedalMode) {
           ottavaMode = false;
-          pedalCursor = { ...pedalCursor, position: timelineCursor.positionSixteenths };
-          const block = ScoreTimeline.blockAt(project.outline, pedalCursor.position);
-          if (block) outlineCursor = { blockId: block.id };
+          syncTimeModePosition(pedalCursor.position);
         } else syncOutlineToTimelinePosition(timelineCursor.positionSixteenths);
       }
       return;
@@ -753,9 +750,7 @@
       if (!event.repeat) {
         ottavaMode = !ottavaMode;
         if (ottavaMode) {
-          ottavaCursor = { ...ottavaCursor, position: timelineCursor.positionSixteenths };
-          const block = ScoreTimeline.blockAt(project.outline, ottavaCursor.position);
-          if (block) outlineCursor = { blockId: block.id };
+          syncTimeModePosition(ottavaCursor.position);
         } else syncOutlineToTimelinePosition(timelineCursor.positionSixteenths);
       }
       return;
@@ -765,7 +760,7 @@
       if(!result.handled)return;
       event.preventDefault();
       const previousProject = project;
-      pedalCursor=result.cursor;
+      ({ outlineCursor, timelineCursor } = EditorNavigation.applyTimeCursor(project.outline, outlineCursor, timelineCursor, result.cursor));
       if(result.exit){pedalMode=false;syncOutlineToTimelinePosition(timelineCursor.positionSixteenths);}
       if(result.outlineBlockId)outlineCursor={blockId:result.outlineBlockId};
       if(result.command?.type==='add')project=PedalEditor.add(project,result.command.position,result.command.action);
@@ -778,7 +773,7 @@
       if(!result.handled)return;
       event.preventDefault();
       const previousProject=project;
-      ottavaCursor=result.cursor;
+      ({ outlineCursor, timelineCursor } = EditorNavigation.applyTimeCursor(project.outline, outlineCursor, timelineCursor, result.cursor));
       if(result.exit){ottavaMode=false;syncOutlineToTimelinePosition(timelineCursor.positionSixteenths);}
       if(result.outlineBlockId)outlineCursor={blockId:result.outlineBlockId};
       if(result.command?.type==='add')project=OttavaEditor.add(project,result.command.position,result.command.staff,result.command.action);
@@ -886,11 +881,7 @@
       outline={project.outline}
       trills={project.trills}
       cursor={outlineCursor}
-      timelineCursor={pedalMode
-        ? { ...timelineCursor, positionSixteenths: pedalCursor.position, focusedNoteId: null, selectionAnchorNoteId: null }
-        : ottavaMode
-          ? { ...timelineCursor, positionSixteenths: ottavaCursor.position, focusedNoteId: null, selectionAnchorNoteId: null }
-          : timelineCursor}
+      {timelineCursor}
       {pedalMode}
       {pedalCursor}
       {ottavaMode}
@@ -907,7 +898,7 @@
 </div>
 
 {#if !mcpCheckout && menuPath && timelineCursor.focusedNoteId}
-  <NoteMenu path={menuPath} noteId={timelineCursor.focusedNoteId} items={createNoteMenuItems(project, selectedTimelineNotes.map(entry => entry.note.id))}
+  <NoteMenu path={menuPath} noteId={timelineCursor.focusedNoteId} items={currentNoteMenuItems}
     choose={(path) => menuKey('Enter', path)} close={closeMenu} />
 {/if}
 {#if !mcpCheckout && sectionTextInput}

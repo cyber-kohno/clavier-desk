@@ -3,6 +3,7 @@ import { fingers, fingerPoints } from '../motion/fingers.ts';
 import type { Finger } from '../motion/fingers.ts';
 import { planChord } from '../motion/chords.ts';
 import { validate, preparePerformance, type Note } from '../motion/motion.ts';
+import { MIN_REATTACK_GAP_SECONDS } from '../theory/performance-timing.ts';
 import type { FingeringPassage, FingeringStep } from './fingering-passage.ts';
 import type { FingeringAssignment, FingeringIssue } from '../score/fingering-selection.ts';
 
@@ -67,7 +68,11 @@ namespace AutomaticFingering {
     if (!(interval > 0)) return Infinity;
     // Every still-held contact reserves its finger. This includes slur overlaps.
     for (const [i, a] of before.attacks.entries()) for (const [j, b] of after.attacks.entries()) {
-      if (before.time + a.duration > after.time + 1e-7 && previous.fingers[i] === next.fingers[j] && a.midi !== b.midi) return Infinity;
+      // Carried contacts keep their finger until release, even across many onsets.
+      if (a.targets === b.targets) {
+        if (previous.fingers[i] !== next.fingers[j]) return Infinity;
+      } else if ((previous.fingers[i] === next.fingers[j] || a.midi === b.midi) &&
+        after.time - (before.time + a.duration) < MIN_REATTACK_GAP_SECONDS - 1e-9) return Infinity;
     }
     const gap = after.time - Math.max(...before.attacks.map(attack => before.time + attack.duration));
     const freedom = Math.min(1, Math.max(0, gap) / 0.22);
@@ -109,7 +114,9 @@ namespace AutomaticFingering {
     for (const [index, step] of passage.steps.entries()) {
       progress({ phase: 'search', completed: index, total: passage.steps.length });
       const available = candidates(passage, step, cache);
-      if (!available.length) return { candidates: [], issues: [{ message: `${step.label}: no chord fingering satisfies the fixed fingers and this hand model's reach/order limits.`, noteId: step.attacks[0]?.targets[0]?.noteId }] };
+      const onset = step.attacks.find(attack => attack.onsetTime === undefined || Math.abs(attack.onsetTime - step.time) < 1e-8);
+      const noteId = onset?.targets[0]?.noteId;
+      if (!available.length) return { candidates: [], issues: [{ message: `${step.label}: no chord fingering satisfies the fixed fingers and this hand model's reach/order limits.`, noteId }] };
       const expanded: Path[] = [];
       for (const candidate of available) {
         if (!index) expanded.push({ candidate, cost: candidate.cost, stepCost: candidate.cost });
@@ -126,7 +133,7 @@ namespace AutomaticFingering {
         const key = `${path.previous?.candidate.fingers.join('') ?? ''}/${path.candidate.fingers.join('')}`;
         const count = counts.get(key) ?? 0; counts.set(key, count + 1); return count < 3;
       }).slice(0, beamWidth);
-      if (!beam.length) return { candidates: [], issues: [{ message: `${step.label}: no candidate in the bounded search can continue without reusing a held finger. Check the fixed fingers or select a shorter range.`, noteId: step.attacks[0]?.targets[0]?.noteId }] };
+      if (!beam.length) return { candidates: [], issues: [{ message: `${step.label}: no candidate in the bounded search can continue while preserving held fingers and allowing time to release a reused finger or key. Check the fixed fingers or select a shorter range.`, noteId }] };
     }
     const attempts = beam.slice(0, validationLimit);
     let lastError = '';
@@ -137,9 +144,10 @@ namespace AutomaticFingering {
       for (const [index, node] of sequence.entries()) {
         const step = passage.steps[index];
         step.attacks.forEach((attack, i) => {
+          if (attack.onsetTime !== undefined && Math.abs(attack.onsetTime - step.time) > 1e-8) return;
           const finger = node.candidate.fingers[i];
           notes.push({ time: step.time, duration: attack.duration, midiNote: attack.midi, hand: passage.hand, finger, voice: 'selected' });
-          for (const target of attack.targets) if (target.fixed === undefined) assignments.push({ noteId: target.noteId, pitchIndex: target.pitchIndex, finger });
+          for (const target of attack.targets) if (target.fixed === undefined) assignments.push({ noteId: target.noteId, ...(target.graceNoteId ? { graceNoteId: target.graceNoteId } : {}), pitchIndex: target.pitchIndex, finger });
         });
         if (node.stepCost >= 4) warnings.push({ message: `${step.label}: a large hand movement, stretch or finger crossing needs review.`, noteId: step.attacks[0].targets[0].noteId });
       }

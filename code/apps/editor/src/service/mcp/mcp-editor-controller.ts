@@ -1,3 +1,4 @@
+import FingeringJobs from './mcp-fingering-jobs.ts';
 import NoteEditor from '../../action/editor/note-editor.ts';
 import ScoreAuthoring, { type AuthoringState } from '../../action/editor/score-authoring.ts';
 import { AuthoringError } from '../../domain/score/score-authoring-input.ts';
@@ -24,6 +25,7 @@ namespace McpEditorController {
     let checkout: { id: string; owner: string; baseline: ScoreProject; project: ScoreProject; timelineCursor: TimelineCursor;
       authoring: AuthoringState; revision: string; baselineFingerprint: string;
       requests: Map<string, { content: string; result: unknown }> } | null = null;
+    const fingerings = FingeringJobs.create();
     let liveFingerprint = '', liveRevision = '';
     const live = () => {
       const project = port.getEditContext().project;
@@ -98,7 +100,7 @@ namespace McpEditorController {
       handle(request: McpBridgeRequest): McpBridgeResponse {
         const params = (request.params ?? {}) as Record<string, unknown>;
         if (request.method === 'ping') return { id: request.id, result: { application: 'ClavierDesk', status: 'ok' } };
-        if (!['beginCheckout', 'finishCheckout', 'cancelCheckout', 'getEditorState', 'applyEdit', 'getScoreOverview', 'getScoreRange', 'getCapabilities'].includes(request.method)) {
+        if (!['beginCheckout', 'finishCheckout', 'cancelCheckout', 'getEditorState', 'applyEdit', 'getScoreOverview', 'getScoreRange', 'getCapabilities', 'requestAutoFingering', 'getAutoFingeringResult', 'applyAutoFingering'].includes(request.method)) {
           return { id: request.id, error: { code: 'UNKNOWN_METHOD', message: 'This MCP method is not supported.' } };
         }
         const owner = typeof params?.ownerId === 'string' ? params.ownerId : '';
@@ -135,7 +137,12 @@ namespace McpEditorController {
         if (!checkout || checkout.owner !== owner || params.checkoutId !== checkout.id) {
           return { id: request.id, error: { code: 'CHECKOUT_REQUIRED', message: 'An active checkoutId owned by this MCP client is required.' } };
         }
+        if (['requestAutoFingering', 'getAutoFingeringResult', 'applyAutoFingering'].includes(request.method)) {
+          try { return { id: request.id, result: Reader.bounded(fingerings.handle(request.method, params, checkout)) }; }
+          catch (error) { return { id: request.id, error: { code: error instanceof AuthoringError ? error.code : 'FINGERING_FAILED', message: error instanceof Error ? error.message : String(error) } }; }
+        }
         if (request.method === 'cancelCheckout') {
+          fingerings.clear();
           checkout = null;
           port.checkoutChanged({ active: false, completed: false });
           return { id: request.id, result: { status: 'cancelled' } };
@@ -165,11 +172,13 @@ namespace McpEditorController {
         }
         if (changed) port.updateProject(checkout.baseline, checkout.project, checkout.baseline.outline.every(block => block.type !== 'measure'));
         const revision = live().revision;
+        fingerings.clear();
         checkout = null;
         port.checkoutChanged({ active: false, completed: true });
         return { id: request.id, result: { status: 'completed', changed, revision } };
       },
       releaseCheckout() {
+        fingerings.clear();
         checkout = null;
         port.checkoutChanged({ active: false, completed: false });
       },

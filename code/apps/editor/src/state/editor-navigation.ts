@@ -4,6 +4,21 @@ import { reconcileTimelineCursorVoice, resetTimelineCursorForStaff, type Timelin
 import ScoreTimeline from '../domain/score/score-timeline.ts';
 export type WorkspaceState = { project: ScoreProject; outlineCursor: OutlineCursor; timelineCursor: TimelineCursor; mode: 'outline' | 'timeline' };
 namespace EditorNavigation {
+  /** Adapter for time-only tools; never uses the tuplet-derived input step. */
+  export function timeCursor(cursor: TimelineCursor) {
+    return { position: cursor.positionSixteenths, value: cursor.placementValue };
+  }
+  export function applyTimeCursor(outline: ScoreProject['outline'], outlineCursor: OutlineCursor, timelineCursor: TimelineCursor,
+    cursor: ReturnType<typeof timeCursor>) {
+    return moveToTime(outline, outlineCursor, { ...timelineCursor, placementValue: { ...cursor.value } }, cursor.position);
+  }
+  /** Time-only modes retain pitch/input settings, but cannot retain an old note focus. */
+  export function moveToTime(outline: ScoreProject['outline'], outlineCursor: OutlineCursor, timelineCursor: TimelineCursor, position: number) {
+    return sync(outline, outlineCursor, {
+      ...timelineCursor, positionSixteenths: position,
+      focusedNoteId: null, focusedGraceId: null, focusedPitchIndex: null, selectionAnchorNoteId: null,
+    });
+  }
   export function sync(outline: ScoreProject['outline'], outlineCursor: OutlineCursor, timelineCursor: TimelineCursor, position = timelineCursor.positionSixteenths) {
     const next = reconcileTimelineCursorVoice(outline, timelineCursor), block = ScoreTimeline.blockAt(outline, position);
     return { timelineCursor: next, outlineCursor: block && block.id !== outlineCursor.blockId ? { blockId: block.id } : outlineCursor };

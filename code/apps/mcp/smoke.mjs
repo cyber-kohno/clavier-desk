@@ -48,7 +48,7 @@ try {
   child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized' }) + '\n');
   assert.equal(initialized.serverInfo.name, 'clavierdesk-mcp');
   const catalog = await call('tools/list');
-  assert.deepEqual(catalog.tools.map(tool => tool.name).sort(), ['apply_edit', 'begin_checkout', 'cancel_checkout', 'finish_checkout', 'get_capabilities', 'get_editor_state', 'get_score_overview', 'get_score_range', 'list_clavierdesk_sessions', 'ping', 'probe_session']);
+  assert.deepEqual(catalog.tools.map(tool => tool.name).sort(), ['apply_auto_fingering', 'get_auto_fingering_result', 'request_auto_fingering', 'apply_edit', 'begin_checkout', 'cancel_checkout', 'finish_checkout', 'get_capabilities', 'get_editor_state', 'get_score_overview', 'get_score_range', 'list_clavierdesk_sessions', 'ping', 'probe_session'].sort());
   for (const name of ['get_editor_state', 'apply_edit', 'finish_checkout']) {
     assert.ok(catalog.tools.find(tool => tool.name === name).inputSchema.required.includes('checkoutId'));
   }

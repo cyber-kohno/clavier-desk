@@ -12,7 +12,7 @@
   let progress = $state<FingeringProgress>({ phase: 'search', completed: 0, total: 1 });
   let result = $state.raw<FingeringResult | null>(null);
   const draft = $derived(result?.candidates[0]);
-  const assigned = $derived(new Map(draft?.assignments.map(item => [`${item.noteId}:${item.pitchIndex}`, item.finger]) ?? []));
+  const assigned = $derived(new Map(draft?.assignments.map(item => [`${item.noteId}:${item.graceNoteId ?? ""}:${item.pitchIndex}`, item.finger]) ?? []));
   let calculation: ReturnType<typeof FingeringCalculation.start> | undefined;
   let dialog: HTMLDialogElement;
   let scrollArea = $state<HTMLDivElement>();
@@ -54,7 +54,7 @@
   }
   function calculate() {
     if (phase === 'running' || inspection.issues.length || !inspection.missing) return;
-    phase = 'running'; result = null; progress = { phase: 'search', completed: 0, total: inspection.attacks.length };
+    phase = 'running'; result = null; progress = { phase: 'search', completed: 0, total: inspection.performanceAttacks.length };
     try {
       calculation = FingeringCalculation.start(project, selection, value => progress = value, value => {
         calculation = undefined; result = value; phase = 'result'; void focusPrimary();
@@ -76,11 +76,11 @@
   oncancel={event => { event.preventDefault(); if (phase === 'running') cancelCalculation(); else close(); }}>
   <header>
     <h2 id="fingering-title">Auto Fingering</h2>
-    <p>{selection.staff === 'upperStaff' ? 'Right hand · Upper staff' : 'Left hand · Lower staff'} · Voice {inspection.voiceIndex + 1} · Measures {inspection.firstMeasure}–{inspection.lastMeasure}</p>
+    <p>{selection.staff === 'upperStaff' ? 'Right hand · Upper staff' : 'Left hand · Lower staff'} · {inspection.voiceCount} voice(s) · Measures {inspection.firstMeasure}–{inspection.lastMeasure}</p>
   </header>
   <div class="content">
     <div class="counts" aria-label="Selection summary">
-      <span><strong>{inspection.attacks.length}</strong> attacks / chords</span>
+      <span><strong>{inspection.performanceAttacks.length}</strong> attacks / chords</span>
       <span><strong>{inspection.fixed}</strong> fixed pitches</span>
       <span><strong>{inspection.missing}</strong> unassigned pitches</span>
     </div>
@@ -88,7 +88,7 @@
     {#if phase === 'confirm'}
       <h3>Review selection</h3>
       <p>Assigned fingers stay fixed. Only unassigned pitches will be filled.</p>
-      <p>Only selected notes are considered. Connections to notes outside the selection and other voices are not checked.</p>
+      <p>{inspection.addedNotes} additional notes included from overlapping voices and complete ties. All listed unassigned pitches will be filled and checked together.</p>
       <p class="hint">To guide the result, assign fingers to important notes before opening this dialog.</p>
     {:else if phase === 'running'}
       <h3 aria-live="polite">{progress.phase === 'search' ? 'Calculating fingering…' : 'Checking hand animation…'}</h3>
@@ -115,8 +115,8 @@
       {#if draft.warnings.length}<ul class="warnings">{#each draft.warnings as warning}<li>{warning.message}</li>{/each}</ul>{/if}
       <div class="result-table">
         <table><thead><tr><th>Note / chord</th><th>Pitch</th><th>Finger</th><th>Status</th></tr></thead>
-          <tbody>{#each inspection.attacks as entry, index}{#each entry.note.pitches as pitch, pitchIndex}
-            <tr><td>{index + 1}</td><td>{pitchName(pitch.midi)}</td><td>{pitch.fingering ?? assigned.get(`${entry.note.id}:${pitchIndex}`)}</td><td>{pitch.fingering === undefined ? 'New' : 'Fixed'}</td></tr>
+          <tbody>{#each inspection.performanceAttacks as entry, index}{#each entry.note.pitches as pitch, pitchIndex}
+            <tr><td>{index + 1}{entry.graceNoteId ? " (grace)" : ""}</td><td>{pitchName(pitch.midi)}</td><td>{pitch.fingering ?? assigned.get(`${entry.noteId}:${entry.graceNoteId ?? ""}:${pitchIndex}`)}</td><td>{pitch.fingering === undefined ? 'New' : 'Fixed'}</td></tr>
           {/each}{/each}</tbody>
         </table>
       </div>

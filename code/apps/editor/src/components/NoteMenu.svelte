@@ -22,11 +22,16 @@
     const totalWidth = Math.min(width, available) * levels.length;
     left = Math.max(8, Math.min(rect.left, window.innerWidth - totalWidth - 8));
     const required = Math.max(...levels.map(level => level.items.length * row + padding * 2)) + path.length * row;
-    top = rect.bottom + 4;
-    if (top + required > window.innerHeight - 8) top = Math.max(8, rect.top - required - 4);
-    height = Math.max(28, window.innerHeight - top - 8);
+    const bottomTop = rect.bottom + 4;
+    // Calculate the final position before writing state so the positioning
+    // effect does not subscribe to its own top value.
+    const nextTop = bottomTop + required > window.innerHeight - 8
+      ? Math.max(8, rect.top - required - 4)
+      : bottomTop;
+    top = nextTop;
+    height = Math.max(28, window.innerHeight - nextTop - 8);
   }
-  $effect(() => { path; levels; place(); });
+  $effect(place);
   onMount(() => {
     window.addEventListener('resize', place);
     window.addEventListener('scroll', place, true);

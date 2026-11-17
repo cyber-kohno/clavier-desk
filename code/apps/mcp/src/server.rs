@@ -125,6 +125,34 @@ struct FingeringRequest {
     substitution_fingering: Option<u8>,
 }
 
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AutoFingeringRequest {
+    session_id: String,
+    checkout_id: String,
+    expected_revision: String,
+    request_id: String,
+    /// upperStaff or lowerStaff; existing fingers remain fixed.
+    staff: String,
+    /// 1–256 stable IDs in one continuous voice range, including entire ties.
+    note_ids: Vec<String>,
+}
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FingeringJobRequest {
+    session_id: String,
+    checkout_id: String,
+    job_id: String,
+}
+#[derive(Debug, Deserialize, Serialize, schemars::JsonSchema)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ApplyFingeringJobRequest {
+    session_id: String,
+    checkout_id: String,
+    job_id: String,
+    expected_revision: String,
+}
+
 fn result(value: serde_json::Value) -> CallToolResult {
     CallToolResult::success(vec![ContentBlock::text(value.to_string())])
 }
@@ -142,6 +170,45 @@ fn forward(session_id: &str, method: &str, mut params: serde_json::Value) -> Cal
 
 #[tool_router]
 impl ClavierDeskMcpServer {
+    #[tool(
+        description = "Start existing Auto Assign on checkout notes, preserving fixed fingers. Does not edit notes. Returns jobId; poll get_auto_fingering_result. Uses the engine's existing animation validation; no separate animation generation. Retry with identical requestId and arguments. One running job and at most 16 jobs per checkout. cancel_checkout cancels calculation."
+    )]
+    async fn request_auto_fingering(
+        &self,
+        Parameters(request): Parameters<AutoFingeringRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(forward(
+            &request.session_id,
+            "requestAutoFingering",
+            serde_json::to_value(&request).unwrap(),
+        ))
+    }
+    #[tool(
+        description = "Read automatic fingering status (running/ready/failed/applied), progress, assignments, warnings and issues. Poll at sensible intervals. Investigate failed results before continuing."
+    )]
+    async fn get_auto_fingering_result(
+        &self,
+        Parameters(request): Parameters<FingeringJobRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(forward(
+            &request.session_id,
+            "getAutoFingeringResult",
+            serde_json::to_value(&request).unwrap(),
+        ))
+    }
+    #[tool(
+        description = "Apply the successful stored Auto Assign candidate to the staged checkout. Requires unchanged calculation revision. Repeating the same job is idempotent. Returns new revision. finish_checkout commits as one Undo entry. Does not generate animation."
+    )]
+    async fn apply_auto_fingering(
+        &self,
+        Parameters(request): Parameters<ApplyFingeringJobRequest>,
+    ) -> Result<CallToolResult, McpError> {
+        Ok(forward(
+            &request.session_id,
+            "applyAutoFingering",
+            serde_json::to_value(&request).unwrap(),
+        ))
+    }
     pub fn new() -> Self {
         Self {
             tool_router: Self::tool_router(),
@@ -352,6 +419,9 @@ mod tests {
         assert!(router.has_route("get_editor_state"));
         assert!(router.has_route("apply_edit"));
         for name in [
+            "request_auto_fingering",
+            "get_auto_fingering_result",
+            "apply_auto_fingering",
             "get_capabilities",
             "get_score_overview",
             "get_score_range",
@@ -359,6 +429,6 @@ mod tests {
         ] {
             assert!(router.has_route(name));
         }
-        assert_eq!(router.list_all().len(), 11);
+        assert_eq!(router.list_all().len(), 14);
     }
 }

@@ -175,10 +175,10 @@ test('loading old projects removes only safe duplicates and preserves conflictin
   assert.equal(get(conflict.value.project, 'n1').pitches[0].fingering, 4);
 });
 
-test('clear requires a complete tie, clears the owner atomically and supports undo', () => {
+test('clear expands a partial tie, clears the owner atomically and supports undo', () => {
   const project = fixture(), partial = { staff: 'upperStaff', noteIds: ['n2'] };
-  assert.equal(Selection.clearAvailability(project, partial).allowed, false);
-  assert.strictEqual(FingeringEditor.clear(project, partial), project);
+  assert.equal(Selection.clearAvailability(project, partial).allowed, true);
+  assert.equal(get(FingeringEditor.clear(project, partial), 'n0').pitches[0].fingering, undefined);
   const history = History.create({ project });
   const cleared = FingeringEditor.clear(project, selection()); history.record({ project: cleared });
   assert.ok(selection().noteIds.every(id => get(cleared, id).pitches[0].fingering === undefined));

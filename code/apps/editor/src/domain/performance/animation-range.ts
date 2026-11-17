@@ -1,6 +1,6 @@
 import ScoreTimeline from '../score/score-timeline.ts';
 import type { ScoreProject } from '../score/types.ts';
-import type { PlaybackPlan } from './score-playback-plan.ts';
+import { keyHoldSeconds, type PlaybackPlan } from './score-playback-plan.ts';
 
 export type AnimationRange = { firstMeasureId: string; lastMeasureId: string };
 export type ResolvedAnimationRange = { startPosition: number; endPosition: number; firstMeasure: number; lastMeasure: number; noteIds: ReadonlySet<string> };
@@ -55,7 +55,10 @@ namespace AnimationRange {
         endSeconds: Math.min(end, part.endSeconds ?? end) - start,
       })).filter(part => part.endSeconds > part.startSeconds);
       events.push({ ...event, startSeconds: onset - start, durationSeconds: Math.max(...durations), pitches,
+        ...(event.rollAnchorSeconds !== undefined ? { rollAnchorSeconds: event.rollAnchorSeconds - start } : {}),
         pitchDurationsSeconds: durations, performance: event.performance ? indices.map(index => event.performance![index]) : undefined,
+        keyHoldLimitsSeconds: event.keyHoldLimitsSeconds ? indices.map(index =>
+          Math.max(0, Math.min(end, event.startSeconds + keyHoldSeconds(event, index)) - onset)) : undefined,
         notationNoteIds: event.notationNoteIds?.filter(id => range.noteIds.has(id)), notationRanges });
     }
     const preceding = plan.pedalEvents.filter(event => event.atSeconds < start).at(-1);

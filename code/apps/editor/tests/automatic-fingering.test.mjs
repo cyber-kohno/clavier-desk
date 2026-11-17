@@ -14,6 +14,35 @@ import { createNoteMenuItems, controlNoteMenu } from '../src/state/note-menu.ts'
 
 const note = (id, pitches, extra = {}) => ({ id, kind: 'note', value: { type: 'eighth', dots: 0 },
   pitches: pitches.map(pitch => typeof pitch === 'number' ? { midi: pitch } : pitch).sort((a, b) => b.midi - a.midi), ...extra });
+
+test('grace attacks and principal notes share playback timing, preserve anchors and apply atomically', () => {
+  for (const slash of [false, true]) {
+    const { project, selection } = setup([note('a', [64], { value: { type: 'half', dots: 0 }, beforeGraceNotes: [
+      { id: 'g1', pitches: [{ midi: 60, fingering: 1 }], value: { type: '16th', dots: 0 }, slash },
+      { id: 'g2', pitches: [{ midi: 62 }], value: { type: '16th', dots: 0 }, slash },
+    ] }), note('b', [65], { value: { type: 'half', dots: 0 } })]);
+    const prepared = Passage.prepare(project, selection);
+    assert.deepEqual(prepared.issues, []);
+    assert.deepEqual(prepared.passage.steps.map(s => s.attacks[0].midi), [60, 62, 64, 65]);
+    assert.equal(prepared.passage.steps[0].time, 0.6);
+    assert.equal(prepared.passage.missing, 3);
+    const draft = run(project, selection);
+    const grace = draft.assignments.find(a => a.graceNoteId === 'g2');
+    assert.equal(grace.noteId, 'a');
+    assert.equal(Editor.apply(project, selection, draft.assignments.filter(a => !a.graceNoteId)), project);
+    assert.equal(Editor.apply(project, selection, [...draft.assignments, grace]), project);
+    const applied = Editor.apply(project, selection, draft.assignments);
+    assert.equal(Selection.inspect(applied, selection).missing, 0);
+    const graces = Timeline.note(applied.outline, 'a').note.beforeGraceNotes;
+    assert.equal(graces[0].pitches[0].fingering, 1);
+    assert.ok(graces[1].pitches[0].fingering);
+    assert.equal(Timeline.note(project.outline, 'a').note.beforeGraceNotes[1].pitches[0].fingering, undefined);
+    const inspected = inspectAnimation(applied);
+    assert.deepEqual(inspected.issues, []); generateAnimation(inspected.performance);
+    const cleared = Editor.clear(applied, selection);
+    assert.equal(Timeline.note(cleared.outline, 'a').note.beforeGraceNotes[0].pitches[0].fingering, undefined);
+  }
+});
 function setup(elements, staff = 'upperStaff') {
   const project = Project.create(), data = Measure.create({ unit: 4, cnt: 4 });
   data[staff].voices[0].elements = elements;
@@ -32,6 +61,19 @@ function run(project, selection) {
 function fingers(project, selection) {
   return selection.noteIds.map(id => Timeline.note(project.outline, id, selection.staff).note.pitches.map(pitch => pitch.fingering));
 }
+
+test('an octave with an inner note can be assigned and pressed together in either hand', () => {
+  for (const staff of ['lowerStaff', 'upperStaff']) {
+    const { project, selection } = setup([note('octave', [53, 60, 65], { value: { type: 'whole', dots: 0 } })], staff);
+    const draft = run(project, selection);
+    const inspected = inspectAnimation(Editor.apply(project, selection, draft.assignments));
+    assert.deepEqual(inspected.issues, []);
+    const { notes } = generateAnimation(inspected.performance);
+    assert.equal(notes.length, 3);
+    assert.ok(notes.every(event => event.time === notes[0].time));
+    assert.deepEqual(notes.map(event => event.midiNote).sort((a, b) => a - b), [53, 60, 65]);
+  }
+});
 
 test('an unannotated scale is assigned as a whole, crosses the thumb and animates', () => {
   const { project, selection } = setup([60, 62, 64, 65, 67, 69, 71, 72].map((midi, i) => note(`n${i}`, [midi])));
@@ -69,22 +111,17 @@ test('right and left hand chord orders are mirrored and held chord contacts anim
   }
 });
 
-test('outside notes, voices, anchors and expressions do not influence a selected passage', () => {
-  const { project } = setup([note('outside', [{ midi: 21, fingering: 5 }]), note('a', [60]), note('b', [62])]);
-  const selection = { staff: 'upperStaff', noteIds: ['a', 'b'] };
-  const prepared = Passage.prepare(project, selection), draft = run(project, selection);
-  const changed = structuredClone(project), data = changed.outline[2].data;
-  data.upperStaff.voices[0].elements[0] = note('outside', [{ midi: 108, fingering: 1 }], { fermata: { lengthRatio: 5 } });
-  data.upperStaff.voices.push({ id: 'voice2', elements: [note('other', [{ midi: 60, fingering: 1 }], { value: { type: 'whole', dots: 0 } })] });
-  data.lowerStaff.voices[0].elements = [note('left', [{ midi: 60, fingering: 1 }])];
-  changed.tempoChanges = [{ noteId: 'outside', bpm: 400 }];
-  changed.slurs = [{ id: 's', startNoteId: 'outside', endNoteId: 'b' }];
+test('opposite hand is excluded while overlapping same-hand voices are included', () => {
+  const { project, selection } = setup([note('a', [60]), note('b', [62])]);
+  const prepared = Passage.prepare(project, selection);
+  const changed = structuredClone(project);
+  changed.outline[2].data.lowerStaff.voices[0].elements = [note('left', [{ midi: 60, fingering: 1 }])];
   assert.deepEqual(Passage.prepare(changed, selection), prepared);
-  assert.deepEqual(run(changed, selection), draft);
-  const applied = Editor.apply(changed, selection, draft.assignments);
-  assert.deepEqual(Timeline.note(applied.outline, 'outside').note, data.upperStaff.voices[0].elements[0]);
-  assert.strictEqual(applied.outline[2].data.lowerStaff, data.lowerStaff);
-  assert.strictEqual(applied.outline[2].data.upperStaff.voices[1], data.upperStaff.voices[1]);
+  changed.outline[2].data.upperStaff.voices.push({ id: 'v2', elements: [note('other', [{ midi: 67 }], { value: { type: 'whole', dots: 0 } })] });
+  const inspection = Selection.inspect(changed, selection);
+  assert.equal(inspection.voiceCount, 2);
+  assert.equal(inspection.addedNotes, 1);
+  assert.ok(inspection.entries.some(entry => entry.note.id === 'other'));
 });
 
 test('rests create real movement time and tuplets use performed duration', () => {
@@ -97,18 +134,18 @@ test('rests create real movement time and tuplets use performed duration', () =>
   assert.ok(Math.abs(tuplets.steps[1].time - tuplets.steps[0].time - 0.2) < 1e-8);
 });
 
-test('complete ties share a finger, including anchors on continuations; partial and conflicting ties fail', () => {
+test('complete ties share a finger, including anchors on continuations; partial ties expand and conflicting ties fail', () => {
   const { project, selection } = setup([note('a', [60], { tieTo: 'b' }), note('b', [{ midi: 60, fingering: 3 }], { tieFrom: 'a' }), note('c', [62])]);
   const draft = run(project, selection), applied = Editor.apply(project, selection, draft.assignments);
   assert.equal(fingers(applied, selection)[0][0], 3);
   assert.equal(fingers(applied, selection)[1][0], undefined);
-  assert.match(Passage.prepare(project, { ...selection, noteIds: ['b', 'c'] }).issues[0].message, /entire tie/);
+  assert.deepEqual(Passage.prepare(project, { ...selection, noteIds: ['b', 'c'] }).issues, []);
   project.outline[2].data.upperStaff.voices[0].elements[0].pitches[0].fingering = 2;
   assert.match(Passage.prepare(project, selection).issues[0].message, /conflicting fingerings inside a tie/);
 });
 
 test('conflicting chord anchors and unsupported expressions produce diagnostics without changing notes', () => {
-  for (const extra of [{ beforeGraceNotes: [{ id: 'g', pitches: [{ midi: 59 }], value: { type: 'eighth', dots: 0 }, slash: true }] }, { arpeggio: { type: 'normal', spreadRatio: 1, timing: 0 } }]) {
+  for (const extra of [{ arpeggio: { type: 'normal', spreadRatio: 1, timing: 0 } }]) {
     const { project, selection } = setup([note('a', [60], extra)]), before = structuredClone(project);
     assert.ok(Passage.prepare(project, selection).issues.length);
     assert.deepEqual(project, before);
@@ -146,12 +183,12 @@ test('clear removes ordinary, substitution and grace fingers only; apply and cle
   assert.strictEqual(history.redo().project, filled); assert.strictEqual(history.redo().project, empty);
 });
 
-test('clear protects shared trill spans and removes only their sequence when fully selected', () => {
+test('clear expands shared trill spans and removes their sequence while preserving settings', () => {
   const { project, selection } = setup([note('a', [60], { tieTo: 'b' }), note('b', [60], { tieFrom: 'a' })]);
   project.trills = [{ id: 'trill', kind: 'trill', startNoteId: 'a', endNoteId: 'b', settings: { auxiliary: 'diatonic', start: 'main', attackCount: 4, fingerings: [1, 2, 1, 2] } }];
   const partial = { ...selection, noteIds: ['b'] };
-  assert.equal(Selection.clearAvailability(project, partial).allowed, false);
-  assert.strictEqual(Editor.clear(project, partial), project);
+  assert.equal(Selection.clearAvailability(project, partial).allowed, true);
+  assert.equal(Editor.clear(project, partial).trills[0].settings.fingerings, undefined);
   assert.match(Passage.prepare(project, selection).issues[0].message, /Trills/);
   const cleared = Editor.clear(project, selection);
   assert.equal(cleared.trills[0].settings.fingerings, undefined); assert.equal(cleared.trills[0].settings.attackCount, 4);
