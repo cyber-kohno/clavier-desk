@@ -1,10 +1,23 @@
 import ScoreOutline from '../domain/score/score-outline.ts';
-import type { ScoreProject, OutlineBlock } from '../domain/score/types.ts';
+import type { ScoreProject, OutlineBlock, PianoStaffName } from '../domain/score/types.ts';
 /** Transient editing state, separate from the saved project data. */
 export type OutlineCursor = {
   blockId: string;
   selectionAnchorBlockId?: string;
+  innerFocus?: { staff: PianoStaffName; voiceIndex: number };
 };
+
+export function moveOutlineInnerFocus(cursor: OutlineCursor, outline: readonly OutlineBlock[], key: string): OutlineCursor {
+  const block = outline.find(block => block.id === cursor.blockId);
+  if (block?.type !== 'measure') return cursor;
+  const focus = cursor.innerFocus;
+  if (!focus) return { blockId: cursor.blockId, innerFocus: { staff: 'upperStaff', voiceIndex: 0 } };
+  if (key === 'Escape' || (key === 'ArrowUp' && focus.staff === 'upperStaff')) return { blockId: cursor.blockId };
+  const staff = key === 'ArrowDown' ? 'lowerStaff' : key === 'ArrowUp' ? 'upperStaff' : focus.staff;
+  const offset = key === 'ArrowLeft' ? -1 : key === 'ArrowRight' ? 1 : 0;
+  const voiceIndex = Math.max(0, Math.min(block.data[staff].voices.length - 1, focus.voiceIndex + offset));
+  return { blockId: cursor.blockId, innerFocus: { staff, voiceIndex } };
+}
 
 export function getSelectedOutlineBlocks(outline: readonly OutlineBlock[], cursor: OutlineCursor) {
   const focus = outline.findIndex(block => block.id === cursor.blockId);

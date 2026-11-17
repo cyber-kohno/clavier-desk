@@ -841,6 +841,10 @@
     outlineCursor=result.outlineCursor;
     timelineCursor=result.timelineCursor;
     mode=result.mode;
+    if (result.warning === 'last-voice') EditorDialogController.alert({
+      title: '声部を削除できません',
+      messageLines: ['各段には最低1つの声部が必要なため、削除できません。'],
+    });
     previewTimelineFocusChange(timelineCursorBeforeInput, focusedBeforeInput);
     recordProjectChange(projectBeforeInput);
   }
@@ -861,7 +865,9 @@
       <span class:active={mode === 'timeline'}>Timeline{pedalMode ? ' / Pedal' : ottavaMode ? ' / Ottava' : ''}</span>
     </div>
     <p class="editing-target">
-      {mode === 'outline' ? 'Both staves' : timelineCursor.staff === 'upperStaff' ? 'Upper staff' : 'Lower staff'}
+      {mode === 'outline' ? outlineCursor.innerFocus
+        ? `${outlineCursor.innerFocus.staff === 'upperStaff' ? 'Upper' : 'Lower'} staff / Voice ${outlineCursor.innerFocus.voiceIndex + 1}`
+        : 'Both staves' : timelineCursor.staff === 'upperStaff' ? 'Upper staff' : 'Lower staff'}
       {#if mode === 'timeline'}
         <span>/</span> Voice {timelineCursor.voiceIndex + 1}
         <span>/</span> {formatPitch(timelineCursor.pitch)}

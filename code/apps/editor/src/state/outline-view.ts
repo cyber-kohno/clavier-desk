@@ -9,7 +9,7 @@ export type OutlineLayout = { rows: OutlineRow[]; byId: Map<string, OutlineRow>;
 namespace OutlineView {
   // Estimates include the old inter-block margins. Visible rows report their real
   // heights, including wrapped section titles and multiple rows of beat chips.
-  const estimatedHeights = { init: 129, section: 52, 'key-change': 67, measure: 49 };
+  const estimatedHeights = { init: 129, section: 52, 'key-change': 67, measure: 120 };
   export const tailSpace = 27;
 
   export function layout(outline: readonly OutlineBlock[], heights: ReadonlyMap<string, number> = new Map()): OutlineLayout {

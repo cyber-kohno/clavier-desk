@@ -6,13 +6,14 @@ import ScoreKey from '../../domain/score/score-key.ts';
 import MusicalTime from '../../domain/theory/musical-time.ts';
 import { resolveTimelineNumberInput, resolveTimelineDotInput } from '../../state/number-input.ts';
 import { TIMELINE_CURSOR_UNITS, setTimelineCursorUnit, toggleTimelineCursorDot, findTimelineNoteAtMove, moveTimelineCursorHorizontally, moveTimelineCursorPitch, selectFocusedNotePitch, focusAdjacentTimelineNote, getSelectedTimelineNotes, extendTimelineNoteSelection, collapseTimelineNoteSelection, switchTimelineStaff, cycleTimelineVoice } from '../../state/timeline-cursor.ts';
-import { moveOutlineCursor, moveOutlineSection, extendOutlineSelection } from '../../state/outline-cursor.ts';
+import { moveOutlineCursor, moveOutlineSection, extendOutlineSelection, moveOutlineInnerFocus } from '../../state/outline-cursor.ts';
 export type WorkspaceKey = { key: string; code: string; repeat: boolean; shiftKey: boolean };
 export type WorkspaceHolds = { rangeSelection: boolean; pitchSelection: boolean; diatonicMovement: boolean; octaveMovement: boolean; keySignatureEditing: boolean; noteNavigation: boolean; noteValueEditing: boolean; tempoEditing: boolean; measureLengthEditing: boolean; notePositionEditing: boolean; meterEditing: boolean };
 namespace WorkspaceKeyboard {
   export function control(state: WorkspaceState, event: WorkspaceKey, keyHold: WorkspaceHolds, measureKeyCache = ScoreKey.buildMeasureCache(state.project.outline)) {
     let { project, outlineCursor, timelineCursor, mode } = state;
     let handled = false;
+    let warning: 'last-voice' | undefined;
     const selectedTimelineNotes = getSelectedTimelineNotes(project.outline, timelineCursor);
     function syncOutlineToTimelinePosition(position: number) { ({ outlineCursor, timelineCursor } = EditorNavigation.sync(project.outline, outlineCursor, timelineCursor, position)); }
     function movePitch(direction: -1 | 1, diatonic = false, octave = false) {
@@ -56,6 +57,36 @@ namespace WorkspaceKeyboard {
       if (!isAddKeyChangeKey && !isTupletKey && !isNormalizeKey && !isVoiceKey && !isToggleModeKey && !isMoveKey && !isMoveSectionKey && !isAddMeasureKey && !isAddSectionKey && !isDeleteKey && !isCursorUnitKey && !isDotKey && !isToggleAdjacentTieKey && !isEscapeKey) return;
 
       handled = true;
+      if (mode === 'outline') {
+        const measure = project.outline.find(block => block.id === outlineCursor.blockId);
+        if (measure?.type === 'measure' && !outlineCursor.innerFocus && keyHold.meterEditing && event.key === 'ArrowDown') {
+          // Enter once; OS repeats of the entry chord must not move into the lower staff.
+          if (!event.repeat) outlineCursor = moveOutlineInnerFocus(outlineCursor, project.outline, event.key);
+          return;
+        }
+        if (outlineCursor.innerFocus && measure?.type === 'measure') {
+          if (isMoveKey || isMoveSectionKey || isEscapeKey) {
+            if (!(keyHold.meterEditing && event.repeat && event.key === 'ArrowDown')) outlineCursor = moveOutlineInnerFocus(outlineCursor, project.outline, event.key);
+          } else if ((isAddMeasureKey || isDeleteKey) && !event.repeat) {
+            const focus = outlineCursor.innerFocus;
+            if (isDeleteKey && event.shiftKey && measure.data[focus.staff].voices.length === 1) warning = 'last-voice';
+            else {
+              const result = OutlineEditor.editVoice(project, outlineCursor, isAddMeasureKey ? 'add' : event.shiftKey ? 'remove' : 'clear');
+              project = result.project;
+              outlineCursor = result.cursor;
+              // Retire stale timeline note/range focus after structural edits.
+              if (project !== state.project) timelineCursor = {
+                ...timelineCursor, positionSixteenths: ScoreTimeline.outlinePosition(project.outline, outlineCursor.blockId),
+                staff: outlineCursor.innerFocus!.staff, voiceIndex: outlineCursor.innerFocus!.voiceIndex,
+                focusedNoteId: null, focusedGraceId: null, focusedPitchIndex: null, selectionAnchorNoteId: null,
+              };
+            }
+          } else if (isToggleModeKey && !event.repeat && !(event.shiftKey || keyHold.rangeSelection)) {
+            ({ project, outlineCursor, timelineCursor, mode } = EditorNavigation.toggle({ project, outlineCursor, timelineCursor, mode }));
+          }
+          return;
+        }
+      }
       if (isTupletKey) {
         if (!event.repeat) {
           const result = NoteEditor.convertTuplet(project, timelineCursor);
@@ -373,7 +404,7 @@ namespace WorkspaceKeyboard {
       );
     }
     run();
-    return { project, outlineCursor, timelineCursor, mode, handled };
+    return { project, outlineCursor, timelineCursor, mode, handled, warning };
   }
 }
 export default WorkspaceKeyboard;

@@ -3,8 +3,23 @@ import type { OutlineCursor } from '../../state/outline-cursor.ts';
 import { getSelectedOutlineBlocks } from '../../state/outline-cursor.ts';
 import ScoreOutline from '../../domain/score/score-outline.ts';
 import EditTransaction from './edit-transaction.ts';
+import ScoreStaff from '../../domain/score/score-staff.ts';
 
 namespace OutlineEditor {
+  export function editVoice(project: ScoreProject, cursor: OutlineCursor, action: 'add' | 'clear' | 'remove') {
+    const focus = cursor.innerFocus;
+    const measure = project.outline.find(block => block.id === cursor.blockId);
+    if (!focus || measure?.type !== 'measure') return { project, cursor };
+    const voices = measure.data[focus.staff].voices;
+    const next = action === 'add' ? ScoreStaff.addVoice(project, measure.id, focus.staff, voices.length - 1)
+      : action === 'remove' ? ScoreStaff.removeVoice(project, measure.id, focus.staff, focus.voiceIndex)
+      : ScoreStaff.clearVoice(project, measure.id, focus.staff, focus.voiceIndex);
+    const committed = EditTransaction.commit(project, next);
+    if (committed === project) return { project, cursor };
+    const voiceIndex = action === 'add' ? voices.length : action === 'remove'
+      ? Math.min(focus.voiceIndex, voices.length - 2) : focus.voiceIndex;
+    return { project: committed, cursor: { blockId: cursor.blockId, innerFocus: { staff: focus.staff, voiceIndex } } };
+  }
   function commit(project: ScoreProject, outline: ScoreProject['outline']) {
     return EditTransaction.commit(project, outline === project.outline ? project : { ...project, outline });
   }

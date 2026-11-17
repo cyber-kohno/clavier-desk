@@ -1,5 +1,6 @@
 <script lang="ts">
   import ScoreKey from "../domain/score/score-key.ts";
+  import ScoreVoice from '../domain/score/score-voice.ts';
 
   import { onDestroy, untrack } from 'svelte';
   import type { ScoreProject } from "../domain/score/types.ts";
@@ -145,21 +146,47 @@
           {@const beats = getMeasureBeatDisplay(initialValues.timeSignature, block.data.length)}
           <section
             class="measure-block"
+            class:inner-focused={cursor.blockId === block.id && !!cursor.innerFocus}
             class:range-selected={selectedBlockIds.has(block.id)}
             data-block-id={block.id}
             class:focused={cursor.blockId === block.id}
             aria-label={`Measure ${item.measureNumber}`}
             aria-current={cursor.blockId === block.id ? 'true' : undefined}
           >
+            <h3 class="measure-number">{item.measureNumber}</h3>
             <div class="measure-heading">
-              <h3>Measure {item.measureNumber}</h3>
-              <span>Beats {beats.actualLabel}/{beats.standardBeats}</span>
+              <div class="beat-chips" style={`--beat-count: ${beats.chips.length}`} role="img" aria-label={`${beats.actualLabel} of ${beats.standardBeats} beats`}>
+                {#each beats.chips as fill, index (index)}
+                  <span class="beat-chip" style={`--beat-fill: ${fill * 100}%`} aria-hidden="true"></span>
+                {/each}
+              </div>
+              <span class="beat-label">Beats {beats.actualLabel}/{beats.standardBeats}</span>
             </div>
-            <div class="beat-chips" role="img" aria-label={`${beats.actualLabel} of ${beats.standardBeats} beats`}>
-              {#each beats.chips as fill, index (index)}
-                <span class="beat-chip" style={`--beat-fill: ${fill * 100}%`} aria-hidden="true"></span>
-              {/each}
-            </div>
+            <table class="voice-counts" aria-label="Written pitch counts by staff and voice">
+              <thead>
+                <tr>
+                  <td></td>
+                  {#each [0, 1, 2] as voiceIndex}
+                    <th scope="col" class:voice-absent={!block.data.upperStaff.voices[voiceIndex] && !block.data.lowerStaff.voices[voiceIndex]}>v{voiceIndex + 1}</th>
+                  {/each}
+                </tr>
+              </thead>
+              <tbody>
+                {#each ['upperStaff', 'lowerStaff'] as staffName}
+                  {@const staff = staffName as 'upperStaff' | 'lowerStaff'}
+                  <tr>
+                    <th scope="row">{staff === 'upperStaff' ? 'Upper' : 'Lower'}</th>
+                    {#each [0, 1, 2] as voiceIndex}
+                      {@const voice = block.data[staff].voices[voiceIndex]}
+                      <td class:voice-absent={!voice}
+                        class:cell-focused={cursor.blockId === block.id && cursor.innerFocus?.staff === staff && cursor.innerFocus.voiceIndex === voiceIndex}
+                        aria-current={cursor.blockId === block.id && cursor.innerFocus?.staff === staff && cursor.innerFocus.voiceIndex === voiceIndex ? 'true' : undefined}
+                      >{voice ? ScoreVoice.pitchCount(voice) : '-'}</td>
+                    {/each}
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
           </section>
         {/if}
         </div>
@@ -247,17 +274,28 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+    height: 20px;
   }
+  .beat-label { white-space: nowrap; }
+  .voice-counts { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 11px; line-height: 20px; font-variant-numeric: tabular-nums; }
+  .voice-counts th { font-weight: 500; }
+  .voice-counts th:first-child, .voice-counts td:first-child { width: 48px; text-align: left; }
+  .voice-counts td { text-align: center; padding: 0 2px; }
+  .voice-counts th { padding: 0 2px; }
+  .voice-counts .voice-absent { opacity: 0.4; }
+  .voice-counts .cell-focused { background: #f3d76b; color: #233e47; outline: 2px solid #a97921; outline-offset: -2px; font-weight: 700; }
+  .measure-block.inner-focused .voice-counts { background: #f3e5d9; }
 
   .beat-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
+    display: grid;
+    grid-template-columns: repeat(var(--beat-count), minmax(0, 14px));
+    gap: min(4px, calc(24px / var(--beat-count)));
+    min-width: 0;
+    overflow: hidden;
   }
 
   .beat-chip {
-    flex: 0 0 14px;
+    min-width: 0;
     height: 7px;
     border: 1px solid #648d85;
     border-radius: 2px;
@@ -267,6 +305,8 @@
   .measure-block h3 {
     margin: 0;
     font-size: 12px;
+    line-height: 18px;
+    color: #76549a;
   }
 
   .measure-block span {

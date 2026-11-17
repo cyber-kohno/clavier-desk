@@ -5,6 +5,14 @@ import type { PianoVoiceElement, MeasureLength, PianoVoice, PianoNote, PianoRest
 import { type Rational } from "../theory/musical-time.ts";
 
 namespace ScoreVoice {
+  /** Written pitch occurrences, including grace notes and tied continuations. */
+  export function pitchCount(voice: PianoVoice): number {
+    return voice.elements.reduce((sum, element) => {
+      const notes = element.kind === 'tuplet' ? element.elements : [element];
+      return sum + notes.reduce((count, note) => count + (note.kind === 'note'
+        ? note.pitches.length + (note.beforeGraceNotes ?? []).reduce((total, grace) => total + grace.pitches.length, 0) : 0), 0);
+    }, 0);
+  }
   export function duration(element: PianoVoiceElement, measureLength: MeasureLength): number {
     return MusicalTime.toNumber(time(element, measureLength));
   }

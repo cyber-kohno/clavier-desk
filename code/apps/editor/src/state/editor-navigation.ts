@@ -13,7 +13,9 @@ namespace EditorNavigation {
     const focusedIndex = state.project.outline.findIndex(block => block.id === state.outlineCursor.blockId);
     if (focusedIndex < 0 || !state.project.outline.slice(focusedIndex).some(block => block.type === 'measure')) return state;
     const position = ScoreTimeline.outlinePosition(state.project.outline, state.outlineCursor.blockId);
-    const timelineCursor = resetTimelineCursorForStaff(state.project.outline, { ...state.timelineCursor, positionSixteenths: position }, 'upperStaff');
+    const inner = state.outlineCursor.innerFocus;
+    const reset = resetTimelineCursorForStaff(state.project.outline, { ...state.timelineCursor, positionSixteenths: position }, inner?.staff ?? 'upperStaff');
+    const timelineCursor = { ...reset, voiceIndex: inner?.voiceIndex ?? reset.voiceIndex };
     const block = ScoreTimeline.blockAt(state.project.outline, position);
     return { ...state, mode: 'timeline', timelineCursor, outlineCursor: block ? { blockId: block.id } : state.outlineCursor };
   }
