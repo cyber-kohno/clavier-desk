@@ -147,7 +147,10 @@ namespace AutomaticFingering {
           if (attack.onsetTime !== undefined && Math.abs(attack.onsetTime - step.time) > 1e-8) return;
           const finger = node.candidate.fingers[i];
           notes.push({ time: step.time, duration: attack.duration, midiNote: attack.midi, hand: passage.hand, finger, voice: 'selected' });
-          for (const target of attack.targets) if (target.fixed === undefined) assignments.push({ noteId: target.noteId, ...(target.graceNoteId ? { graceNoteId: target.graceNoteId } : {}), pitchIndex: target.pitchIndex, finger });
+          for (const target of attack.targets) if (target.fixed === undefined) {
+            const { fixed, ...identity } = target;
+            assignments.push({ ...identity, finger });
+          }
         });
         if (node.stepCost >= 4) warnings.push({ message: `${step.label}: a large hand movement, stretch or finger crossing needs review.`, noteId: step.attacks[0].targets[0].noteId });
       }

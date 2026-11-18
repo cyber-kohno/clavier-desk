@@ -223,9 +223,16 @@ export function planHeldPath(hand:Hand,events:FingerEvent[]):HeldPlan {
     const plan:HeldPlan={events:events.map((event,i)=>({...event,hover:ranges[i]!.hover})),path,geometry:{position:path.positions[0],contacts:[]}};
     if(pathClear(plan,hand))return plan;
   }
-  if(!crossings.length&&!events.some(event=>event.handoffFrom)) {
+  if(!crossings.length) {
+    const handoffs=events.flatMap((event,from)=>{
+      if(!event.handoffTo)return [];
+      const to=events.findIndex(candidate=>candidate.note===event.handoffTo);
+      return to<0?[]:[{from,to}];
+    });
+    const phaseEvents=events.map(event=>event.note.finger===1&&(event.handoffFrom||event.handoffTo)
+      ? {...event,opposed:true} : event);
     for(const preferDense of [false,true]) {
-      const targets=pressedTargets(hand,events,preferDense);
+      const targets=pressedTargets(hand,phaseEvents,preferDense);
       if(!targets)continue;
       // Reconsider the starting contact of a sustained key if later attacks
       // need a different palm position. Each trial keeps the target fixed.
@@ -240,9 +247,22 @@ export function planHeldPath(hand:Hand,events:FingerEvent[]):HeldPlan {
           return [target[0],target[1],Math.max(back,Math.min(front,target[2]+shift))];
         }));
       }
+      const contactsForPath=handoffs.length?targetOptions.flatMap(contacts=>
+        [0.018,0.012,0.024,-0.018].flatMap(separation=>{
+          const adjusted=[...contacts];
+          for(const {from,to} of handoffs) {
+            const receiver=contacts[to];
+            const key=keys.find(key=>key.midiNote===events[from].note.midiNote)!;
+            const [back,front]=contactRange(key,true);
+            const depth=Math.max(back,Math.min(front,receiver[2]-separation));
+            if(Math.abs(depth-receiver[2])<0.012-1e-9)return [];
+            adjusted[from]=[receiver[0],receiver[1],depth];
+          }
+          return [adjusted];
+        })):targetOptions;
       for(const window of [0.12,0.06,0.03,0.01,0.003]) {
-        for(const contacts of targetOptions) {
-          const phased=phasePath(hand,events,window,contacts);
+        for(const contacts of contactsForPath) {
+          const phased=phasePath(hand,phaseEvents,window,contacts);
           if(phased)return phased;
         }
       }
@@ -255,19 +275,34 @@ export function planHeldPath(hand:Hand,events:FingerEvent[]):HeldPlan {
  * hover at one fixed palm height. Targets stay fixed; actual strokes constrain
  * the palm at each time, including contacts held through another voice's onset. */
 function pressedTargets(hand:Hand,events:FingerEvent[],preferDense:boolean):Vec3[]|undefined {
-  const targets=events.map(event=>[...keys.find(key=>key.midiNote===event.note.midiNote)!.target] as Vec3);
+  const centers=events.map(event=>keys.find(key=>key.midiNote===event.note.midiNote)!.target);
+  const targets=centers.map(center=>[...center] as Vec3);
   const assigned=new Set<number>();
   // Select contact depths from pressed poses, without imposing a hover on held fingers.
+  // Use the receiving finger to seed a substitution's chord pose. The path
+  // search still validates both fingers at separate depths during the transfer.
   const activeSets=[...new Set(events.map(event=>event.note.time))].map(time=>
-    events.map((event,index)=>({event,index})).filter(({event})=>event.note.time<=time&&end(event)>time));
-  // On a roll, the largest set has the tightest geometry. Try choosing
-  // contacts from that pose before planning the earlier partial chords.
-  if(preferDense)activeSets.sort((a,b)=>b.length-a.length);
+    events.map((event,index)=>({event,index})).filter(({event})=>
+      event.note.time<=time&&end(event)>time&&(!event.handoffTo||time<event.handoffTo.time)));
+  // Seed the most constrained shape first. When contact counts tie, prefer
+  // the widest keyboard span so an earlier narrower grip cannot lock it out.
+  if(preferDense) {
+    const span=(active: typeof activeSets[number])=>{
+      const positions=active.map(({index})=>centers[index][0]);
+      return Math.max(...positions)-Math.min(...positions);
+    };
+    activeSets.sort((a,b)=>b.length-a.length||span(b)-span(a));
+  }
   for(const active of activeSets) {
     if(active.every(({index})=>assigned.has(index)))continue;
     if(new Set(active.map(({event})=>event.note.finger)).size!==active.length)continue;
     try {
-      const chord=planChord(hand,active.map(({event,index})=>({finger:event.note.finger,midiNote:event.note.midiNote,target:targets[index]})),0,TRAVEL);
+      // In the constrained-first trial, seed each shape from the key centers
+      // so existing insets cannot hide a wide grip from the chord planner.
+      // Assigned contact points themselves stay fixed for the path check.
+      const chord=planChord(hand,active.map(({event,index})=>({
+        finger:event.note.finger,midiNote:event.note.midiNote,target:preferDense?centers[index]:targets[index],
+      })),0,TRAVEL);
       for(const {event,index} of active) if(!assigned.has(index)){targets[index]=chord.contacts.find(contact=>contact.finger===event.note.finger)!.target;assigned.add(index);}
     } catch {return;}
   }

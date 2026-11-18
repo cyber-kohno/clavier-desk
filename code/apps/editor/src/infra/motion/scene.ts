@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { keys, KEYBOARD_WIDTH, TRAVEL, evaluate, keyDepth } from '../../domain/motion/motion.ts';
 import type { Note } from '../../domain/motion/motion.ts';
 import { fingers, pointsForPose, restPose } from '../../domain/motion/fingers.ts';
@@ -12,6 +13,8 @@ import type { AnimationPerformance } from '../../domain/performance/animation-pe
 import { WRIST, forearmEndpoints, FULL_VIEW_MIN, FULL_VIEW_MAX } from '../../domain/motion/movement.ts';
 import type { MotionStyle } from '../../domain/motion/movement.ts';
 import type { IdleFingerStyle, StrikeStyle } from '../../domain/motion/scale-motion.ts';
+import { createPianoHands, disposePianoHandModels } from './piano-hand.ts';
+import handModelUrl from './assets/piano-hand-right.glb?url';
 
 export function createScene(container: HTMLElement) {
   const scene = new THREE.Scene();
@@ -45,14 +48,15 @@ export function createScene(container: HTMLElement) {
   const colors = ['#ffbd70','#63dfcf','#7faaff','#c5a0ff','#ff8ca5'];
   function makeHand(side:Hand) {
     const group=new THREE.Group(); scene.add(group);
+    const legacyHand=new THREE.Group(); group.add(legacyHand);
     const palm=box(0.09,0.022,0.055,side==='left'?'#8eb0ca':'#bd937c');
-    palm.position.set(0,0.028,0.075);group.add(palm);
+    palm.position.set(0,0.028,0.075);legacyHand.add(palm);
     const digits=fingers.map((finger,i)=>{
       const segments=[box(finger===1?0.018:0.012,0.012,1,side==='left'?'#adcce0':'#d4ab92'),box(finger===1?0.017:0.011,0.011,1,side==='left'?'#adcce0':'#d4ab92')];
-      segments.forEach(mesh=>group.add(mesh));
+      segments.forEach(mesh=>legacyHand.add(mesh));
       const joints=[0,1].map(()=>{
         const joint=new THREE.Mesh(new THREE.SphereGeometry(0.007,12,8),new THREE.MeshStandardMaterial({color:side==='left'?'#7393ae':'#aa8169'}));
-        group.add(joint);return joint;
+        legacyHand.add(joint);return joint;
       });
       const marker=new THREE.Mesh(new THREE.SphereGeometry(0.003,12,8),new THREE.MeshBasicMaterial({color:colors[i],depthTest:false}));
       marker.renderOrder=10;group.add(marker);
@@ -68,9 +72,19 @@ export function createScene(container: HTMLElement) {
     const elbow=new THREE.Mesh(new THREE.SphereGeometry(0.026,16,12),material);
     const wrist=new THREE.Mesh(new THREE.SphereGeometry(0.016,16,12),material);
     arm.add(forearm,elbow,wrist);
-    return {side,group,digits,targets,arm,forearm,elbow,wrist};
+    return {side,group,legacyHand,digits,targets,arm,forearm,elbow,wrist};
   }
   const hands=[makeHand('left'),makeHand('right')];
+  let rigs: ReturnType<typeof createPianoHands> | undefined;
+  let disposed = false;
+  void new GLTFLoader().loadAsync(handModelUrl).then(({ scene: root }) => {
+    if (disposed) { disposePianoHandModels(root); return; }
+    const loaded = createPianoHands(root);
+    for (const { side, group } of hands) group.add(loaded[side].root);
+    rigs = loaded;
+  }).catch(error => {
+    if (!disposed) console.warn('Could not load the hand models:', error);
+  });
   const segmentAxis=new THREE.Vector3(0,0,1);
   // Include raised hands and the full elbow-to-wrist guide at either end.
   const framingBounds = new THREE.Box3(
@@ -101,7 +115,7 @@ export function createScene(container: HTMLElement) {
     draw(notes:Note[],time:number,debug:boolean,manualAngles?:Record<Hand,number[]>,style:MotionStyle='smooth',showForearms=true,idleStyle:IdleFingerStyle='connected',strikeStyle:StrikeStyle='smooth',wristMotion=false,performance?:AnimationPerformance,showNotes=true) {
       fallingNotes.update(performance, time, showNotes);
       const frame = evaluate(manualAngles?[]:notes,time,style,idleStyle,strikeStyle,wristMotion);
-      hands.forEach(({side,group,digits,targets,arm,forearm,elbow,wrist})=>{
+      hands.forEach(({side,group,legacyHand,digits,targets,arm,forearm,elbow,wrist})=>{
         const pose=frame[side];
         group.rotation.set(...pose.rotation);
         const pivot=new THREE.Vector3(...WRIST);
@@ -110,21 +124,34 @@ export function createScene(container: HTMLElement) {
         const endpoints=forearmEndpoints(pose.position,side,pose.forearmGuide);
         const wristPosition=new THREE.Vector3(...endpoints.wrist),elbowPosition=new THREE.Vector3(...endpoints.elbow);
         const direction=elbowPosition.clone().sub(wristPosition);
-        arm.visible=showForearms;
-        wrist.position.copy(wristPosition);elbow.position.copy(elbowPosition);
-        forearm.position.copy(wristPosition).add(elbowPosition).multiplyScalar(0.5);
-        forearm.scale.y=direction.length();
-        forearm.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
+        const handRig = rigs?.[side];
+        const useRig = handRig !== undefined && showForearms;
+        if (handRig) handRig.root.visible = useRig;
+        legacyHand.visible = !useRig;
+        arm.visible=showForearms && !useRig;
+        if (arm.visible) {
+          wrist.position.copy(wristPosition);elbow.position.copy(elbowPosition);
+          forearm.position.copy(wristPosition).add(elbowPosition).multiplyScalar(0.5);
+          forearm.scale.y=direction.length();
+          forearm.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());
+        }
         if(manualAngles)for(const finger of fingers)pose.joints[finger]=restPose(finger,manualAngles[side][finger-1]*Math.PI/180);
+        if (useRig) handRig.pose(pose, direction, group.quaternion);
         digits.forEach(({finger,segments,joints,marker})=>{
-          const points=pointsForPose(side,finger,pose.joints[finger]).map(p=>new THREE.Vector3(...p));
-          segments.forEach((mesh,i)=>{
-            const direction=points[i+1].clone().sub(points[i]);
-            mesh.position.copy(points[i]).add(points[i+1]).multiplyScalar(0.5);
-            mesh.scale.z=direction.length();mesh.quaternion.setFromUnitVectors(segmentAxis,direction.normalize());
-            joints[i].position.copy(points[i]);
-          });
-          marker.position.copy(points[2]);marker.visible=debug;
+          marker.visible=debug;
+          if (useRig) {
+            if (!debug) return;
+            group.worldToLocal(handRig.contacts[finger].getWorldPosition(marker.position));
+          } else {
+            const points=pointsForPose(side,finger,pose.joints[finger]).map(p=>new THREE.Vector3(...p));
+            segments.forEach((mesh,i)=>{
+              const direction=points[i+1].clone().sub(points[i]);
+              mesh.position.copy(points[i]).add(points[i+1]).multiplyScalar(0.5);
+              mesh.scale.z=direction.length();mesh.quaternion.setFromUnitVectors(segmentAxis,direction.normalize());
+              joints[i].position.copy(points[i]);
+            });
+            marker.position.copy(points[2]);
+          }
           marker.scale.setScalar(pose.activeNotes.some(n=>n.finger===finger)?1.5:1);
         });
         targets.forEach((target,index)=>{
@@ -141,6 +168,8 @@ export function createScene(container: HTMLElement) {
 
     },
     dispose() {
+      disposed = true;
+      rigs?.dispose();
       observer.disconnect(); controls.dispose();
       scene.traverse(object => {
         if (object instanceof THREE.InstancedMesh) object.dispose();

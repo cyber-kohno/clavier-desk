@@ -6,6 +6,7 @@ import type { Note } from '../motion/motion.ts';
 import AnimationRange, { type AnimationRange as Range } from './animation-range.ts';
 
 export const ANIMATION_LEAD_IN = 0.6;
+const SUBSTITUTION_MARGIN_SECONDS = 0.18;
 export type AnimationIssue = { message: string; noteId?: string; pitchIndex?: number };
 export type AnimationPerformance = {
   playback: PlaybackPlan;
@@ -28,6 +29,13 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
   const clipped = resolved ? AnimationRange.clip(fullPlayback, resolved, prepared.clock) : undefined;
   const playback = clipped?.playback ?? fullPlayback, offset = clipped?.startSeconds ?? 0;
   const originalEvents = new Map(fullPlayback.events.map(event => [event.sourceNoteId, event]));
+  const handAttacks = { left: [] as number[], right: [] as number[] };
+  for (const event of fullPlayback.events) {
+    for (const source of event.performance ?? []) {
+      const times = handAttacks[source.hand];
+      if (times.at(-1) !== event.startSeconds) times.push(event.startSeconds);
+    }
+  }
   const relevant = new Set(playback.events.flatMap(event =>
     event.performance?.filter((_, index) => keyHoldSeconds(event, index) > 0).map(source => source.noteId) ?? []));
   const measures = project.outline.filter(block => block.type === 'measure');
@@ -79,12 +87,18 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
       hand: source.hand, finger: source.fingering, voice: source.voice };
     if (source.substitutionFingering === undefined) add(note);
     else {
-      // Deterministic default: receive halfway through the held note, with a
-      // short overlap. Audio remains one uninterrupted note.
+      // Prefer the midpoint unless the hand has another attack before then.
+      // Use the space before that attack when there is time to depress,
+      // transfer and release the original finger.
       const original = originalEvents.get(event.sourceNoteId)!;
       const originalIndex = original.pitches.indexOf(midiNote);
       const originalDuration = keyHoldSeconds(original, originalIndex);
-      const handoff = original.startSeconds + originalDuration / 2 - offset + ANIMATION_LEAD_IN;
+      const midpoint = original.startSeconds + originalDuration / 2;
+      const next = handAttacks[source.hand].find(time => time > original.startSeconds + 1e-8);
+      const beforeNext = next !== undefined && next < midpoint &&
+        next - original.startSeconds >= 2 * SUBSTITUTION_MARGIN_SECONDS;
+      const handoffTime = beforeNext ? (original.startSeconds + next) / 2 : midpoint;
+      const handoff = handoffTime - offset + ANIMATION_LEAD_IN;
       const end = note.time + duration;
       if (handoff <= note.time) add({ ...note, finger: source.substitutionFingering });
       else if (handoff >= end) add(note);

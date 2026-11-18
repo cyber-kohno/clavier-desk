@@ -28,11 +28,12 @@ export const APPROACH=0.12, RELEASE=0.12, MOVE=0.3;
 export { MIN_REATTACK_GAP_SECONDS as MIN_GAP } from '../theory/performance-timing.ts';
 import { MIN_REATTACK_GAP_SECONDS as MIN_GAP } from '../theory/performance-timing.ts';
 type Group={notes:Note[]; approach:number; release:number; plan?:ChordPlan;held?:HeldPlan;independent?:boolean;windows?:{note:Note;start:number;end:number}[]};
+type ContactLimits = { approach?:number; release?:number };
 export type PreparedMotion={notes:Note[];groups:Record<Hand,Group[]>;plan:PerformancePlan};
 const groupEnd=(group:Group)=>Math.max(...group.notes.map(n=>n.time+n.duration));
 const groupCache=new WeakMap<Note[],Record<Hand,Group[]>>();
 const performanceCache=new WeakMap<Note[],PerformancePlan>();
-function groupsFor(notes:Note[],report?:ReportMotionProgress) {
+function groupsFor(notes:Note[],report?:ReportMotionProgress,limits?:Map<Note,ContactLimits>) {
   const cached=groupCache.get(notes);if(cached)return cached;
   const result:Record<Hand,Group[]>={left:[],right:[]};
   for(const note of notes) {
@@ -41,6 +42,13 @@ function groupsFor(notes:Note[],report?:ReportMotionProgress) {
   }
   for(const hand of ['left','right'] as const) {
     const merged:Group[]=[];
+    const latestOnKey=new Map<number,Note>(), substitutionStarts=new Set<Note>();
+    for(const group of result[hand])for(const note of group.notes) {
+      const previous=latestOnKey.get(note.midiNote);
+      if(note.action==='substitute'&&previous&&previous.time<note.time&&previous.time+previous.duration>=note.time)
+        substitutionStarts.add(previous);
+      latestOnKey.set(note.midiNote,note);
+    }
     for(const group of result[hand]) {
       const previous=merged.at(-1);
       const gap=previous?group.notes[0].time-groupEnd(previous):Infinity;
@@ -48,7 +56,10 @@ function groupsFor(notes:Note[],report?:ReportMotionProgress) {
       // A short silence alone does not need a joint path for held contacts.
       const separateStrikes=gap>1e-9&&previous?.notes.length===1&&!previous.independent&&
         group.notes.length===1&&group.notes[0].action!=='substitute';
-      if(previous&&gap<MIN_GAP-1e-9&&!separateStrikes) {
+      // A new substitution can prepare independently once the previous
+      // passage has released its keys. Reuse checks still run across groups.
+      const separateSubstitution=gap>1e-9&&group.notes.some(note=>substitutionStarts.has(note));
+      if(previous&&gap<MIN_GAP-1e-9&&!separateStrikes&&!separateSubstitution) {
         previous.notes.push(...group.notes);previous.independent=true;
       } else merged.push({...group,independent:group.notes.some(n=>n.duration!==group.notes[0].duration||n.action==='substitute')});
     }
@@ -97,12 +108,23 @@ function groupsFor(notes:Note[],report?:ReportMotionProgress) {
       previous.release=RELEASE*scale;next.approach=APPROACH*scale;
     }
   }
+  if(limits)for(const group of groups)if(!group.independent) {
+    // A simultaneous chord shares its preparation and release stroke.
+    for(const note of group.notes) {
+      group.approach=Math.min(group.approach,limits.get(note)?.approach??Infinity);
+      group.release=Math.min(group.release,limits.get(note)?.release??Infinity);
+    }
+  }
   const held=groups.filter(group=>group.independent);
   for(const [completed,group] of held.entries()) {
     report?.({phase:'held',completed,total:held.length,notes:group.notes});
     const hand=group.notes[0].hand;
     try {
       const events=heldEvents(group.notes,group.approach,group.release);
+      for(const event of events) {
+        event.approach=Math.min(event.approach,limits?.get(event.note)?.approach??Infinity);
+        event.release=Math.min(event.release,limits?.get(event.note)?.release??Infinity);
+      }
       group.held=planHeld(hand,events);group.plan=group.held.geometry;
       group.windows=group.held.events.map(e=>({note:e.note,start:e.note.time-e.approach,end:e.note.time+e.note.duration+e.release}));
     } catch(error) {
@@ -111,6 +133,42 @@ function groupsFor(notes:Note[],report?:ReportMotionProgress) {
   }
   groupCache.set(notes,result);return result;
 }
+
+/** Reserve a shared key for one hand at a time before fitting motion paths. */
+function reserveSharedKeyHandoffs(notes:Note[]):Map<Note,ContactLimits> {
+  const byKey=new Map<number,Note[]>();
+  for(const note of notes) {
+    const strikes=byKey.get(note.midiNote)??[];
+    strikes.push(note);
+    byKey.set(note.midiNote,strikes);
+  }
+  const limits=new Map<Note,ContactLimits>(), durations=new Map<Note,number>();
+  for(const strikes of byKey.values())for(const [index,previous] of strikes.entries()) {
+    const end=previous.time+previous.duration;
+    for(let i=index+1;i<strikes.length;i++) {
+      const next=strikes[i],gap=next.time-end;
+      if(gap>=RELEASE+APPROACH)break;
+      if(previous.hand===next.hand)continue;
+      if(gap< -1e-9)
+        throw new Error(`${next.hand==='left'?'Left hand':'Right hand'} ${next.time.toFixed(3)} s: Simultaneous contact with the same key by both hands is not supported (MIDI ${next.midiNote}).`);
+      // The physical release may lead the audio note-off by up to MIN_GAP.
+      // Keep both attack onsets, and divide free time between the two strokes.
+      const duration=Math.min(previous.duration,next.time-previous.time-MIN_GAP);
+      if(duration<0.001)
+        throw new Error(`${next.hand==='left'?'Left hand':'Right hand'} ${next.time.toFixed(3)} s: Insufficient release time to pass MIDI ${next.midiNote} between hands.`);
+      if(duration<previous.duration)durations.set(previous,Math.min(durations.get(previous)??Infinity,duration));
+      const halfGap=(next.time-previous.time-duration)/2;
+      const outgoing=limits.get(previous)??{}, incoming=limits.get(next)??{};
+      outgoing.release=Math.min(outgoing.release??Infinity,halfGap);
+      incoming.approach=Math.min(incoming.approach??Infinity,halfGap);
+      limits.set(previous,outgoing);
+      limits.set(next,incoming);
+    }
+  }
+  for(const [note,duration] of durations)note.duration=duration;
+  return limits;
+}
+
 export function validate(input:unknown,report?:ReportMotionProgress):Note[] {
   if(!Array.isArray(input)||!input.length)throw new Error('No performance notes to animate.');
   const notes:Note[]=input.map((n:Note,completed)=>{
@@ -120,14 +178,14 @@ export function validate(input:unknown,report?:ReportMotionProgress):Note[] {
       throw new Error('Invalid motion event: expected time >= 0.12, positive duration, left/right hand, finger 1-5 and MIDI 21-108.');
     return {...n};
   }).sort((a,b)=>a.time-b.time);
-  const groups=groupsFor(notes,report);
+  const groups=groupsFor(notes,report,reserveSharedKeyHandoffs(notes));
   const timing=new Map<Note,{start:number;end:number}>();
   for(const group of [...groups.left,...groups.right])for(const note of group.notes)
     timing.set(note,group.windows?.find(w=>w.note===note)??{start:note.time-group.approach,end:note.time+note.duration+group.release});
   for(let i=0;i<notes.length-1;i++) {
     report?.({phase:'sharedKeys',completed:i,total:notes.length-1});
     for(let j=i+1;j<notes.length;j++) {
-      if(notes[i].hand!==notes[j].hand && notes[i].midiNote===notes[j].midiNote && timing.get(notes[j])!.start<timing.get(notes[i])!.end&&timing.get(notes[i])!.start<timing.get(notes[j])!.end)
+      if(notes[i].hand!==notes[j].hand && notes[i].midiNote===notes[j].midiNote && timing.get(notes[j])!.start<timing.get(notes[i])!.end-1e-9&&timing.get(notes[i])!.start<timing.get(notes[j])!.end-1e-9)
         throw new Error('Simultaneous contact with the same key by both hands is not supported.');
     }
   }

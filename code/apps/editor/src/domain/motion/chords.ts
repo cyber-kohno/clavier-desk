@@ -33,6 +33,7 @@ function findChordPlan(hand:Hand,contacts:Contact[],hover:number,travel:number):
   const low=Math.min(...contacts.map(c=>c.target[0]));
   const high=Math.max(...contacts.map(c=>c.target[0]));
   const wide=high-low>=0.14;
+  const hasBlackKey=contacts.some(c=>keys.find(k=>k.midiNote===c.midiNote)?.black);
   const centered=searchChord(hand,contacts,hover,travel,wide);
   if(centered)return centered;
 
@@ -49,12 +50,17 @@ function findChordPlan(hand:Hand,contacts:Contact[],hover:number,travel:number):
     });
     const opened=searchChord(hand,inset,hover,travel,true);
     if(opened)return opened;
+    // On narrow black keys the valid palm positions can fall between columns
+    // of the regular 5 mm grid, even after moving the contacts inward.
+    if(hasBlackKey) {
+      const betweenColumns=searchChord(hand,inset,hover,travel,true,0.0025);
+      if(betweenColumns)return betweenColumns;
+    }
   }
-  const mixed=contacts.some(c=>keys.find(k=>k.midiNote===c.midiNote)?.black);
-  throw new Error(`These ${contacts.length} notes cannot be reached together within this model's spread and joint limits${mixed?' and black-key clearance':''}.`);
+  throw new Error(`These ${contacts.length} notes cannot be reached together within this model's spread and joint limits${hasBlackKey?' and black-key clearance':''}.`);
 }
 
-function searchChord(hand:Hand,contacts:Contact[],hover:number,travel:number,checkClearance=false):ChordPlan|undefined {
+function searchChord(hand:Hand,contacts:Contact[],hover:number,travel:number,checkClearance=false,xOffset=0):ChordPlan|undefined {
   // Canonical order makes the search independent of JSON note order. Keep the
   // caller's contact order in the returned plan for note/target correspondence.
   const ordered=[...contacts].sort((a,b)=>a.finger-b.finger);
@@ -90,13 +96,13 @@ function searchChord(hand:Hand,contacts:Contact[],hover:number,travel:number,che
     // If coarse sampling finds no solution, retain the full fine-grid search.
     for(const spacing of mixed?[2,1]:[1]) {
       const focus:ChordPlan|undefined=mixed&&spacing===1?best:undefined;
-      const fx=focus?Math.round((focus.position[0]-centerX)/(0.005*mirror)):0;
+      const fx=focus?Math.round(((focus.position[0]-centerX)*mirror-xOffset)/0.005):0;
       const fz=focus?Math.round(focus.position[2]/0.005):0;
       const fy=focus?Math.round(focus.position[1]/0.005):0;
       for(let ix=focus?Math.max(-8,fx-1):-8;ix<=(focus?Math.min(8,fx+1):8);ix+=spacing)
       for(let iz=focus?Math.max(-14,fz-1):mixed?-14:0;iz<=(focus?Math.min(18,fz+1):18);iz+=spacing)
       for(let iy=focus?Math.max(-6,fy-1):-6;iy<=(focus?Math.min(4,fy+1):4);iy++) {
-        const position:Vec3=[centerX+ix*0.005*mirror,iy*0.005,iz*0.005];
+        const position:Vec3=[centerX+(ix*0.005+xOffset)*mirror,iy*0.005,iz*0.005];
         const idleJoints:Partial<Record<Finger,JointPose>>={};
         let idleClear=true;
         if(checkKeys)for(const finger of fingers.filter(f=>!ordered.some(c=>c.finger===f))) {

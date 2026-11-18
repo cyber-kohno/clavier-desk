@@ -93,6 +93,45 @@ test('a held octave can use one fixed contact through descending black-key attac
   }
 });
 
+test('a held thumb can reach an octave after narrower grips without moving its contact', () => {
+  const project = Project.create(), data = Measure.create({ cnt: 4, unit: 4 });
+  project.outline[0].data.tempo = 118;
+  const melody = [
+    rest('lead-in', 'quarter'),
+    note('d6', 'eighth', [{ midi: 86 }], { value: { type: 'eighth', dots: 1 } }),
+    note('e6', '16th', [{ midi: 88 }]),
+    note('f6', 'quarter', [{ midi: 89 }]),
+    note('b5', 'quarter', [{ midi: 83 }]),
+  ];
+  data.upperStaff.voices = [
+    { id: 'v0', elements: melody },
+    { id: 'v1', elements: [
+      note('f5', 'half', [{ midi: 77, fingering: 1 }], { value: { type: 'half', dots: 1 } }),
+      note('g5', 'quarter', [{ midi: 79 }]),
+    ] },
+  ];
+  project.outline.push({ id: 'm', type: 'measure', data });
+  const selection = { staff: 'upperStaff', noteIds: melody.slice(1).map(n => n.id) };
+  const result = Engine.calculate(Passage.prepare(project, selection).passage);
+  assert.deepEqual(result.issues, []);
+  const applied = Editor.apply(project, selection, result.candidates[0].assignments);
+  const inspected = inspectAnimation(applied);
+  assert.deepEqual(inspected.issues, []);
+  const { notes } = generateAnimation(inspected.performance);
+  const thumb = notes.find(n => n.midiNote === 77);
+  assert.equal(thumb.finger, 1);
+  let contact;
+  for (let time = thumb.time + 0.061; time < thumb.time + thumb.duration; time += 0.00117) {
+    const frame = evaluate(notes, time).right;
+    const target = frame.targets[frame.activeNotes.indexOf(thumb)];
+    assert.ok(target);
+    contact ??= target;
+    assert.deepEqual(target, contact);
+    const tip = pointsForPose('right', 1, frame.joints[1])[2];
+    assert.ok(Math.abs(tip[1] + frame.position[1] + 0.01) < 1e-7);
+  }
+});
+
 test('auto fingering releases a shared key before a rolled chord in a second voice', () => {
   const project = Project.create(), data = Measure.create({ cnt: 4, unit: 4 });
   project.outline[0].data.tempo = 118;

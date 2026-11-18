@@ -24,6 +24,7 @@ export type PerformancePitch = {
   substitutionFingering?: PianoPitch['substitutionFingering'];
   noteId: string;
   pitchIndex: number;
+  trillAttackIndex?: number;
 };
 
 export type PlaybackEvent = {
@@ -213,7 +214,8 @@ namespace ScorePlaybackPlan {
             const onset = Math.max(attack.offset, elapsedSeconds);
             noteEvents.push({ startSeconds: trillStartSeconds - startSeconds + onset,
               durationSeconds: attackEnd - onset, pitches: [attack.midi],
-              performance: [{ ...identity(first.note.pitches)[0], fingering: trill.settings.fingerings?.[index], substitutionFingering: undefined }],
+              performance: [{ ...identity(first.note.pitches)[0], fingering: trill.settings.fingerings?.[index],
+                substitutionFingering: undefined, trillAttackIndex: index }],
               sourceNoteId: `${first.note.id}-trill-${index}` });
           });
         } else if (performedEndSeconds > effectiveStartSeconds && first.note.arpeggio && ScoreArpeggio.canApply(first.note)) {

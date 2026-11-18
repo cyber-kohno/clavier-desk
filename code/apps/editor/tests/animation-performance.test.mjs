@@ -89,6 +89,31 @@ test('animation uses the audio timeline, preserves identity and trailing rests, 
   assert.deepEqual(project, before);
 });
 
+test('a shared key passes between hands without simultaneous contact or changing audio', () => {
+  const project = fixture(), measure = project.outline.at(-1).data;
+  measure.upperStaff.voices[0].elements = [...RestSpelling.create(0, 4),
+    { kind: 'note', id: 'incoming', value: { type: 'quarter', dots: 0 }, pitches: [{ midi: 60, fingering: 1 }] },
+    ...RestSpelling.create(8, 8)];
+  measure.lowerStaff.voices[0].elements = [
+    { kind: 'note', id: 'outgoing', value: { type: 'quarter', dots: 0 },
+      pitches: [{ midi: 60, fingering: 1 }, { midi: 55, fingering: 3 }] },
+    ...RestSpelling.create(4, 12)];
+  const before = structuredClone(project), inspected = inspectAnimation(project);
+  const generated = generateAnimation(inspected.performance);
+  const [left, right] = generated.notes.filter(n => n.midiNote === 60);
+  const audio = animationAudio(generated).events.find(event => event.sourceNoteId === 'outgoing');
+  near(right.time, left.time + audio.durationSeconds);
+  near(right.time, left.time + left.duration + 0.01);
+  for (let time = right.time - 0.012; time <= right.time + 0.004; time += 0.0005) {
+    const frame = evaluate(generated.notes, time, 'scale');
+    assert.ok(!['left', 'right'].every(hand => frame[hand].activeNotes.some(n => n.midiNote === 60)));
+  }
+  assert.deepEqual(project, before);
+  const overlap = inspected.performance.notes.map(n => n.hand === 'right' ? { ...n, time: n.time - 0.02 } : n);
+  assert.throws(() => generateAnimationMotion({ ...inspected.performance, notes: overlap }),
+    /Simultaneous contact with the same key by both hands/);
+});
+
 test('coverage reports missing fingers on performed attacks with a score location', () => {
   const project = fixture();
   delete Timeline.note(project.outline, 'r2').note.pitches[0].fingering;
@@ -132,7 +157,7 @@ test('tied notes become one contact; explicit conflicting continuation fingers a
   assert.match(inspectAnimation(project).issues[0].message, /finger changes inside a tie/);
 });
 
-test('substitution is a midpoint handoff that holds the key continuously without a second audio attack', () => {
+test('substitution defaults to the midpoint and holds the key without a second audio attack', () => {
   const project = fixture(), first = Timeline.note(project.outline, 'r1').note;
   first.pitches = [{ midi: 60, fingering: 3, substitutionFingering: 4 }];
   const check = inspectAnimation(project);
@@ -143,6 +168,34 @@ test('substitution is a midpoint handoff that holds the key continuously without
   for (const t of [notes[1].time - 0.001, notes[1].time, notes[0].time + notes[0].duration + 0.001])
     near(keyDepth(evaluate(generated.notes, t).right, 60), 1);
   assert.equal(animationAudio(generated).events.filter(e => e.pitches.includes(60)).length, 1);
+});
+
+test('a thumb substitution can finish before an octave while keeping the key depressed', () => {
+  const project = fixture(), measure = project.outline.at(-1).data;
+  project.outline[0].data.tempo = 118;
+  const strike = (id, midi, finger, type, dots = 0) =>
+    ({ kind: 'note', id, value: { type, dots }, pitches: [{ midi, fingering: finger }] });
+  const held = strike('held-f', 77, 3, 'half', 1);
+  held.pitches[0].substitutionFingering = 1;
+  measure.upperStaff.voices[0].elements = [...RestSpelling.create(0, 4),
+    strike('d6', 86, 5, 'eighth', 1), strike('e6', 88, 4, '16th'),
+    strike('f6', 89, 5, 'quarter'), ...RestSpelling.create(12, 4)];
+  measure.upperStaff.voices.push({ id: 'v1', elements: [held, strike('g5', 79, 1, 'quarter')] });
+  const inspected = inspectAnimation(project);
+  assert.deepEqual(inspected.issues, []);
+  const generated = generateAnimation(inspected.performance);
+  const [from, to] = generated.notes.filter(note => note.midiNote === 77);
+  const melody = generated.notes.find(note => note.midiNote === 86);
+  assert.equal(from.finger, 3);
+  assert.equal(to.finger, 1);
+  near(to.time, (from.time + melody.time) / 2);
+  assert.ok(from.time + from.duration < melody.time);
+  const audio = animationAudio(generated).events.filter(event => event.sourceNoteId === 'held-f');
+  assert.equal(audio.length, 1);
+  near(audio[0].durationSeconds, to.time + to.duration - from.time);
+  for (let time = from.time + 0.061; time < to.time + to.duration; time += 0.00117) {
+    near(keyDepth(evaluate(generated.notes, time).right, 77), 1);
+  }
 });
 
 test('model limitations stop generation with an English reason and score location', () => {

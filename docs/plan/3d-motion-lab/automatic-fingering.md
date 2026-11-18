@@ -43,9 +43,10 @@ finger on a continuation constrains the same contact, provided all annotations
 agree. Missing fingers are filled only on the attack/head.
 Auto Assign includes whole ties automatically and uses the playback attack order
 for rolled chords. Each pitch is assigned once, and already depressed pitches
-retain their fingers as the roll continues. Trills and existing held-note
-substitutions are explicitly rejected by Auto Assign. These remain manually
-editable, and Clear supports their existing finger data as above.
+retain their fingers as the roll continues. A trill uses the playback attack
+sequence, with one assignment per attack saved in the trill settings. Existing
+trill sequences are fixed. Held-note substitutions remain unsupported by Auto
+Assign and can be edited manually.
 
 ## Repeated-key timing — 2026-11-18
 

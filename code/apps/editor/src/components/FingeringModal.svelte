@@ -12,7 +12,9 @@
   let progress = $state<FingeringProgress>({ phase: 'search', completed: 0, total: 1 });
   let result = $state.raw<FingeringResult | null>(null);
   const draft = $derived(result?.candidates[0]);
-  const assigned = $derived(new Map(draft?.assignments.map(item => [`${item.noteId}:${item.graceNoteId ?? ""}:${item.pitchIndex}`, item.finger]) ?? []));
+  const assignmentKey = (item: { noteId: string; graceNoteId?: string; trillAttackIndex?: number }, pitchIndex: number) =>
+    JSON.stringify([item.noteId, item.graceNoteId, item.trillAttackIndex, pitchIndex]);
+  const assigned = $derived(new Map(draft?.assignments.map(item => [assignmentKey(item, item.pitchIndex), item.finger]) ?? []));
   let calculation: ReturnType<typeof FingeringCalculation.start> | undefined;
   let dialog: HTMLDialogElement;
   let scrollArea = $state<HTMLDivElement>();
@@ -116,7 +118,7 @@
       <div class="result-table">
         <table><thead><tr><th>Note / chord</th><th>Pitch</th><th>Finger</th><th>Status</th></tr></thead>
           <tbody>{#each inspection.performanceAttacks as entry, index}{#each entry.note.pitches as pitch, pitchIndex}
-            <tr><td>{index + 1}{entry.graceNoteId ? " (grace)" : ""}</td><td>{pitchName(pitch.midi)}</td><td>{pitch.fingering ?? assigned.get(`${entry.noteId}:${entry.graceNoteId ?? ""}:${pitchIndex}`)}</td><td>{pitch.fingering === undefined ? 'New' : 'Fixed'}</td></tr>
+            <tr><td>{index + 1}{entry.trillAttackIndex !== undefined ? ` (trill ${entry.trillAttackIndex + 1})` : entry.graceNoteId ? " (grace)" : ""}</td><td>{pitchName(pitch.midi)}</td><td>{pitch.fingering ?? assigned.get(assignmentKey(entry, pitchIndex))}</td><td>{pitch.fingering === undefined ? 'New' : 'Fixed'}</td></tr>
           {/each}{/each}</tbody>
         </table>
       </div>

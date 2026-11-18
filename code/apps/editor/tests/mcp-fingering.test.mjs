@@ -59,11 +59,25 @@ test('MCP exposes and applies grace assignments under their principal note', () 
   f.call('applyAutoFingering', { ...job, expectedRevision: 'r1' });
   assert.equal(f.checkout.project.outline.at(-1).data.upperStaff.voices[0].elements[0].beforeGraceNotes[0].pitches[0].fingering, grace.finger);
 });
-test('unsupported rolled chords produce a failed result without editing the checkout', () => {
+test('MCP stages a trill sequence using individual attack indices', () => {
+  const f = fixture();
+  f.checkout.project.trills = [{ id: 'trill', kind: 'trill', startNoteId: 'b', endNoteId: 'b',
+    settings: { auxiliary: 'diatonic', start: 'auxiliary', attackCount: 4 } }];
+  const job = f.call('requestAutoFingering', f.args);
+  f.finish();
+  const result = f.call('getAutoFingeringResult', job);
+  assert.equal(result.status, 'ready');
+  const assignments = result.result.candidates[0].assignments;
+  assert.deepEqual(assignments.map(a => [a.noteId, a.trillAttackIndex]), [['b', 0], ['b', 1], ['b', 2], ['b', 3]]);
+  assert.equal(f.checkout.project.trills[0].settings.fingerings, undefined);
+  f.call('applyAutoFingering', { ...job, expectedRevision: 'r1' });
+  assert.deepEqual(f.checkout.project.trills[0].settings.fingerings, assignments.map(a => a.finger));
+});
+test('invalid arpeggio settings produce a failed result without editing the checkout', () => {
   const f = fixture(), baseline = f.checkout.project;
   baseline.outline.at(-1).data.upperStaff.voices[0].elements[0].arpeggio = { type: 'normal', spreadRatio: 1, timing: 0 };
   const job = f.call('requestAutoFingering', f.args), result = f.call('getAutoFingeringResult', job);
-  assert.equal(result.status, 'failed'); assert.match(result.result.issues[0].message, /Rolled chords/);
+  assert.equal(result.status, 'failed'); assert.match(result.result.issues[0].message, /invalid arpeggio settings/);
   assert.throws(() => f.call('applyAutoFingering', { ...job, expectedRevision: 'r1' }), /Calculation failed/);
   assert.equal(f.checkout.project, baseline);
 });

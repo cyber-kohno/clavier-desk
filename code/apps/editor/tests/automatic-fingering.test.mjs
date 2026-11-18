@@ -75,6 +75,23 @@ test('an octave with an inner note can be assigned and pressed together in eithe
   }
 });
 
+test('a left-hand black-key octave can be assigned and animated between white-key strikes', () => {
+  const quarter = { value: { type: 'quarter', dots: 0 } };
+  const { project, selection } = setup([
+    note('bass', [43], quarter), note('black-octave', [42, 54], quarter), note('white-octave', [40, 52], quarter),
+  ], 'lowerStaff');
+  project.outline[0].data.tempo = 148;
+  const draft = run(project, selection);
+  const applied = Editor.apply(project, selection, draft.assignments);
+  assert.deepEqual(fingers(applied, selection)[1], [1, 5]);
+  const inspected = inspectAnimation(applied);
+  assert.deepEqual(inspected.issues, []);
+  const { notes } = generateAnimation(inspected.performance);
+  const blackOctave = notes.filter(event => event.midiNote === 42 || event.midiNote === 54);
+  assert.equal(blackOctave.length, 2);
+  assert.equal(blackOctave[0].time, blackOctave[1].time);
+});
+
 test('an unannotated scale is assigned as a whole, crosses the thumb and animates', () => {
   const { project, selection } = setup([60, 62, 64, 65, 67, 69, 71, 72].map((midi, i) => note(`n${i}`, [midi])));
   const before = structuredClone(project), draft = run(project, selection);
@@ -183,16 +200,30 @@ test('clear removes ordinary, substitution and grace fingers only; apply and cle
   assert.strictEqual(history.redo().project, filled); assert.strictEqual(history.redo().project, empty);
 });
 
-test('clear expands shared trill spans and removes their sequence while preserving settings', () => {
+test('trill assignments use playback attack indices, preserve fixed sequences and clear from a tied continuation', () => {
   const { project, selection } = setup([note('a', [60], { tieTo: 'b' }), note('b', [60], { tieFrom: 'a' })]);
   project.trills = [{ id: 'trill', kind: 'trill', startNoteId: 'a', endNoteId: 'b', settings: { auxiliary: 'diatonic', start: 'main', attackCount: 4, fingerings: [1, 2, 1, 2] } }];
   const partial = { ...selection, noteIds: ['b'] };
+  const fixed = Selection.inspect(project, partial);
+  assert.equal(fixed.fixed, 4);
+  assert.equal(fixed.missing, 0);
+  assert.deepEqual(Passage.prepare(project, partial).passage.steps.map(step => step.attacks[0].fixed), [1, 2, 1, 2]);
   assert.equal(Selection.clearAvailability(project, partial).allowed, true);
   assert.equal(Editor.clear(project, partial).trills[0].settings.fingerings, undefined);
-  assert.match(Passage.prepare(project, selection).issues[0].message, /Trills/);
   const cleared = Editor.clear(project, selection);
   assert.equal(cleared.trills[0].settings.fingerings, undefined); assert.equal(cleared.trills[0].settings.attackCount, 4);
   assert.equal(Selection.clearAvailability(cleared, selection).allowed, false);
+  const draft = run(cleared, partial);
+  assert.deepEqual(draft.assignments.map(a => [a.noteId, a.trillAttackIndex, a.pitchIndex]),
+    [['a', 0, 0], ['a', 1, 0], ['a', 2, 0], ['a', 3, 0]]);
+  assert.equal(Editor.apply(cleared, partial, draft.assignments.slice(1)), cleared);
+  const applied = Editor.apply(cleared, partial, draft.assignments);
+  assert.deepEqual(applied.trills[0].settings.fingerings, draft.assignments.map(a => a.finger));
+  assert.deepEqual(fingers(applied, selection), [[undefined], [undefined]]);
+  assert.equal(Selection.inspect(applied, partial).missing, 0);
+  const inspected = inspectAnimation(applied);
+  assert.deepEqual(inspected.issues, []);
+  assert.equal(generateAnimation(inspected.performance).notes.length, 4);
 });
 
 test('Fingering submenu supports keyboard navigation and disables empty clears', () => {
