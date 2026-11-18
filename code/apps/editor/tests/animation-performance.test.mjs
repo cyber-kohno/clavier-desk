@@ -6,9 +6,11 @@ import Timeline from '../src/domain/score/score-timeline.ts';
 import RestSpelling from '../src/domain/score/rest-spelling.ts';
 import Plan from '../src/domain/performance/score-playback-plan.ts';
 import { inspectAnimation, animationAudio, ANIMATION_LEAD_IN } from '../src/domain/performance/animation-performance.ts';
-import { generateAnimation } from '../src/service/playback/animation-generation.ts';
+import { generateAnimation, generateAnimationMotion } from '../src/service/playback/animation-generation.ts';
 import { animationSequenceAt, createAnimationTransport } from '../src/service/playback/animation-transport.ts';
-import { evaluate, keyDepth } from '../src/domain/motion/motion.ts';
+import { evaluate, keyDepth, performancePlanFor, restorePreparedMotion } from '../src/domain/motion/motion.ts';
+import { planChord } from '../src/domain/motion/chords.ts';
+import { keys } from '../src/domain/motion/keyboard.ts';
 
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-8, `${a} != ${b}`);
 function fixture() {
@@ -19,6 +21,48 @@ function fixture() {
   project.outline.push({ id: 'measure', type: 'measure', data });
   return project;
 }
+
+test('repeated chord plans preserve contact order and keep cached geometry private', () => {
+  const contacts = [
+    { midiNote: 60, finger: 1, target: keys.find(key => key.midiNote === 60).target },
+    { midiNote: 64, finger: 3, target: keys.find(key => key.midiNote === 64).target },
+  ];
+  const first = planChord('right', contacts, 0.018, 0.01);
+  const expected = structuredClone(first);
+  first.position[0] += 1;
+  first.contacts[0].target[2] += 1;
+
+  const repeated = planChord('right', contacts, 0.018, 0.01);
+  assert.deepEqual(repeated, expected);
+  repeated.contacts.reverse();
+  assert.deepEqual(planChord('right', contacts, 0.018, 0.01), expected);
+  assert.deepEqual(planChord('right', [...contacts].reverse(), 0.018, 0.01).contacts,
+    [...expected.contacts].reverse());
+});
+
+test('generation reports actual work and restores the motion graph after a worker round trip', () => {
+  const project = fixture();
+  Timeline.note(project.outline, 'r1').note.pitches.push({ midi: 64, fingering: 3 });
+  const input = inspectAnimation(project).performance;
+  const progress = [];
+  const motion = generateAnimationMotion(input, value => progress.push(value));
+  assert.deepEqual(progress.filter(p => p.phase === 'notes').map(p => [p.completed, p.total]),
+    input.notes.map((_, index) => [index, input.notes.length]));
+  assert.deepEqual(progress.find(p => p.phase === 'chords'), {
+    phase: 'chords', completed: 0, total: 1, hand: 'right', firstMeasure: 1, lastMeasure: 1,
+  });
+  assert.equal(progress.find(p => p.phase === 'sharedKeys').hand, undefined);
+
+  const restored = structuredClone(motion);
+  restorePreparedMotion(restored);
+  const rightGroup = restored.groups.right[0];
+  const time = rightGroup.notes[0].time + 0.1;
+  const pose = evaluate(restored.notes, time, 'scale').right;
+  assert.deepEqual(pose, evaluate(motion.notes, time, 'scale').right);
+  assert.equal(pose.active, restored.notes.find(note => note.hand === 'right'));
+  assert.equal(pose.targets[0], rightGroup.plan.contacts[0].target);
+  assert.equal(performancePlanFor(restored.notes), restored.plan);
+});
 
 test('animation uses the audio timeline, preserves identity and trailing rests, and never mutates notation', () => {
   const project = fixture();

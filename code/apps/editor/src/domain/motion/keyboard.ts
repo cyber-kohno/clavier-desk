@@ -11,6 +11,9 @@ export const keys=Array.from({length:88},(_,index)=>{
     width:WIDTH*(black?0.58:0.96),height:black?0.024:0.018,length:black?0.087:0.15,z:black?-0.043:-0.01};
 });
 export type Key=typeof keys[number];
+const blackKeys=keys.filter(key=>key.black).map(key=>({
+  key,left:key.target[0]-key.width/2,right:key.target[0]+key.width/2,
+}));
 
 // Inset contact ranges derived from the same boxes used by the renderer.
 // Rear white contacts stay between black keys at the white key's center X.
@@ -36,11 +39,24 @@ function intersects(a:Vec3,b:Vec3,min:Vec3,max:Vec3) {
 // Pressed black keys move with the chord; other black keys keep their rest top.
 export function clearsBlackKeys(points:Vec3[],pressed:ReadonlySet<number>,drop:number,drops?:ReadonlyMap<number,number>):boolean {
   const epsilon=1e-7;
-  const lowX=Math.min(...points.map(p=>p[0])),highX=Math.max(...points.map(p=>p[0]));
-  for(const key of keys)if(key.black&&key.target[0]+key.width/2>lowX&&key.target[0]-key.width/2<highX) {
+  let lowX=Infinity,highX=-Infinity;
+  for(const point of points) {
+    lowX=Math.min(lowX,point[0]);
+    highX=Math.max(highX,point[0]);
+  }
+  if(!(lowX<=highX))return true;
+  // The key edges increase in keyboard order. Find the first with horizontal overlap.
+  let low=0,high=blackKeys.length;
+  while(low<high) {
+    const middle=(low+high)>>1;
+    if(blackKeys[middle].right<=lowX)low=middle+1;
+    else high=middle;
+  }
+  for(let index=low;index<blackKeys.length&&blackKeys[index].left<highX;index++) {
+    const {key,left,right}=blackKeys[index];
     const top=key.target[1]-(drops?.get(key.midiNote)??(pressed.has(key.midiNote)?drop:0));
-    const min:Vec3=[key.target[0]-key.width/2+epsilon,top-key.height+epsilon,key.z-key.length/2+epsilon];
-    const max:Vec3=[key.target[0]+key.width/2-epsilon,top-epsilon,key.z+key.length/2-epsilon];
+    const min:Vec3=[left+epsilon,top-key.height+epsilon,key.z-key.length/2+epsilon];
+    const max:Vec3=[right-epsilon,top-epsilon,key.z+key.length/2-epsilon];
     for(let i=1;i<points.length;i++)if(intersects(points[i-1],points[i],min,max))return false;
   }
   return true;

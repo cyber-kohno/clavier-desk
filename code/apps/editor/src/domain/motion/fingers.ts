@@ -16,15 +16,18 @@ export const spreadLimits = (finger:Finger):[number,number] =>
 export function restPose(finger:Finger, spreadOffset=0):JointPose {
   return {spread:specs[finger].spread+spreadOffset,proximal:-0.15,distal:-0.1};
 }
+function fingerRoot(hand:Hand,finger:Finger,opposition=0):Vec3 {
+  const spec=specs[finger], mirror=hand==='right'?1:-1;
+  // The scale model approximates opposition with a forward shift of the thumb base.
+  return [spec.x*mirror,0.028,spec.z-(finger===1?0.022*opposition:0)];
+}
 // Shared two-segment forward kinematics; thumb has its own base and splay.
 export function fingerPoints(hand:Hand, finger:Finger, curl:number): [Vec3,Vec3,Vec3] {
   return pointsForPose(hand,finger,{spread:specs[finger].spread,proximal:-0.15+curl,distal:-0.1+curl*1.6});
 }
 export function pointsForPose(hand:Hand, finger:Finger, pose:JointPose): [Vec3,Vec3,Vec3] {
   const spec=specs[finger], mirror=hand==='right'?1:-1;
-  // A small forward shift of the thumb base approximates opposition in the
-  // scale experiment. Other fingers and the original modes keep the same root.
-  const root:Vec3=[spec.x*mirror,0.028,spec.z-(finger===1?0.022*(pose.opposition??0):0)];
+  const root=fingerRoot(hand,finger,pose.opposition);
   const points:[Vec3,Vec3,Vec3]=[root,[...root],[...root]];
   const angles=[pose.proximal,pose.distal];
   for(let i=0;i<2;i++) {
@@ -39,7 +42,7 @@ export function pointsForPose(hand:Hand, finger:Finger, pose:JointPose): [Vec3,V
 }
 // Closed-form geometry for this two-segment prototype, with explicit angle limits.
 export function solveFinger(hand:Hand,finger:Finger,target:Vec3,thumbUnder=false,oppositionOverride?:number):JointPose|undefined {
-  const spec=specs[finger], root=pointsForPose(hand,finger,restPose(finger))[0];
+  const spec=specs[finger], root=fingerRoot(hand,finger);
   const dx=(target[0]-root[0])*(hand==='right'?1:-1),down=root[1]-target[1];
   const opposition=thumbUnder&&finger===1?(oppositionOverride??Math.max(0,Math.min(1,(root[2]-target[2]-Math.sqrt(Math.max(0,0.046**2-dx**2)))/0.022))):0;
   root[2]-=0.022*opposition;

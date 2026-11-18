@@ -78,6 +78,11 @@ test('ties entering and leaving the range keep the head finger and are clipped a
   assert.equal(partial.performance.notes[0].finger, 3);
   near(partial.performance.notes[0].time, ANIMATION_LEAD_IN); near(partial.performance.notes[0].duration, 2.4);
   assert.deepEqual(partial.performance.playback.events[0].notationNoteIds, ['n1']);
+  assert.equal(partial.performance.origins[0].firstMeasure, 2);
+  assert.equal(partial.performance.origins[0].lastMeasure, 2);
+  const throughEnd = inspectAnimation(project, range(1, 2));
+  assert.equal(throughEnd.performance.origins[0].firstMeasure, 2);
+  assert.equal(throughEnd.performance.origins[0].lastMeasure, 3);
   generateAnimation(partial.performance);
 });
 

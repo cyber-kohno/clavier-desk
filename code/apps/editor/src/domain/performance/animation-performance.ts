@@ -11,7 +11,7 @@ export type AnimationPerformance = {
   playback: PlaybackPlan;
   notes: Note[];
   duration: number;
-  origins: { noteId: string; pitchIndex: number; label: string }[];
+  origins: { noteId: string; pitchIndex: number; label: string; firstMeasure?: number; lastMeasure?: number }[];
 };
 
 /** A read-only conversion from the shared audio performance, optionally clipped
@@ -31,14 +31,16 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
   const relevant = new Set(playback.events.flatMap(event =>
     event.performance?.filter((_, index) => keyHoldSeconds(event, index) > 0).map(source => source.noteId) ?? []));
   const measures = project.outline.filter(block => block.type === 'measure');
-  const locations = new Map<string, string>();
+  const measureNumbers = new Map(measures.map((measure, index) => [measure.id, index + 1]));
+  const locations = new Map<string, { label: string; measure: number }>();
   const issues: AnimationIssue[] = [];
   for (const staff of ['upperStaff', 'lowerStaff'] as const) {
     const count = Math.max(0, ...measures.map(measure => measure.data[staff].voices.length));
     for (let voice = 0; voice < count; voice++) for (const entry of ScoreTimeline.notes(project.outline, staff, voice)) {
-      const label = `Measure ${measures.indexOf(entry.measure) + 1}, ${staff === 'upperStaff' ? 'right' : 'left'} hand, voice ${voice + 1}`;
-      locations.set(entry.note.id, label);
-      for (const grace of entry.note.beforeGraceNotes ?? []) locations.set(grace.id, `${label}, grace note`);
+      const measure = measureNumbers.get(entry.measure.id)!;
+      const label = `Measure ${measure}, ${staff === 'upperStaff' ? 'right' : 'left'} hand, voice ${voice + 1}`;
+      locations.set(entry.note.id, { label, measure });
+      for (const grace of entry.note.beforeGraceNotes ?? []) locations.set(grace.id, { label: `${label}, grace note`, measure });
       // Resolve the same owner/legacy conflicts as editing and automatic fingering.
       if (relevant.has(entry.note.id) && !entry.note.tieFrom && entry.note.tieTo) {
         const state = TieFingerings.resolve(project, entry.note.id, staff)!;
@@ -49,22 +51,33 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
   }
   const notes: Note[] = [], origins: AnimationPerformance['origins'] = [];
   let attacks = 0, assigned = 0;
-  const add = (note: Note, origin: AnimationPerformance['origins'][number]) => { notes.push(note); origins.push(origin); };
   for (const event of playback.events) event.pitches.forEach((midiNote, index) => {
     const duration = keyHoldSeconds(event, index);
     if (duration <= 0) return;
     attacks++;
     const source = event.performance?.[index];
-    const label = `${locations.get(source?.noteId ?? '') ?? 'Score'}, MIDI ${midiNote}`;
+    const location = locations.get(source?.noteId ?? '');
+    const label = `${location?.label ?? 'Score'}, MIDI ${midiNote}`;
     if (!source || source.fingering === undefined) {
       issues.push({ message: `${label}: fingering is missing.`, noteId: source?.noteId, pitchIndex: source?.pitchIndex });
       return;
     }
     assigned++;
-    const origin = { noteId: source.noteId, pitchIndex: source.pitchIndex, label };
+    const add = (note: Note) => {
+      const start = note.time - ANIMATION_LEAD_IN, end = start + note.duration;
+      // A tie can be owned by an attack outside the selected range. Use the
+      // notation segments actually covered by this contact for progress.
+      const covered = event.notationRanges?.filter(part =>
+        part.startSeconds < end - 1e-9 && (part.endSeconds ?? Infinity) > start + 1e-9)
+        .flatMap(part => locations.get(part.noteId)?.measure ?? []);
+      const firstMeasure = covered?.length ? Math.min(...covered) : location?.measure;
+      const lastMeasure = covered?.length ? Math.max(...covered) : firstMeasure;
+      notes.push(note);
+      origins.push({ noteId: source.noteId, pitchIndex: source.pitchIndex, label, firstMeasure, lastMeasure });
+    };
     const note: Note = { time: event.startSeconds + ANIMATION_LEAD_IN, duration, midiNote,
       hand: source.hand, finger: source.fingering, voice: source.voice };
-    if (source.substitutionFingering === undefined) add(note, origin);
+    if (source.substitutionFingering === undefined) add(note);
     else {
       // Deterministic default: receive halfway through the held note, with a
       // short overlap. Audio remains one uninterrupted note.
@@ -73,13 +86,13 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
       const originalDuration = keyHoldSeconds(original, originalIndex);
       const handoff = original.startSeconds + originalDuration / 2 - offset + ANIMATION_LEAD_IN;
       const end = note.time + duration;
-      if (handoff <= note.time) add({ ...note, finger: source.substitutionFingering }, origin);
-      else if (handoff >= end) add(note, origin);
+      if (handoff <= note.time) add({ ...note, finger: source.substitutionFingering });
+      else if (handoff >= end) add(note);
       else {
         const overlap = Math.min(0.04, originalDuration * 0.1, (end - handoff) / 2);
-        add({ ...note, duration: handoff - note.time + overlap }, origin);
+        add({ ...note, duration: handoff - note.time + overlap });
         add({ ...note, time: handoff, duration: end - handoff,
-          finger: source.substitutionFingering, action: 'substitute' }, origin);
+          finger: source.substitutionFingering, action: 'substitute' });
       }
     }
   });

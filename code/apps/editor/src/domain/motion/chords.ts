@@ -4,14 +4,32 @@ import { keys, contactRange, clearsBlackKeys } from './keyboard.ts';
 export type Contact = {finger:Finger; midiNote:number; target:Vec3; preparationHeight?:number};
 export type ChordPlan = {position:Vec3; contacts:Contact[]; hoverHeight?:number; idleJoints?:Partial<Record<Finger,JointPose>>};
 export const WHITE_CONTACT_BACK=0.008,WHITE_CONTACT_FRONT=0.05;
+const CHORD_CACHE_LIMIT=512;
+const chordCache=new Map<string,ChordPlan>();
 export function chordPoses(plan:ChordPlan,hand:Hand,lift:number):JointPose[]|undefined {
   const poses=plan.contacts.map(c=>solveFinger(hand,c.finger,c.target.map((v,i)=>v-plan.position[i]+(i===1?(lift>0&&plan.hoverHeight?lift*(c.preparationHeight??plan.hoverHeight)/plan.hoverHeight:lift):0)) as Vec3));
   if(poses.some(p=>!p))return;
   return poses as JointPose[];
 }
+export function planChord(hand:Hand,contacts:Contact[],hover:number,travel:number):ChordPlan {
+  // Contact order is part of the key because callers match poses to notes by index.
+  const key=JSON.stringify([hand,hover,travel,contacts]);
+  const cached=chordCache.get(key);
+  if(cached)return structuredClone(cached);
+
+  const plan=findChordPlan(hand,contacts,hover,travel);
+  if(chordCache.size>=CHORD_CACHE_LIMIT) {
+    const oldest=chordCache.keys().next();
+    if(!oldest.done)chordCache.delete(oldest.value);
+  }
+  // Plans are mutable and exposed through hand frames. Keep a private copy.
+  chordCache.set(key,structuredClone(plan));
+  return plan;
+}
+
 // Search shared palm placements, checking samples along the press path.
 // This is a bounded prototype model, not a claim about a human player's reach.
-export function planChord(hand:Hand,contacts:Contact[],hover:number,travel:number):ChordPlan {
+function findChordPlan(hand:Hand,contacts:Contact[],hover:number,travel:number):ChordPlan {
   const low=Math.min(...contacts.map(c=>c.target[0]));
   const high=Math.max(...contacts.map(c=>c.target[0]));
   const wide=high-low>=0.14;
@@ -102,10 +120,12 @@ function searchChord(hand:Hand,contacts:Contact[],hover:number,travel:number,che
           for(const z of depths) for(const preparationHeight of adaptive?[...new Set([hover,Math.min(hover,0.012),Math.min(hover,0.006),Math.min(hover,0.003),Math.min(hover,0.001)])]:[hover]) {
             const local:Vec3=[contact.target[0]-position[0],contact.target[1]-position[1]+preparationHeight,z-position[2]];
             const top=solveFinger(hand,contact.finger,local);
-            const bottom=solveFinger(hand,contact.finger,[local[0],local[1]-preparationHeight-travel,local[2]]);
-            if(!top||!bottom||checkKeys&&(!clearAt(top,preparationHeight)||!clearAt(bottom,-travel)))continue;
+            if(!top)continue;
             const score=(top.spread-neutral.spread)**2+(top.proximal+0.15)**2+(top.distal+0.1)**2+(hover-preparationHeight)*100;
+            // Only a candidate that improves the score can replace the current contact.
             if(score>=chosenScore-(mixed?1e-10:0))continue;
+            const bottom=solveFinger(hand,contact.finger,[local[0],local[1]-preparationHeight-travel,local[2]]);
+            if(!bottom||checkKeys&&(!clearAt(top,preparationHeight)||!clearAt(bottom,-travel)))continue;
             let feasible=true;
             const samples=flexible?32:16;
             for(let i=1;i<samples;i++) {

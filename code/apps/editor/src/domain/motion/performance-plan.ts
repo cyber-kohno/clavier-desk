@@ -1,5 +1,5 @@
 import type { Hand, Vec3 } from './fingers.ts';
-import type { Note } from './motion.ts';
+import type { Note, ReportMotionProgress } from './motion.ts';
 import { isScaleNote, planScale, scaleConnection } from './scale-motion.ts';
 import type { ScalePlan, ScaleStep } from './scale-motion.ts';
 
@@ -12,29 +12,34 @@ const endOf=(g:TimedGroup)=>Math.max(...g.notes.map(n=>n.time+n.duration))+g.rel
 
 // Pure planning, independent of rendering and playback order. Maximal runs are
 // separated at chords, jumps, rests and unsupported finger changes.
-export function planPerformance(groups:Record<Hand,TimedGroup[]>,targetFor:(note:Note)=>Vec3):PerformancePlan {
+export function planPerformance(groups:Record<Hand,TimedGroup[]>,targetFor:(note:Note)=>Vec3,report?:ReportMotionProgress):PerformancePlan {
   const result:PerformancePlan={left:[],right:[]};
+  const runs:{hand:Hand;from:number;to:number}[]=[];
   for(const hand of ['left','right'] as const) {
     const part=groups[hand];
     for(let from=0;from<part.length;) {
       if(part[from].notes.length!==1||!isScaleNote(part[from].notes[0])){from++;continue;}
       let to=from+1;
       while(to<part.length&&part[to].notes.length===1&&scaleConnection(part[to-1].notes[0],part[to].notes[0]))to++;
-      const input:ScaleStep[]=part.slice(from,to).map(g=>({note:g.notes[0],target:targetFor(g.notes[0]),approach:g.approach,release:g.release}));
-      const legacy=planScale(input,'legacy');
-      if(legacy) {
-        const smooth=planScale(input,'smooth',legacy);
-        // Fit each blend inside free air travel. Reserve half of the gap for
-        // each neighboring run, so overlays cannot overlap or alter contacts.
-        for(const plan of [legacy,smooth])if(plan) {
-          const start=startOf(part[from]),end=endOf(part[to-1]);
-          if(from>0)plan.blendStart=Math.max(plan.blendStart,(endOf(part[from-1])+start)/2);
-          if(to<part.length)plan.blendEnd=Math.min(plan.blendEnd,(end+startOf(part[to]))/2);
-        }
-        result[hand].push({legacy,smooth});
-      }
+      if(to-from>=4)runs.push({hand,from,to});
       from=to;
     }
+  }
+  for(const [completed,{hand,from,to}] of runs.entries()) {
+    const part=groups[hand];
+    const input:ScaleStep[]=part.slice(from,to).map(g=>({note:g.notes[0],target:targetFor(g.notes[0]),approach:g.approach,release:g.release}));
+    report?.({phase:'runs',completed,total:runs.length,notes:input.map(step=>step.note)});
+    const legacy=planScale(input,'legacy');
+    if(!legacy)continue;
+    const smooth=planScale(input,'smooth',legacy);
+    // Fit each blend inside free air travel. Reserve half of the gap for
+    // each neighboring run, so overlays cannot overlap or alter contacts.
+    for(const plan of [legacy,smooth])if(plan) {
+      const start=startOf(part[from]),end=endOf(part[to-1]);
+      if(from>0)plan.blendStart=Math.max(plan.blendStart,(endOf(part[from-1])+start)/2);
+      if(to<part.length)plan.blendEnd=Math.min(plan.blendEnd,(end+startOf(part[to]))/2);
+    }
+    result[hand].push({legacy,smooth});
   }
   // Both hands may expand contact windows. Check each against the other hand's
   // longest possible windows, including its smooth plans, before enabling it.

@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { onMount, tick, untrack } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import type { ScoreProject } from '../domain/score/types.ts';
   import { inspectAnimation, animationAudio, type AnimationPerformance } from '../domain/performance/animation-performance.ts';
-  import { generateAnimation } from '../service/playback/animation-generation.ts';
+  import type { AnimationProgress } from '../service/playback/animation-generation.ts';
+  import { createAnimationCalculation } from '../service/playback/animation-calculation.ts';
   import { createAnimationTransport } from '../service/playback/animation-transport.ts';
   import type { PlaybackInstrumentPort } from '../service/playback/playback-instrument.ts';
   import EditorDialogController from '../service/dialog/editor-dialog-controller.ts';
@@ -25,6 +26,8 @@
   let playing = $state(false);
   let speed = $state(1);
   let loading = $state(false);
+  let progress = $state.raw<AnimationProgress>();
+  const calculation = createAnimationCalculation();
   let sceneReady = $state(false);
   let sceneError = $state('');
   let showNotes = $state(true);
@@ -40,6 +43,19 @@
   const inspection = $derived(inspectAnimation(project, range));
   const stale = $derived(result !== null && result.project !== project);
   const duration = $derived(result?.performance.duration ?? 0);
+  const phaseLabels = {
+    notes: 'Checking note data',
+    chords: 'Planning chord positions',
+    held: 'Planning movement while holding keys',
+    sharedKeys: 'Checking for simultaneous contact by both hands',
+    runs: 'Planning connected fingering',
+    wrist: 'Checking wrist motion',
+  } satisfies Record<AnimationProgress['phase'], string>;
+  const progressLabel = $derived(progress ? phaseLabels[progress.phase] : 'Preparing hand motion');
+  const measureLabel = $derived(progress?.firstMeasure === undefined ? '' :
+    progress.lastMeasure !== undefined && progress.lastMeasure !== progress.firstMeasure
+      ? `Measures ${progress.firstMeasure}–${progress.lastMeasure}`
+      : `Measure ${progress.firstMeasure}`);
   const transport = createAnimationTransport(untrack(() => instrument), error => {
     playing = false;
     showError('Audio Playback Failed', error instanceof Error ? error.message : String(error));
@@ -48,7 +64,16 @@
   function showError(title: string, message: string) {
     EditorDialogController.alert({ title, messageLines: [message] });
   }
-  async function generate() {
+  function finishGeneration() {
+    loading = false;
+    progress = undefined;
+    panel?.focus();
+  }
+  function generationFailed(message: string) {
+    finishGeneration();
+    showError('Animation Generation Failed', message);
+  }
+  function generate() {
     if (loading || !sceneReady) return;
     transport.pause(); playing = false;
     if (inspection.issues.length) {
@@ -57,16 +82,24 @@
       EditorDialogController.alert({ title: 'Animation Unavailable', messageLines: lines });
       return;
     }
-    loading = true; result = null; saveSnapshot(null); position = 0;
-    await tick();
-    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-    if (!alive) return;
+    const input = inspection.performance;
+    const source = { project, range };
+    loading = true; progress = undefined; result = null; saveSnapshot(null); position = 0;
     try {
-      const performance = generateAnimation(inspection.performance);
-      result = { project, performance, range }; saveSnapshot(result);
-      transport.setSequence(animationAudio(performance));
-    } catch (error) { showError('Animation Generation Failed', error instanceof Error ? error.message : String(error)); }
-    finally { loading = false; panel?.focus(); }
+      calculation.start($state.snapshot({ notes: input.notes, origins: input.origins }), {
+        progress: value => { progress = value; },
+        complete: notes => {
+          const performance = { ...input, notes };
+          try {
+            transport.setSequence(animationAudio(performance));
+            result = { ...source, performance };
+            saveSnapshot(result);
+            finishGeneration();
+          } catch (error) { generationFailed(error instanceof Error ? error.message : String(error)); }
+        },
+        failed: generationFailed,
+      });
+    } catch (error) { generationFailed(error instanceof Error ? error.message : String(error)); }
   }
   function toggle() {
     if (!result || loading) return;
@@ -144,7 +177,7 @@
       } catch (error) { sceneError = '3D rendering is unavailable.'; showError('3D Rendering Failed', `${sceneError} ${error instanceof Error ? error.message : String(error)}`); }
     }).catch(() => { if (alive) { sceneError = 'The 3D renderer could not be loaded.'; showError('3D Rendering Failed', sceneError); } });
     return () => {
-      alive = false; cancelAnimationFrame(frame); transport.dispose(); scene?.dispose(); cameraKeys.reset();
+      alive = false; calculation.cancel(); cancelAnimationFrame(frame); transport.dispose(); scene?.dispose(); cameraKeys.reset();
       window.removeEventListener('keyup', release);
       window.removeEventListener('blur', resetCameraKeys);
       document.removeEventListener('visibilitychange', visibility);
@@ -165,7 +198,24 @@
     </div>
     <div class="stage">
       <div class="viewport" bind:this={viewport}></div>
-      {#if !result}<div class="placeholder">{loading ? 'Preparing hand motion…' : sceneError || (range ? 'Generate an animation from the selected measures.' : 'Generate an animation from the current score.')}</div>{/if}
+      {#if loading}
+        <div class="placeholder">
+          <div class="generation-progress">
+            <p role="status">{progressLabel}…</p>
+            {#if progress}
+              <progress aria-label={progressLabel} max={progress.total} value={progress.completed}></progress>
+              <div class="generation-detail">
+                <span>{measureLabel}{measureLabel && progress.hand ? ' · ' : ''}{progress.hand === 'left' ? 'Left hand' : progress.hand === 'right' ? 'Right hand' : ''}</span>
+                <span>{progress.completed} / {progress.total}</span>
+              </div>
+            {:else}
+              <progress aria-label={progressLabel}></progress>
+            {/if}
+          </div>
+        </div>
+      {:else if !result}
+        <div class="placeholder">{sceneError || (range ? 'Generate an animation from the selected measures.' : 'Generate an animation from the current score.')}</div>
+      {/if}
       <nav aria-label="Camera views">
         <button aria-pressed={showNotes} onclick={() => showNotes = !showNotes}>Notes {showNotes ? 'on' : 'off'} <kbd>N</kbd></button>
         <button onclick={() => scene?.view('notes')}>Note view <kbd>V</kbd></button>
@@ -209,6 +259,10 @@
   .viewport { position: absolute; inset: 0; }
   .viewport :global(canvas) { display: block; }
   .placeholder { position: absolute; inset: 0; display: grid; place-items: center; background: #101a25b8; color: #dce9eb; font-size: 14px; pointer-events: none; }
+  .generation-progress { width: min(360px, 85%); }
+  .generation-progress p { margin: 0 0 8px; }
+  .generation-progress progress { display: block; width: 100%; height: 12px; accent-color: #72bfba; }
+  .generation-detail { display: flex; justify-content: space-between; gap: 12px; min-height: 1.4em; margin-top: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
   nav { position: absolute; right: 12px; top: 12px; display: flex; gap: 8px; }
   footer { padding: 10px 14px 8px; box-sizing: border-box; }
   .transport { display: flex; gap: 12px; align-items: center; }

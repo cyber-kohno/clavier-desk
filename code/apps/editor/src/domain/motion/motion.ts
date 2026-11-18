@@ -16,15 +16,23 @@ import type { HeldPlan } from './held-motion.ts';
 export { keys, WIDTH, KEYBOARD_WIDTH } from './keyboard.ts';
 export type { Vec3, Hand } from './fingers.ts';
 export type Note = { time:number; duration:number; midiNote:number; hand:Hand; finger:Finger; action?:'substitute';voice?:string };
+export type MotionProgress = {
+  phase:'notes'|'chords'|'held'|'sharedKeys'|'runs'|'wrist';
+  completed:number;
+  total:number;
+  notes?:readonly Note[];
+};
+export type ReportMotionProgress = (value:MotionProgress)=>void;
 export const TRAVEL=0.01, HOVER=0.018;
 export const APPROACH=0.12, RELEASE=0.12, MOVE=0.3;
 export { MIN_REATTACK_GAP_SECONDS as MIN_GAP } from '../theory/performance-timing.ts';
 import { MIN_REATTACK_GAP_SECONDS as MIN_GAP } from '../theory/performance-timing.ts';
 type Group={notes:Note[]; approach:number; release:number; plan?:ChordPlan;held?:HeldPlan;independent?:boolean;windows?:{note:Note;start:number;end:number}[]};
+export type PreparedMotion={notes:Note[];groups:Record<Hand,Group[]>;plan:PerformancePlan};
 const groupEnd=(group:Group)=>Math.max(...group.notes.map(n=>n.time+n.duration));
 const groupCache=new WeakMap<Note[],Record<Hand,Group[]>>();
 const performanceCache=new WeakMap<Note[],PerformancePlan>();
-function groupsFor(notes:Note[]) {
+function groupsFor(notes:Note[],report?:ReportMotionProgress) {
   const cached=groupCache.get(notes);if(cached)return cached;
   const result:Record<Hand,Group[]>={left:[],right:[]};
   for(const note of notes) {
@@ -61,21 +69,23 @@ function groupsFor(notes:Note[]) {
       }
     }
   }
-  for(const hand of ['left','right'] as const)for(const group of result[hand]) {
-    if(group.notes.length>1&&!group.independent) {
-      try {
-        if(group.notes.length>5)throw new Error('A hand can play at most five simultaneous notes.');
-        for(let i=0;i<group.notes.length;i++)for(let j=i+1;j<group.notes.length;j++) {
-          const a=group.notes[i],b=group.notes[j];
-          if(a.finger===b.finger)throw new Error('The same finger cannot play multiple simultaneous notes.');
-          if(a.midiNote===b.midiNote)throw new Error('A chord cannot assign the same key twice to one hand.');
-          if(a.duration!==b.duration)throw new Error('This chord plan requires simultaneous release.');
-          if((a.midiNote-b.midiNote)*(a.finger-b.finger)*(hand==='right'?1:-1)<0)throw new Error('Crossed finger order in a chord is not supported.');
-        }
-        group.plan=planChord(hand,group.notes.map(n=>({finger:n.finger,midiNote:n.midiNote,target:keys.find(k=>k.midiNote===n.midiNote)!.target})),HOVER,TRAVEL);
-      } catch(error) {
-        throw new Error(`${hand==='left'?'Left hand':'Right hand'} ${group.notes[0].time.toFixed(3)} s (${group.notes.map(n=>`MIDI${n.midiNote}/finger ${n.finger}`).join(', ')}): ${error instanceof Error?error.message:String(error)}`);
+  const groups=[...result.left,...result.right];
+  const chords=groups.filter(group=>group.notes.length>1&&!group.independent);
+  for(const [completed,group] of chords.entries()) {
+    report?.({phase:'chords',completed,total:chords.length,notes:group.notes});
+    const hand=group.notes[0].hand;
+    try {
+      if(group.notes.length>5)throw new Error('A hand can play at most five simultaneous notes.');
+      for(let i=0;i<group.notes.length;i++)for(let j=i+1;j<group.notes.length;j++) {
+        const a=group.notes[i],b=group.notes[j];
+        if(a.finger===b.finger)throw new Error('The same finger cannot play multiple simultaneous notes.');
+        if(a.midiNote===b.midiNote)throw new Error('A chord cannot assign the same key twice to one hand.');
+        if(a.duration!==b.duration)throw new Error('This chord plan requires simultaneous release.');
+        if((a.midiNote-b.midiNote)*(a.finger-b.finger)*(hand==='right'?1:-1)<0)throw new Error('Crossed finger order in a chord is not supported.');
       }
+      group.plan=planChord(hand,group.notes.map(n=>({finger:n.finger,midiNote:n.midiNote,target:keys.find(k=>k.midiNote===n.midiNote)!.target})),HOVER,TRAVEL);
+    } catch(error) {
+      throw new Error(`${hand==='left'?'Left hand':'Right hand'} ${group.notes[0].time.toFixed(3)} s (${group.notes.map(n=>`MIDI${n.midiNote}/finger ${n.finger}`).join(', ')}): ${error instanceof Error?error.message:String(error)}`);
     }
   }
   for(const hand of ['left','right'] as const) {
@@ -87,7 +97,10 @@ function groupsFor(notes:Note[]) {
       previous.release=RELEASE*scale;next.approach=APPROACH*scale;
     }
   }
-  for(const hand of ['left','right'] as const)for(const group of result[hand])if(group.independent) {
+  const held=groups.filter(group=>group.independent);
+  for(const [completed,group] of held.entries()) {
+    report?.({phase:'held',completed,total:held.length,notes:group.notes});
+    const hand=group.notes[0].hand;
     try {
       const events=heldEvents(group.notes,group.approach,group.release);
       group.held=planHeld(hand,events);group.plan=group.held.geometry;
@@ -98,21 +111,25 @@ function groupsFor(notes:Note[]) {
   }
   groupCache.set(notes,result);return result;
 }
-export function validate(input:unknown):Note[] {
+export function validate(input:unknown,report?:ReportMotionProgress):Note[] {
   if(!Array.isArray(input)||!input.length)throw new Error('No performance notes to animate.');
-  const notes:Note[]=input.map((n:Note)=>{
+  const notes:Note[]=input.map((n:Note,completed)=>{
+    report?.({phase:'notes',completed,total:input.length,notes:[n]});
     if(!Number.isFinite(n.time)||n.time<0.12||!Number.isFinite(n.duration)||n.duration<=0||!Number.isFinite(n.time+n.duration)||
       !['left','right'].includes(n.hand)||!Number.isInteger(n.finger)||n.finger<1||n.finger>5||!keys.some(k=>k.midiNote===n.midiNote))
       throw new Error('Invalid motion event: expected time >= 0.12, positive duration, left/right hand, finger 1-5 and MIDI 21-108.');
     return {...n};
   }).sort((a,b)=>a.time-b.time);
-  const groups=groupsFor(notes);
+  const groups=groupsFor(notes,report);
   const timing=new Map<Note,{start:number;end:number}>();
   for(const group of [...groups.left,...groups.right])for(const note of group.notes)
     timing.set(note,group.windows?.find(w=>w.note===note)??{start:note.time-group.approach,end:note.time+note.duration+group.release});
-  for(let i=0;i<notes.length;i++)for(let j=i+1;j<notes.length;j++) {
-    if(notes[i].hand!==notes[j].hand && notes[i].midiNote===notes[j].midiNote && timing.get(notes[j])!.start<timing.get(notes[i])!.end&&timing.get(notes[i])!.start<timing.get(notes[j])!.end)
-      throw new Error('Simultaneous contact with the same key by both hands is not supported.');
+  for(let i=0;i<notes.length-1;i++) {
+    report?.({phase:'sharedKeys',completed:i,total:notes.length-1});
+    for(let j=i+1;j<notes.length;j++) {
+      if(notes[i].hand!==notes[j].hand && notes[i].midiNote===notes[j].midiNote && timing.get(notes[j])!.start<timing.get(notes[i])!.end&&timing.get(notes[i])!.start<timing.get(notes[j])!.end)
+        throw new Error('Simultaneous contact with the same key by both hands is not supported.');
+    }
   }
   return notes;
 }
@@ -215,10 +232,10 @@ export function evaluate(notes:Note[],time:number,style:MotionStyle='linear',idl
   return frame;
 }
 // Build once per validated, immutable note array; seeks only evaluate this plan.
-export function performancePlanFor(notes:Note[]):PerformancePlan {
+export function performancePlanFor(notes:Note[],report?:ReportMotionProgress):PerformancePlan {
   let plan=performanceCache.get(notes);
   if(!plan) {
-    plan=planPerformance(groupsFor(notes),n=>keys.find(k=>k.midiNote===n.midiNote)!.target);
+    plan=planPerformance(groupsFor(notes,report),n=>keys.find(k=>k.midiNote===n.midiNote)!.target,report);
     performanceCache.set(notes,plan);
   }
   return plan;
@@ -231,10 +248,26 @@ function wristAmountFor(notes:Note[],hand:Hand,run:PlannedRun):number {
 // UI preparation includes optional wrist feasibility, so a later crossing does
 // not trigger a geometric search in the middle of playback. API evaluation can
 // still prepare lazily for callers that only need one pose.
-export function preparePerformance(notes:Note[]):PerformancePlan {
-  const plan=performancePlanFor(notes);
-  for(const hand of ['left','right'] as const)for(const run of plan[hand])wristAmountFor(notes,hand,run);
+export function preparePerformance(notes:Note[],report?:ReportMotionProgress):PerformancePlan {
+  const plan=performancePlanFor(notes,report);
+  const runs=[...plan.left,...plan.right];
+  for(const [completed,run] of runs.entries()) {
+    report?.({phase:'wrist',completed,total:runs.length,notes:run.legacy.steps.map(step=>step.note)});
+    wristAmountFor(notes,run.legacy.hand,run);
+  }
   return plan;
+}
+
+export function prepareMotion(input:Note[],report?:ReportMotionProgress):PreparedMotion {
+  const notes=validate(input,report);
+  return {notes,groups:groupsFor(notes),plan:preparePerformance(notes,report)};
+}
+
+// A worker sends the entire graph together so groups and runs still share the
+// corresponding note objects. Seed both caches before the first frame.
+export function restorePreparedMotion({notes,groups,plan}:PreparedMotion):void {
+  groupCache.set(notes,groups);
+  performanceCache.set(notes,plan);
 }
 export function heldPlansFor(notes:Note[]):Record<Hand,HeldPlan[]> {
   const groups=groupsFor(notes);
