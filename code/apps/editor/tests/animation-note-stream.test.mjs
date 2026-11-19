@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Scene, InstancedMesh, PerspectiveCamera, Vector3, Box3 } from 'three';
-import { createNoteStream, NOTE_LOOK_AHEAD, NOTE_FAR_Z, NOTE_STRIKE_Z } from '../src/infra/motion/note-stream.ts';
+import { Scene, InstancedMesh, PerspectiveCamera, Points, Vector3, Box3 } from 'three';
+import { createNoteStream, NOTE_LOOK_AHEAD, NOTE_FAR_Z, NOTE_PLANE_Y, NOTE_STRIKE_Z } from '../src/infra/motion/note-stream.ts';
 import { createFallingNotes } from '../src/infra/motion/falling-notes.ts';
 import { ANIMATION_LEAD_IN, inspectAnimation } from '../src/domain/performance/animation-performance.ts';
 import { keys } from '../src/domain/motion/keyboard.ts';
@@ -74,6 +74,52 @@ test('instanced rendering grows for a dense window, seeks deterministically, and
   layer.update(performance, 0, true); assert.equal(group.visible, true);
   assert.equal(pool.count, 300);
   layer.update(undefined, 0, true); assert.equal(group.visible, false);
+});
+
+test('strike effects stay in their lanes, replay on seek, and fade at key release while a bar can still sound', () => {
+  const scene = new Scene(), layer = createFallingNotes(scene);
+  const playback = plan([{ ...event(1, 2, 60, 'left'), keyHoldLimitsSeconds: [0.5] }]);
+  const performance = { playback, notes: [], origins: [], duration: 20 };
+  const onset = 1 + ANIMATION_LEAD_IN;
+  const group = scene.children[0];
+  const effects = group.children.find(object => object instanceof Points);
+  const position = effects.geometry.getAttribute('position');
+  const opacity = effects.geometry.getAttribute('opacity');
+  const count = () => effects.geometry.drawRange.count;
+  const frame = () => ({
+    positions: [...position.array.slice(0, count() * 3)],
+    opacities: [...opacity.array.slice(0, count())],
+  });
+
+  layer.update(performance, onset - 0.05, true);
+  assert.equal(count(), 0);
+  layer.update(performance, onset, true);
+  assert.equal(count(), 5);
+  const [{ x, width }] = createNoteStream(playback).notes;
+  near(position.getZ(0), NOTE_STRIKE_Z);
+  for (let index = 0; index < count(); index++) {
+    assert.ok(position.getY(index) > NOTE_PLANE_Y);
+    assert.ok(Math.abs(position.getX(index) - x) < width / 2);
+  }
+
+  const hold = onset + 0.34;
+  layer.update(performance, hold, true);
+  assert.ok(count() > 1);
+  const held = frame();
+  layer.update(performance, onset + 0.57, true);
+  assert.ok(opacity.getX(0) < held.opacities[0]);
+  layer.update(performance, onset + 0.78, true);
+  assert.ok(count() > 0);
+  layer.update(performance, onset + 0.90, true);
+  assert.equal(count(), 0);
+  assert.equal(group.children.find(object => object instanceof InstancedMesh).count, 1);
+
+  layer.update(performance, hold, true);
+  assert.deepEqual(frame(), held);
+  layer.update(performance, hold, false);
+  assert.equal(group.visible, false);
+  layer.update(performance, hold, true);
+  assert.deepEqual(frame(), held);
 });
 
 test('overview framing fits the note field and full keyboard within the same top camera', () => {

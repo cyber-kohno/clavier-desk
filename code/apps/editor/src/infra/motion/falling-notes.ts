@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { keys, KEYBOARD_WIDTH } from '../../domain/motion/keyboard.ts';
 import type { AnimationPerformance } from '../../domain/performance/animation-performance.ts';
 import { createNoteStream, NOTE_FAR_Z, NOTE_PLANE_Y, NOTE_STRIKE_Z } from './note-stream.ts';
+import { createStrikeEffects } from './strike-effects.ts';
 
 /** One opaque instanced draw for visible bars, shared by the main 3D camera. */
 export function createFallingNotes(scene: THREE.Scene) {
@@ -28,6 +29,7 @@ export function createFallingNotes(scene: THREE.Scene) {
   const transform = new THREE.Object3D();
   const colors = { left: new THREE.Color('#70bdf2'), right: new THREE.Color('#ffad66'),
     leftActive: new THREE.Color('#c6ecff'), rightActive: new THREE.Color('#ffe4bc') };
+  const strikes = createStrikeEffects(group, colors);
   let source: AnimationPerformance | undefined, stream: ReturnType<typeof createNoteStream> | undefined;
   let lastTime = NaN;
   return {
@@ -51,6 +53,7 @@ export function createFallingNotes(scene: THREE.Scene) {
       });
       pool.instanceMatrix.needsUpdate = true;
       if (pool.instanceColor) pool.instanceColor.needsUpdate = true;
+      strikes.update(stream!, time);
     },
   };
 }

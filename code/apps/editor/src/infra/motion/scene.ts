@@ -173,7 +173,7 @@ export function createScene(container: HTMLElement) {
       observer.disconnect(); controls.dispose();
       scene.traverse(object => {
         if (object instanceof THREE.InstancedMesh) object.dispose();
-        if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
+        if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments || object instanceof THREE.Points) {
           object.geometry.dispose(); const materials=Array.isArray(object.material)?object.material:[object.material]; materials.forEach(m=>m.dispose());
         }
       });
