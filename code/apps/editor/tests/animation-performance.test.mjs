@@ -219,7 +219,8 @@ test('seeking restores held notes and pedal state and applies speed to both onse
 test('transport follows the audio clock, pauses pending loads, ignores cancelled callbacks and resumes at changed speed', () => {
   let audioTime = 0, ready = false, callbacks, stopped = 0, wall = 0;
   const runs = [];
-  const instrument = { stop() { stopped++; }, startSequence(sequence, handlers) {
+  const instrument = { stop() { stopped++; }, startSequence(sequence, handlers, options) {
+    assert.ok(options.reverbDepth > 0);
     runs.push(sequence); callbacks = handlers;
     return { get ready() { return ready; }, get currentTime() { return audioTime; } };
   } };

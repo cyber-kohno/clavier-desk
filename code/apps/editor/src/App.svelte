@@ -10,6 +10,10 @@
   import OttavaEditor from './action/editor/ottava-editor.ts';
   import PedalInput from './state/pedal-input.ts';
   import OttavaInput from './state/ottava-input.ts';
+  import HairpinInput from './state/hairpin-input.ts';
+  import ScoreHairpins from './domain/score/score-hairpins.ts';
+  import ScoreDynamics from './domain/score/score-dynamics.ts';
+  import HairpinDialog from './components/HairpinDialog.svelte';
   import { cycleGraceFocus, focusGraceParent, getFocusedGrace } from './state/grace-input';
   import OutlinePanel from './components/OutlinePanel.svelte';
   import TimelinePanel from './components/TimelinePanel.svelte';
@@ -29,7 +33,7 @@
 
   import { controlNoteMenu, createNoteMenuItems, noteMenuItems } from './state/note-menu';
 
-  import { type ScoreProject } from "./domain/score/types.ts";
+  import type { Hairpin, ScoreProject } from './domain/score/types.ts';
   import ScoreFingerings, { type FingeringRules } from './domain/score/score-fingerings.ts';
   import FingeringInput from './state/fingering-input.ts';
   import ScoreTrill from './domain/score/score-trill.ts';
@@ -59,12 +63,12 @@
     getEditorState: draftProject => ({ project: draftProject, editor: { mode, outlineCursor: { ...outlineCursor }, timelineCursor: { ...timelineCursor },
       selectedNoteIds: selectedTimelineNotes.map(entry => entry.note.id), pedalMode, pedalCursor: { ...pedalCursor },
       ottavaMode, ottavaCursor: { ...ottavaCursor }, playbackActive: playback?.playing ?? false,
-      hasUncommittedDialogInput: animationOpen || fingeringSession !== null || noteSettings !== null || sectionTextInput !== null || fingeringTextInput !== null },
+      hasUncommittedDialogInput: animationOpen || fingeringSession !== null || noteSettings !== null || hairpinDialog !== null || sectionTextInput !== null || fingeringTextInput !== null },
       file: { dirty: ScoreProjectFileController.fingerprint(draftProject) !== savedProjectFingerprint, name: currentProjectFile?.name ?? null } }),
     checkoutBlocker: () => {
       if (fingeringSession) return 'Close Auto Fingering before checkout.';
       if (animationOpen) return 'Close the animation view before checkout.';
-      if (noteSettings || sectionTextInput || fingeringTextInput) return 'Finish or cancel the current input before checkout.';
+      if (noteSettings || hairpinDialog || sectionTextInput || fingeringTextInput) return 'Finish or cancel the current input before checkout.';
       if (EditorDialogController.isOpen() || menuPath) return 'Close the current dialog or menu before checkout.';
       if (fileOperationInProgress) return 'Wait for the file operation to finish before checkout.';
       if (playback?.playing) return 'Stop playback before checkout.';
@@ -80,6 +84,7 @@
         mode = 'outline';
         pedalMode = false;
         ottavaMode = false;
+        closeHairpinMode();
       } else {
         const selected = next.outline.find(block => block.id === outlineCursor.blockId);
         if (!selected) {
@@ -99,6 +104,7 @@
         }
         pedalMode = false;
         ottavaMode = false;
+        closeHairpinMode();
       }
       recordProjectChange(previous);
     },
@@ -297,6 +303,73 @@
   const pedalCursor = $derived(EditorNavigation.timeCursor(timelineCursor));
   let ottavaMode = $state(false);
   const ottavaCursor = $derived(EditorNavigation.timeCursor(timelineCursor));
+  let hairpinMode = $state(false);
+  let hairpinStart = $state<number | null>(null);
+  let hairpinDialog = $state<{ hairpin: Hairpin; baseVelocity: number } | null>(null);
+
+  function closeHairpinMode() {
+    hairpinMode = false;
+    hairpinStart = null;
+  }
+
+  function controlHairpin(event: KeyboardEvent) {
+    if (event.ctrlKey || event.altKey || event.metaKey || event.isComposing) return;
+    event.preventDefault();
+    const cursor = EditorNavigation.timeCursor(timelineCursor);
+    const next = HairpinInput.navigate(project.outline, cursor, event);
+    if (next !== cursor) {
+      ({ outlineCursor, timelineCursor } = EditorNavigation.applyTimeCursor(project.outline, outlineCursor, timelineCursor, next));
+      const index = ScoreTimeline.index(project.outline);
+      const lastMeasure = index.measures.at(-1)?.measure;
+      if (next.position === index.length && lastMeasure) outlineCursor = { blockId: lastMeasure.id };
+      return;
+    }
+    if (event.repeat) return;
+    const previous = project;
+    switch (event.key.toLowerCase()) {
+      case 'escape':
+        closeHairpinMode();
+        syncOutlineToTimelinePosition(cursor.position);
+        break;
+      case 'a':
+        if (ScoreTimeline.index(project.outline).measureAt(cursor.position)) hairpinStart = cursor.position;
+        break;
+      case 's': {
+        if (hairpinStart === null) break;
+        const candidate = ScoreHairpins.add(project, hairpinStart, cursor.position);
+        if (candidate === project) {
+          EditorDialogController.alert({ title: 'Hairpin End Unavailable', messageLines: ['Place the end after the start and keep the new range clear of existing hairpins.'] });
+        } else {
+          project = candidate;
+          hairpinStart = null;
+        }
+        break;
+      }
+      case 'b': {
+        const range = ScoreHairpins.at(project, cursor.position);
+        if (range) {
+          const withoutRange = { ...project, hairpins: project.hairpins?.filter(hairpin => hairpin.id !== range.hairpin.id) };
+          hairpinDialog = { hairpin: range.hairpin, baseVelocity: ScoreDynamics.velocityAt(withoutRange, range.start) };
+          keyHold.reset();
+        }
+        break;
+      }
+      case 'delete':
+        if (hairpinStart === cursor.position) hairpinStart = null;
+        else project = ScoreHairpins.remove(project, cursor.position);
+        break;
+    }
+    recordProjectChange(previous);
+  }
+
+  function applyHairpin(kind: Hairpin['kind'], velocities: Hairpin['velocities']) {
+    if (!hairpinDialog || !uiEditAllowed()) return;
+    const previous = project;
+    project = ScoreHairpins.configure(project, hairpinDialog.hairpin.id, kind, velocities);
+    hairpinDialog = null;
+    recordProjectChange(previous);
+  }
+
   function captureHistorySnapshot(): EditorHistorySnapshot {
     return {
       project,
@@ -305,6 +378,7 @@
       mode,
       pedalMode,
       ottavaMode,
+      hairpinMode,
     };
   }
   const editorHistory = EditorHistory.create(captureHistorySnapshot());
@@ -364,6 +438,8 @@
     mode = snapshot.mode;
     pedalMode = snapshot.pedalMode;
     ottavaMode = snapshot.ottavaMode;
+    hairpinMode = snapshot.hairpinMode;
+    hairpinStart = null;
   }
   function showProjectFileError(result: Extract<FileOperationResult<unknown>, { type: 'error' }>) {
     const messages = {
@@ -426,6 +502,8 @@
     mode = 'outline';
     pedalMode = false;
     ottavaMode = false;
+    closeHairpinMode();
+    hairpinDialog = null;
     menuPath = null;
     noteSettings = null;
     sectionTextInput = null;
@@ -576,6 +654,7 @@
       return;
     }
     if (!uiEditAllowed()) { event.preventDefault(); keyHold.reset(); return; }
+    if (hairpinDialog) return;
     if (EditorDialogController.controlKey(event)) { keyHold.reset(); return; }
     if (fingeringSession) { keyHold.reset(); return; }
     if (animationOpen) {
@@ -659,7 +738,7 @@
     if ((event.ctrlKey || event.metaKey) && !event.altKey &&
       (historyKey === 'c' || historyKey === 'v')) {
       event.preventDefault();
-      if (event.repeat || mode !== 'timeline' || pedalMode || ottavaMode || playback?.playing || getFocusedGrace(project.outline, timelineCursor)) return;
+      if (event.repeat || mode !== 'timeline' || pedalMode || ottavaMode || hairpinMode || playback?.playing || getFocusedGrace(project.outline, timelineCursor)) return;
       if (historyKey === 'c') {
         passageClipboard = NoteEditor.copyPassage(project, timelineCursor) ?? null;
         return;
@@ -718,6 +797,23 @@
       return;
     }
     if (playback?.playing) { event.preventDefault(); return; }
+    if (mode === 'timeline' && !event.ctrlKey && !event.altKey && !event.metaKey && !event.shiftKey && event.key.toLowerCase() === 'k') {
+      event.preventDefault();
+      if (!event.repeat) {
+        keyHold.reset();
+        if (hairpinMode) {
+          closeHairpinMode();
+          syncOutlineToTimelinePosition(timelineCursor.positionSixteenths);
+        } else {
+          pedalMode = false;
+          ottavaMode = false;
+          hairpinMode = true;
+          syncTimeModePosition(timelineCursor.positionSixteenths);
+        }
+      }
+      return;
+    }
+    if (hairpinMode) { controlHairpin(event); return; }
     if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.altKey && !event.metaKey) {
       event.preventDefault();
       if (!event.repeat) openExpressionModal();
@@ -857,13 +953,13 @@
     <h1>CLAVIER<span>DESK</span></h1>
     <div class="mode-labels" aria-label="Editing modes">
       <span class:active={mode === 'outline'}>Outline</span>
-      <span class:active={mode === 'timeline'}>Timeline{pedalMode ? ' / Pedal' : ottavaMode ? ' / Ottava' : ''}</span>
+      <span class:active={mode === 'timeline'}>Timeline{pedalMode ? ' / Pedal' : ottavaMode ? ' / Ottava' : hairpinMode ? ' / Hairpins' : ''}</span>
     </div>
     <p class="editing-target">
       {mode === 'outline' ? outlineCursor.innerFocus
         ? `${outlineCursor.innerFocus.staff === 'upperStaff' ? 'Upper' : 'Lower'} staff / Voice ${outlineCursor.innerFocus.voiceIndex + 1}`
-        : 'Both staves' : timelineCursor.staff === 'upperStaff' ? 'Upper staff' : 'Lower staff'}
-      {#if mode === 'timeline'}
+        : 'Both staves' : hairpinMode ? 'Both staves / All voices' : timelineCursor.staff === 'upperStaff' ? 'Upper staff' : 'Lower staff'}
+      {#if mode === 'timeline' && !hairpinMode}
         <span>/</span> Voice {timelineCursor.voiceIndex + 1}
         <span>/</span> {formatPitch(timelineCursor.pitch)}
         {#if selectedTimelineNotes.length > 1}
@@ -886,10 +982,13 @@
       {pedalCursor}
       {ottavaMode}
       {ottavaCursor}
+      {hairpinMode}
+      {hairpinStart}
+      hairpins={project.hairpins}
       getPlayingNoteIds={() => playback?.soundingNoteIds ?? []}
       {playbackPosition}
       playbackActive={playbackPosition !== null}
-      expressionModalOpen={noteSettings !== null}
+      expressionModalOpen={noteSettings !== null || hairpinDialog !== null}
       tempoChanges={project.tempoChanges} clefChanges={project.clefChanges} dynamicChanges={project.dynamicChanges}
       slurs={project.slurs}
       mode={mode}
@@ -922,6 +1021,9 @@
 {#if animationOpen}
   <AnimationModal {project} range={animationRange} snapshot={animationSnapshot} instrument={notePreview} close={closeAnimation}
     generated={value => animationSnapshot = value} />
+{/if}
+{#if hairpinDialog}
+  <HairpinDialog hairpin={hairpinDialog.hairpin} baseVelocity={hairpinDialog.baseVelocity} apply={applyHairpin} cancel={() => hairpinDialog = null} />
 {/if}
 {#if fingeringSession}
   <FingeringModal project={fingeringSession.project} selection={fingeringSession.selection} apply={applyFingering} close={closeFingering} />

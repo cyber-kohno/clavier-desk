@@ -55,14 +55,15 @@ function app(t, { dirty = false, allowed = true, playing = false } = {}) {
   const component = readFileSync(new URL('../src/App.svelte', import.meta.url), 'utf8');
   const script = component.match(/<script[^>]*>([\s\S]*?)<\/script>/)[1];
   const ast = ts.createSourceFile('App.ts', script, ts.ScriptTarget.Latest, true);
-  const names = ['applyLoadedProject', 'importMusicXml', 'saveProject', 'handleKeydown'];
+  const names = ['applyLoadedProject', 'closeHairpinMode', 'importMusicXml', 'saveProject', 'handleKeydown'];
   const functions = ast.statements.filter(statement => ts.isFunctionDeclaration(statement) && names.includes(statement.name?.text)).map(statement => statement.getText(ast)).join('\n');
   assert.equal(functions.includes('async function importMusicXml'), true);
   const source = `
     const { initial, dirty, allowed, playing, MusicXmlFileController, ScoreProjectFileController, EditorDialogController } = dependencies;
     let project = initial, currentProjectFile = {path:'original.clavierdesk', name:'original.clavierdesk'},
       savedProjectFingerprint = 'original', projectIsDirty = dirty, fileOperationInProgress = false,
-      outlineCursor, timelineCursor, mode, pedalMode, ottavaMode, menuPath = null, noteSettings = null,
+      outlineCursor, timelineCursor, mode, pedalMode, ottavaMode, hairpinMode, hairpinStart, hairpinDialog = null,
+      menuPath = null, noteSettings = null,
       sectionTextInput = null, fingeringTextInput = null, fingeringSession = null, passageClipboard, savedPlaybackFocus, playbackPosition;
     const mcpCheckout = false, animationOpen = false;
     const HTMLElement = class {};

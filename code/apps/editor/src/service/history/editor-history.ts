@@ -9,6 +9,7 @@ export type EditorHistorySnapshot = {
   mode: 'outline' | 'timeline';
   pedalMode: boolean;
   ottavaMode: boolean;
+  hairpinMode: boolean;
 };
 
 export type EditorHistoryValue = {

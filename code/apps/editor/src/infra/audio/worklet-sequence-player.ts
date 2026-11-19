@@ -1,4 +1,4 @@
-import type { PlaybackSequence, SequenceCallbacks, SequenceRun } from '../../service/playback/playback-instrument.ts';
+import type { PlaybackSequence, SequenceCallbacks, SequencePlaybackOptions, SequenceRun } from '../../service/playback/playback-instrument.ts';
 import { createPlaybackMidi } from './playback-midi.ts';
 
 export type SequenceEngine = {
@@ -21,8 +21,9 @@ export function createWorkletSequencePlayer(engine: SequenceEngine) {
     engine.pause();
     engine.silence();
   }
-  function startSequence(sequence: PlaybackSequence, callbacks: SequenceCallbacks, velocity = 88): SequenceRun {
-    const binary = createPlaybackMidi(sequence, velocity);
+  function startSequence(sequence: PlaybackSequence, callbacks: SequenceCallbacks, velocity = 88,
+    options?: SequencePlaybackOptions): SequenceRun {
+    const binary = createPlaybackMidi(sequence, velocity, options);
     stop();
     const run = { generation, callbacks, ready: false };
     void engine.resume().then(() => {

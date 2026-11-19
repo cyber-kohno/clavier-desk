@@ -8,6 +8,7 @@ import ScoreTempo from "../../domain/score/score-tempo.ts";
 import ScoreTrill from "../../domain/score/score-trill.ts";
 import ScoreFermata from '../../domain/score/score-fermata.ts';
 import ScoreDynamics from '../../domain/score/score-dynamics.ts';
+import ScoreHairpins from '../../domain/score/score-hairpins.ts';
 import ScoreTimeline from '../../domain/score/score-timeline.ts';
 import TieFingerings from '../../domain/score/tie-fingerings.ts';
 import type { ScoreProject } from "../../domain/score/types.ts";
@@ -24,7 +25,7 @@ namespace EditTransaction {
     if (before === after) return before;
     const next = ScoreFermata.reconcileCaptured(ScoreFermata.capture(before), after);
     if (ScoreFermata.hasConflicts(next)) return before;
-    return reconcileExpressions(before, next, normalized);
+    return reconcileExpressions(before, ScoreHairpins.reconcile(next), normalized);
   }
   /** Local time edits preserve the measure layout. Fermatas never span barlines,
    * so only source/destination measures can gain a conflict or lose an attachment. */

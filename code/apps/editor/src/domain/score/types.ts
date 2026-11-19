@@ -130,6 +130,15 @@ export type TrillSpan = {
   endNoteId: string;
   settings: TrillSettings;
 };
+export type HairpinAnchor = { measureId: string; offset: Rational };
+export type Hairpin = {
+  id: string;
+  start: HairpinAnchor;
+  end: HairpinAnchor;
+  kind: 'crescendo' | 'decrescendo';
+  /** An omitted pair follows the current dynamics without affecting playback. */
+  velocities?: { start: number; end: number };
+};
 export type ScoreProject = {
   slurs?: { id: string; startNoteId: string; endNoteId: string }[];
   clefChanges?: { noteId: string; clef: 'treble' | 'bass' }[];
@@ -137,6 +146,7 @@ export type ScoreProject = {
   tempoChanges?: { noteId: string; bpm: number }[];
   /** Global dynamic state changes anchored to upper-staff voice-1 written notes. */
   dynamicChanges?: { noteId: string; level: DynamicLevel; velocity: number }[];
+  hairpins?: Hairpin[];
   outline: [InitialValuesBlock, SectionBlock, ...OutlineBlock[]];
   trills?: TrillSpan[];
 };

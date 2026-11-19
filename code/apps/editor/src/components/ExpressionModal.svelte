@@ -4,6 +4,7 @@
   import ScoreFermata from '../domain/score/score-fermata.ts';
   import type { PianoNote, ScoreProject } from "../domain/score/types.ts";
   import type { ChangesEditor } from '../state/changes-editor';
+  import './expression-dialog.css';
   let { target, editor, note, project, close, tab, changesEditor, selectTab }: {
     project: ScoreProject;
     tab: 'expression' | 'changes';
@@ -118,43 +119,10 @@
   .tabs { display: flex; gap: 8px; }
   .tabs button { border: 1px solid #a4bcbc; padding: 5px 14px; background: #edf3f3; color: inherit; border-radius: 3px; }
   .tabs button[aria-selected='true'] { background: #c9dddd; font-weight: 600; }
-  .expression-modal {
-    position: fixed;
-    inset: auto;
-    top: calc(var(--app-header-height) + 16px);
-    left: calc(var(--outline-width) + 16px);
-    width: 480px;
-    height: 360px;
-    max-width: none;
-    max-height: calc(100dvh - var(--app-header-height) - 32px);
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    border: 1px solid #73959f;
-    border-radius: 5px;
-    background: #edf3f3;
-    color: #304b55;
-    box-shadow: 0 12px 32px #0005;
-    overflow: hidden;
-    outline: none;
-  }
-  .expression-modal[open] { display: grid; grid-template-rows: 76px minmax(0, 1fr) 36px; }
-  .expression-modal::backdrop { background: transparent; }
-  header { padding: 12px 16px; background: #c9dddd; border-bottom: 1px solid #a4bcbc; }
-  h2 { margin: 0 0 8px; font-size: 16px; font-weight: 600; }
-  p { margin: 0; font-size: 12px; }
   .expression-content { min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr) 40px; gap: 8px; overflow: hidden; background: #f3f7f7; padding: 12px 12px 0; }
-  .expression-list { min-height: 0; overflow-y: auto; scrollbar-width: none; overscroll-behavior: contain; padding-block: 4px; }
-  .expression-list::-webkit-scrollbar { display: none; }
   .expression-notes { box-sizing: border-box; height: 40px; display: grid; align-content: start; margin-inline: -12px; padding: 4px 12px; overflow: hidden; background: #e1ebed; line-height: 16px; }
-  .expression-row { display: flex; justify-content: space-between; align-items: center; min-height: 36px; padding: 8px 12px; border-radius: 3px; font-size: 13px; }
-  .expression-row.active { background: #d4e5e8; }
   .expression-row.disabled { opacity: 0.45; }
-  .expression-value { font-weight: 600; }
   .unavailable, .error { line-height: inherit; }
   .unavailable { color: #60767d; }
   .error { color: #a82929; }
-  footer { padding: 8px 16px; border-top: 1px solid #c4d3d3; font-size: 12px; }
-  kbd { font: inherit; font-weight: 600; margin-right: 5px; }
-  footer span { margin: 0 6px; }
 </style>

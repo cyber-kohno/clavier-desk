@@ -47,7 +47,7 @@ namespace SpessaSynthInstrument {
       sequencer.eventHandler.addEvent('songEnded', 'clavierdesk', () => player.ended());
       sequencer.eventHandler.addEvent('midiError', 'clavierdesk', error => player.failed(error));
       return {
-        startSequence: (sequence, callbacks) => player.startSequence(sequence, callbacks),
+        startSequence: (sequence, callbacks, options) => player.startSequence(sequence, callbacks, undefined, options),
         play(pitches, velocity, durationMs) {
           const durationSeconds = Math.max(0.001, durationMs / 1000);
           player.startSequence({ durationSeconds, pedalInitiallyDown: false, pedalEvents: [], events: [

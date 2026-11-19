@@ -1,20 +1,24 @@
-import type { PlaybackSequence } from '../../service/playback/playback-instrument.ts';
+import type { PlaybackSequence, SequencePlaybackOptions } from '../../service/playback/playback-instrument.ts';
 
 // Fixed tempo: performance expressions have already been converted to seconds.
 // 10000 ticks per quarter at 120 BPM gives 50 microsecond event resolution.
 const TICKS_PER_SECOND = 20000;
 const CHANNELS = Array.from({ length: 16 }, (_, channel) => channel).filter(channel => channel !== 9);
 
-export function createPlaybackMidi(sequence: PlaybackSequence, velocity = 88): ArrayBuffer {
+export function createPlaybackMidi(sequence: PlaybackSequence, velocity = 88,
+  { reverbDepth = 0 }: SequencePlaybackOptions = {}): ArrayBuffer {
   const events: { tick: number; priority: number; bytes: number[] }[] = [];
   const tickAt = (seconds: number) => {
     if (!Number.isFinite(seconds) || seconds < 0) throw new Error('Invalid playback event time.');
     return Math.round(seconds * TICKS_PER_SECOND);
   };
   const add = (tick: number, priority: number, bytes: number[]) => events.push({ tick, priority, bytes });
+  const reverb = Math.min(127, Math.max(0, Math.round(reverbDepth)));
   add(0, -4, [0xff, 0x51, 3, 7, 0xa1, 0x20]);
   for (const channel of CHANNELS) {
     add(0, -3, [0xc0 | channel, 0]);
+    // Reset CC91 for every sequence so timeline playback and previews keep the SF2's base send.
+    add(0, -3, [0xb0 | channel, 91, reverb]);
     add(0, -3, [0xb0 | channel, 64, sequence.pedalInitiallyDown ? 127 : 0]);
   }
   for (const event of sequence.pedalEvents) {

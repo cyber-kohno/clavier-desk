@@ -1,5 +1,7 @@
 import type { PlaybackInstrumentPort, PlaybackSequence, SequenceRun } from './playback-instrument.ts';
 
+const ANIMATION_REVERB_DEPTH = 48;
+
 /** Slice an immutable generated sequence for seek/resume; speed scales both clocks. */
 export function animationSequenceAt(sequence: PlaybackSequence, position: number, speed: number): PlaybackSequence {
   if (!(speed > 0) || !Number.isFinite(speed)) throw new Error('Playback speed must be positive.');
@@ -37,7 +39,7 @@ export function createAnimationTransport(instrument: PlaybackInstrumentPort | nu
     const failure = (error: unknown) => { if (token === generation) { pause(); failed(error); } };
     try { run = instrument?.startSequence(animationSequenceAt(sequence, position, speed), {
       ended() { if (token === generation) { position = sequence!.durationSeconds; playing = false; run = undefined; } }, failed: failure,
-    }); } catch (error) { failure(error); }
+    }, { reverbDepth: ANIMATION_REVERB_DEPTH }); } catch (error) { failure(error); }
   }
   return {
     get playing() { return playing; },

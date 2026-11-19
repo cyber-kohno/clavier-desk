@@ -2,10 +2,10 @@ import * as THREE from 'three';
 import { keys } from '../../domain/motion/keyboard.ts';
 import { NOTE_PLANE_Y, NOTE_STRIKE_Z, type createNoteStream, type StreamNote } from './note-stream.ts';
 
-const BURST_COUNT = 4;
-const BURST_LIFETIME = 0.29;
-const TRAIL_INTERVAL = 0.072;
-const TRAIL_LIFETIME = 0.39;
+const BURST_COUNT = 11;
+const BURST_LIFETIME = 0.54;
+const TRAIL_INTERVAL = 0.064;
+const TRAIL_LIFETIME = 0.585;
 const GLOW_RELEASE = 0.17;
 const EFFECT_TAIL = Math.max(BURST_LIFETIME, TRAIL_LIFETIME, GLOW_RELEASE);
 const CAPACITY = keys.length * (1 + BURST_COUNT + Math.ceil(TRAIL_LIFETIME / TRAIL_INTERVAL));
@@ -22,11 +22,13 @@ export function createStrikeEffects(group: THREE.Group, colors: Record<StreamNot
   const sizes = new THREE.BufferAttribute(new Float32Array(CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
   const opacities = new THREE.BufferAttribute(new Float32Array(CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
   const sparkles = new THREE.BufferAttribute(new Float32Array(CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
+  const angles = new THREE.BufferAttribute(new Float32Array(CAPACITY), 1).setUsage(THREE.DynamicDrawUsage);
   geometry.setAttribute('position', positions);
   geometry.setAttribute('tint', tints);
   geometry.setAttribute('diameter', sizes);
   geometry.setAttribute('opacity', opacities);
   geometry.setAttribute('sparkle', sparkles);
+  geometry.setAttribute('angle', angles);
   geometry.setDrawRange(0, 0);
   const material = new THREE.ShaderMaterial({
     transparent: true,
@@ -38,32 +40,47 @@ export function createStrikeEffects(group: THREE.Group, colors: Record<StreamNot
       attribute float diameter;
       attribute float opacity;
       attribute float sparkle;
+      attribute float angle;
       uniform float projectionScale;
       uniform float pixelRatio;
       varying vec3 vTint;
       varying float vOpacity;
       varying float vSparkle;
+      varying float vAngle;
       void main() {
         vec4 viewPosition = modelViewMatrix * vec4(position, 1.0);
         gl_Position = projectionMatrix * viewPosition;
         float projectedSize = diameter * projectionScale / max(0.001, -viewPosition.z);
-        gl_PointSize = clamp(projectedSize, mix(14.0, 8.0, sparkle) * pixelRatio, 44.0 * pixelRatio);
+        gl_PointSize = clamp(projectedSize, mix(7.0, 2.0, sparkle) * pixelRatio, 54.0 * pixelRatio);
         vTint = tint;
         vOpacity = opacity;
         vSparkle = sparkle;
+        vAngle = angle;
       }
     `,
     fragmentShader: `
       varying vec3 vTint;
       varying float vOpacity;
       varying float vSparkle;
+      varying float vAngle;
+      float puff(vec2 p) {
+        return 1.0 - smoothstep(0.0, 1.0, length(p));
+      }
       void main() {
-        float radius = length(gl_PointCoord * 2.0 - 1.0);
-        float falloff = 1.0 - smoothstep(0.0, 1.0, radius);
-        float disc = 1.0 - smoothstep(0.42, 0.70, radius);
-        float core = (1.0 - smoothstep(0.05, 0.43, radius)) * vSparkle;
-        vec3 tint = mix(vTint, vec3(1.0), 0.80 * core);
-        gl_FragColor = vec4(tint, vOpacity * mix(falloff * falloff, max(disc, falloff * 0.45), vSparkle));
+        vec2 point = gl_PointCoord * 2.0 - 1.0;
+        float c = cos(vAngle), s = sin(vAngle);
+        vec2 p = mat2(c, -s, s, c) * point;
+        float fade = 1.0 - smoothstep(0.63, 1.0, length(point));
+        float cloud = puff((p + vec2(0.28, -0.09)) * vec2(1.58, 2.35))
+                    + 0.78 * puff((p - vec2(0.28, -0.12)) * vec2(1.78, 2.08))
+                    + 0.52 * puff((p - vec2(0.08, 0.26)) * vec2(2.4, 2.8));
+        float texture = 0.70 + 0.30 * sin(p.x * 17.0 + sin(p.y * 11.0 + vAngle)) * cos(p.y * 13.0);
+        vec2 q = abs(p);
+        float rays = max(puff(vec2(q.x * 1.25, q.y * 7.5)), puff(vec2(q.x * 7.0, q.y * 1.55)));
+        float core = 1.0 - smoothstep(0.02, 0.38, q.x + q.y);
+        vec3 tint = mix(vTint, vec3(1.0), vSparkle * (0.35 + 0.57 * core));
+        float shape = mix(0.68 * cloud * texture, max(core, rays), vSparkle);
+        gl_FragColor = vec4(tint, vOpacity * fade * shape);
         #include <colorspace_fragment>
       }
     `,
@@ -80,14 +97,30 @@ export function createStrikeEffects(group: THREE.Group, colors: Record<StreamNot
 
   const lanes = new Map<number, StreamNote>();
   let count = 0;
-  function add(note: StreamNote, x: number, y: number, z: number, diameter: number, opacity: number, sparkle: boolean) {
+  function add(note: StreamNote, x: number, y: number, z: number, diameter: number, opacity: number, sparkle: boolean, angle: number) {
     const { r, g, b } = colors[note.hand];
     positions.setXYZ(count, note.x + x, NOTE_PLANE_Y + y, NOTE_STRIKE_Z + z);
     tints.setXYZ(count, r, g, b);
     sizes.setX(count, diameter);
     opacities.setX(count, opacity);
     sparkles.setX(count, sparkle ? 1 : 0);
+    angles.setX(count, angle);
     count++;
+  }
+
+  function drift(note: StreamNote, seed: number, index: number, rise: number, sparkle: boolean, spread: number) {
+    const lateral = 2 * variation(seed, index * 5) - 1;
+    const speed = variation(seed, index * 5 + 1);
+    const phase = variation(seed, index * 5 + 2) * Math.PI * 2;
+    const scale = variation(seed, index * 5 + 3);
+    const x = lateral * (0.28 * note.width + spread * rise)
+      + 0.006 * rise * Math.sin(phase + rise * 5);
+    // Keep slower particles close to the strike line and give the fastest more reach.
+    const y = 0.010 + rise * (0.024 + speed ** 2 * 0.073);
+    const z = -rise * (0.030 + speed ** 2 * 0.078);
+    const size = sparkle ? 0.004 + scale * 0.015 : (0.026 + scale * 0.032) * (0.70 + 0.65 * rise);
+    const brightness = sparkle ? 0.70 + 0.30 * Math.sin(phase + 17 * rise) ** 2 : 0.56;
+    add(note, x, y, z, size, brightness * (1 - rise) ** 1.4, sparkle, phase + rise * 0.7);
   }
 
   return {
@@ -102,15 +135,12 @@ export function createStrikeEffects(group: THREE.Group, colors: Record<StreamNot
         const release = Math.max(0, time - note.pressEnd);
         if (release < GLOW_RELEASE) {
           const flash = Math.max(0, 1 - age / 0.13);
-          add(note, 0, 0.006, 0, note.width * 2.05, (0.52 + 0.43 * flash) * (1 - release / GLOW_RELEASE), false);
+          add(note, 0, 0.006, 0, note.width * 2.45, (0.42 + 0.42 * flash) * (1 - release / GLOW_RELEASE), false, seed);
         }
         if (age < BURST_LIFETIME) {
           const rise = age / BURST_LIFETIME;
           for (let index = 0; index < BURST_COUNT; index++) {
-            const spread = variation(seed, index);
-            const x = (spread - 0.5) * note.width * (0.28 + 0.42 * rise);
-            add(note, x, 0.012 + rise * (0.032 + spread * 0.025), -0.028 * rise,
-              note.width * (0.65 + spread * 0.24), 1 - rise * rise, true);
+            drift(note, seed, index, rise, index % 2 === 0, 0.035);
           }
         }
         const first = Math.max(1, Math.ceil((age - TRAIL_LIFETIME) / TRAIL_INTERVAL));
@@ -119,15 +149,12 @@ export function createStrikeEffects(group: THREE.Group, colors: Record<StreamNot
           const born = note.start + index * TRAIL_INTERVAL;
           const rise = (time - born) / TRAIL_LIFETIME;
           if (born >= note.pressEnd || rise < 0 || rise >= 1) continue;
-          const spread = variation(seed, index + BURST_COUNT);
-          const x = (spread - 0.5) * note.width * 0.65;
-          add(note, x, 0.012 + rise * (0.032 + spread * 0.021), -0.029 * rise,
-            note.width * (0.48 + spread * 0.18), 0.90 * (1 - rise * rise), true);
+          drift(note, seed, index + BURST_COUNT, rise, index % 3 === 0, 0.028);
         }
       }
       geometry.setDrawRange(0, count);
       points.visible = count > 0;
-      if (count) positions.needsUpdate = tints.needsUpdate = sizes.needsUpdate = opacities.needsUpdate = sparkles.needsUpdate = true;
+      if (count) positions.needsUpdate = tints.needsUpdate = sizes.needsUpdate = opacities.needsUpdate = sparkles.needsUpdate = angles.needsUpdate = true;
     },
   };
 }

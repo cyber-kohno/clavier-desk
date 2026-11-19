@@ -2,6 +2,7 @@ import MusicalTime from '../theory/musical-time.ts';
 import ScoreVoice from './score-voice.ts';
 import ScoreFermata from './score-fermata.ts';
 import ScoreDynamics from './score-dynamics.ts';
+import ScoreHairpins from './score-hairpins.ts';
 import type { MeasureLength, NoteValue, PianoNote, PianoVoiceElement, ScoreProject } from './types.ts';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -10,6 +11,12 @@ const isId = (value: unknown): value is string => typeof value === 'string' && v
 const isIntegerIn = (value: unknown, min: number, max: number): value is number =>
   Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max;
 const noteTypes = ['whole', 'half', 'quarter', 'eighth', '16th', '32nd'] as const;
+
+function isHairpinAnchor(value: unknown): boolean {
+  return isRecord(value) && isId(value.measureId) && isRecord(value.offset) &&
+    isIntegerIn(value.offset.numerator, 0, Number.MAX_SAFE_INTEGER) &&
+    isIntegerIn(value.offset.denominator, 1, 1_000_000);
+}
 
 function isNoteValue(value: unknown): value is NoteValue {
   return isRecord(value) && noteTypes.includes(value.type as typeof noteTypes[number]) &&
@@ -127,6 +134,12 @@ namespace ScoreProjectValidator {
       isRecord(item) && isId(item.noteId) && isIntegerIn(item.bpm, 10, 400)))) return false;
     if (value.dynamicChanges !== undefined && (!Array.isArray(value.dynamicChanges) || !value.dynamicChanges.every(item =>
       isRecord(item) && isId(item.noteId) && ScoreDynamics.isLevel(item.level) && ScoreDynamics.isVelocity(item.velocity)))) return false;
+    if (value.hairpins !== undefined && (!Array.isArray(value.hairpins) || !value.hairpins.every(item =>
+      isRecord(item) && isId(item.id) && isHairpinAnchor(item.start) && isHairpinAnchor(item.end) &&
+      (item.kind === 'crescendo' || item.kind === 'decrescendo') &&
+      (item.velocities === undefined || isRecord(item.velocities) &&
+        ScoreDynamics.isVelocity(item.velocities.start) && ScoreDynamics.isVelocity(item.velocities.end))) ||
+      !ScoreHairpins.isValid(value as ScoreProject))) return false;
     if (value.clefChanges !== undefined && (!Array.isArray(value.clefChanges) || !value.clefChanges.every(item =>
       isRecord(item) && isId(item.noteId) && ['treble', 'bass'].includes(String(item.clef))))) return false;
     if (value.trills !== undefined && (!Array.isArray(value.trills) || !value.trills.every(item =>

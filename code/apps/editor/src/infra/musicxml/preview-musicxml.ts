@@ -29,6 +29,10 @@ export type PreviewPedalEvent = {
   type: PedalEvent['action'] | 'resume' | 'discontinue';
 };
 export type PreviewOttavaEvent = { measureOffset: number; position: number; staff: PianoStaffName; type: 'up' | 'down' | 'stop' };
+export type PreviewHairpin = {
+  start: { measureOffset: number; position: number; opening: number };
+  end: { measureOffset: number; position: number; opening: number };
+};
 
 namespace PreviewMusicXml {
   export const spellPitch = PitchSpelling.forPreview;
@@ -74,7 +78,7 @@ namespace PreviewMusicXml {
     return { measures, starts, incomingPedal, sectionNameByMeasure: sectionMarkers(outline), keys: ScoreKey.buildMeasureCache(outline) };
   }
 
-  export function create(outline: ScoreProject['outline'], activeIndex: number, trills: ScoreProject['trills'] = [], tempoChanges: ScoreProject['tempoChanges'] = [], clefChanges: ScoreProject['clefChanges'] = [], slurs: ScoreProject['slurs'] = [], dynamicChanges: ScoreProject['dynamicChanges'] = [], prepared = prepare(outline)) {
+  export function create(outline: ScoreProject['outline'], activeIndex: number, trills: ScoreProject['trills'] = [], tempoChanges: ScoreProject['tempoChanges'] = [], clefChanges: ScoreProject['clefChanges'] = [], slurs: ScoreProject['slurs'] = [], dynamicChanges: ScoreProject['dynamicChanges'] = [], prepared = prepare(outline), hairpins: ScoreProject['hairpins'] = []) {
     const { measures, starts, incomingPedal, sectionNameByMeasure, keys } = prepared;
     if (activeIndex < 0 || activeIndex >= measures.length) return null;
     const firstIndex = Math.max(0, activeIndex - 1);
@@ -140,6 +144,23 @@ namespace PreviewMusicXml {
     const ottavas: PreviewOttavaEvent[] = [];
     const visibleStart = starts[firstIndex];
     const visibleEnd = visibleStart + visible.reduce((sum, measure) => sum + measure.data.length.cnt / measure.data.length.unit * 16, 0);
+    function hairpinEndpoint(position: number, opening: number, isEnd: boolean) {
+      let measureOffset = visible.length - 1;
+      while (measureOffset > 0) {
+        const measureStart = starts[firstIndex + measureOffset];
+        if (position > measureStart || (!isEnd && position === measureStart)) break;
+        measureOffset--;
+      }
+      return { measureOffset, position: position - starts[firstIndex + measureOffset], opening };
+    }
+    const visibleHairpins: PreviewHairpin[] = ScoreDynamics.hairpinSegments({ outline, dynamicChanges, hairpins }, dynamics)
+      .flatMap(({ hairpin, start, end }) => {
+        const left = Math.max(start.position, visibleStart), right = Math.min(end.position, visibleEnd);
+        if (left >= right) return [];
+        const opening = (position: number) => (hairpin.kind === 'crescendo' ? position - start.position : end.position - position) /
+          (end.position - start.position);
+        return [{ start: hairpinEndpoint(left, opening(left), false), end: hairpinEndpoint(right, opening(right), true) }];
+      });
     const visibleOttavaEvents = ottavaEvents.filter(event => event.position >= visibleStart && event.position <= visibleEnd);
     for (const staff of ['upperStaff', 'lowerStaff'] as const) {
       const prior = ottavaEvents.filter(event => event.staff === staff && event.position < visibleStart).at(-1);
@@ -297,6 +318,7 @@ namespace PreviewMusicXml {
       activeOffset: activeIndex - firstIndex,
       pedals,
       ottavas,
+      hairpins: visibleHairpins,
       xml: '<?xml version="1.0" encoding="UTF-8"?>' +
         '<score-partwise version="4.0"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>' +
         `<part id="P1">${content}</part></score-partwise>`,

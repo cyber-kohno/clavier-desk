@@ -1,13 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
 import { keys, KEYBOARD_WIDTH, TRAVEL, evaluate, keyDepth } from '../../domain/motion/motion.ts';
 import type { Note } from '../../domain/motion/motion.ts';
 import { fingers, pointsForPose, restPose } from '../../domain/motion/fingers.ts';
 import type { Hand } from '../../domain/motion/fingers.ts';
 import { fitCamera } from './framing.ts';
 import { createKeyboardCamera } from './keyboard-camera.ts';
-import { createFallingNotes } from './falling-notes.ts';
+import { createFallingNotes, noteColors } from './falling-notes.ts';
 import { NOTE_FAR_Z } from './note-stream.ts';
 import type { AnimationPerformance } from '../../domain/performance/animation-performance.ts';
 import { WRIST, forearmEndpoints, FULL_VIEW_MIN, FULL_VIEW_MAX } from '../../domain/motion/movement.ts';
@@ -15,6 +16,51 @@ import type { MotionStyle } from '../../domain/motion/movement.ts';
 import type { IdleFingerStyle, StrikeStyle } from '../../domain/motion/scale-motion.ts';
 import { createPianoHands, disposePianoHandModels } from './piano-hand.ts';
 import handModelUrl from './assets/piano-hand-right.glb?url';
+
+function createKeyReflection(renderer: THREE.WebGLRenderer) {
+  // Render a soft overhead light into a reflection map used only by the keys.
+  const studio = new THREE.Scene();
+  studio.background = new THREE.Color('#20262e');
+  const geometry = new THREE.PlaneGeometry(2.8, 0.8);
+  const material = new THREE.MeshBasicMaterial({ color: new THREE.Color(2.8, 2.7, 2.5) });
+  const panel = new THREE.Mesh(geometry, material);
+  panel.rotation.x = Math.PI / 2;
+  panel.position.set(-0.25, 0.8, -0.45);
+  studio.add(panel);
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const reflection = pmrem.fromScene(studio, 0.12, 0.1, 5, { size: 64 });
+  pmrem.dispose();
+  geometry.dispose();
+  material.dispose();
+  return reflection;
+}
+
+function addKeyEdgeLighting(material: THREE.MeshPhysicalMaterial, width: number) {
+  const left = { value: new THREE.Color(0, 0, 0) };
+  const right = { value: new THREE.Color(0, 0, 0) };
+  material.onBeforeCompile = shader => {
+    shader.uniforms.keyEdgeLeft = left;
+    shader.uniforms.keyEdgeRight = right;
+    shader.uniforms.keyHalfWidth = { value: width / 2 };
+    shader.vertexShader = `
+      uniform float keyHalfWidth;
+      varying float keyAcross;
+    ` + shader.vertexShader.replace('#include <begin_vertex>', `
+      #include <begin_vertex>
+      keyAcross = position.x / keyHalfWidth;
+    `);
+    shader.fragmentShader = `
+      uniform vec3 keyEdgeLeft;
+      uniform vec3 keyEdgeRight;
+      varying float keyAcross;
+    ` + shader.fragmentShader.replace('#include <emissivemap_fragment>', `
+      #include <emissivemap_fragment>
+      totalEmissiveRadiance += keyEdgeLeft * smoothstep(0.46, 1.0, -keyAcross)
+                            + keyEdgeRight * smoothstep(0.46, 1.0, keyAcross);
+    `);
+  };
+  return { left: left.value, right: right.value };
+}
 
 export function createScene(container: HTMLElement) {
   const scene = new THREE.Scene();
@@ -39,11 +85,34 @@ export function createScene(container: HTMLElement) {
   }
   const base = box(KEYBOARD_WIDTH+0.025,0.025,0.18,'#26394b');
   base.position.set(0,-0.03,-0.02); scene.add(base);
-  const keyMeshes = keys.map(k => {
-    const mesh = box(k.width,k.height,k.length,k.black ? '#26303c' : '#edf1ee');
+  const keyReflection = createKeyReflection(renderer);
+  const leftGlow = new THREE.Color(noteColors.left);
+  const rightGlow = new THREE.Color(noteColors.right);
+  const whiteKeyColor = new THREE.Color('#89867f');
+  const blackKeyColor = new THREE.Color('#111114');
+  const keyMeshes = keys.map((k, index) => {
+    const geometry = new RoundedBoxGeometry(k.width, k.height, k.length, 2, k.black ? 0.0011 : 0.00065);
+    const material = new THREE.MeshPhysicalMaterial({
+      color: k.black ? blackKeyColor : whiteKeyColor,
+      roughness: k.black ? 0.36 : 0.30,
+      clearcoat: k.black ? 0.30 : 0.45,
+      clearcoatRoughness: 0.25,
+      envMap: keyReflection.texture,
+      envMapIntensity: 0.40,
+    });
+    const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(k.target[0],k.target[1]-k.height/2,k.z);
     scene.add(mesh);
-    return { mesh, restY: mesh.position.y, key:k };
+    const edges = addKeyEdgeLighting(material, k.width);
+    const neighbors = keys.flatMap((other, otherIndex) => {
+      if (otherIndex === index) return [];
+      const offset = other.target[0] - k.target[0];
+      const distance = Math.abs(offset);
+      if (distance > 0.024) return [];
+      return [{ index: otherIndex, weight: 0.14 * (1 - distance / 0.04),
+        edge: offset < 0 ? edges.left : edges.right }];
+    });
+    return { mesh, restY: mesh.position.y, key: k, edges, neighbors, left: 0, right: 0 };
   });
   const colors = ['#ffbd70','#63dfcf','#7faaff','#c5a0ff','#ff8ca5'];
   function makeHand(side:Hand) {
@@ -159,11 +228,33 @@ export function createScene(container: HTMLElement) {
           if(note){target.position.fromArray(pose.targets[index]);target.position.y-=(pose.depths?.[index]??pose.depth)*TRAVEL;}
         });
       });
-      keyMeshes.forEach(({mesh,restY,key}) => {
-        const depth=Math.max(keyDepth(frame.left,key.midiNote),keyDepth(frame.right,key.midiNote));
-        mesh.position.y = restY-depth*TRAVEL;
-        mesh.material.color.set(depth>0 ? '#5ed9c3' : key.black ? '#26303c' : '#edf1ee');
-      });
+      for (const state of keyMeshes) {
+        state.left = keyDepth(frame.left, state.key.midiNote);
+        state.right = keyDepth(frame.right, state.key.midiNote);
+        state.mesh.position.y = state.restY - Math.max(state.left, state.right) * TRAVEL;
+      }
+      for (const { mesh, key, left, right, edges, neighbors } of keyMeshes) {
+        const direct = Math.max(left, right);
+        edges.left.setRGB(0, 0, 0);
+        edges.right.setRGB(0, 0, 0);
+        for (const { index, weight, edge } of neighbors) {
+          const blue = keyMeshes[index].left * weight;
+          const amber = keyMeshes[index].right * weight;
+          edge.r = Math.max(edge.r, leftGlow.r * blue + rightGlow.r * amber);
+          edge.g = Math.max(edge.g, leftGlow.g * blue + rightGlow.g * amber);
+          edge.b = Math.max(edge.b, leftGlow.b * blue + rightGlow.b * amber);
+        }
+        // Sample the current key depth so seeking and releasing keys also update their light.
+        const overlap = Math.max(1, left + right);
+        const blue = 1.4 * left / overlap;
+        const amber = 1.4 * right / overlap;
+        mesh.material.color.copy(key.black ? blackKeyColor : whiteKeyColor).multiplyScalar(1 - 0.45 * direct);
+        mesh.material.emissive.setRGB(
+          leftGlow.r * blue + rightGlow.r * amber,
+          leftGlow.g * blue + rightGlow.g * amber,
+          leftGlow.b * blue + rightGlow.b * amber,
+        );
+      }
       controls.update(); renderer.render(scene,camera);
 
     },
@@ -177,6 +268,7 @@ export function createScene(container: HTMLElement) {
           object.geometry.dispose(); const materials=Array.isArray(object.material)?object.material:[object.material]; materials.forEach(m=>m.dispose());
         }
       });
+      keyReflection.dispose();
       renderer.dispose(); renderer.domElement.remove();
 
     },

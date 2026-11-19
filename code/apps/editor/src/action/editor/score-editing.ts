@@ -8,6 +8,7 @@ import ScoreClef from '../../domain/score/score-clef.ts';
 import ScoreSlur from '../../domain/score/score-slur.ts';
 import ScoreTrill from '../../domain/score/score-trill.ts';
 import Integrity from '../../domain/score/score-integrity.ts';
+import ScoreHairpins from '../../domain/score/score-hairpins.ts';
 import Impact from '../../domain/score/score-edit-impact.ts';
 import ScoreFermata from '../../domain/score/score-fermata.ts';
 import ScoreDynamics from '../../domain/score/score-dynamics.ts';
@@ -301,6 +302,7 @@ namespace ScoreEditing {
     Authoring.validate(candidate, nextState, false);
     candidate = ScoreFermata.reconcileCaptured(fermataTiming, candidate, reappliedFermatas);
     candidate = ScoreDynamics.reconcile(candidate);
+    candidate = ScoreHairpins.reconcile(candidate);
     Integrity.validate(candidate);
     return { project: candidate, state: nextState, summary: { addedMeasures, addedNotes, measureCount: candidate.outline.filter(b => b.type === 'measure').length,
       unresolvedTies: Object.keys(nextState.pending).length, changedIds: [...changedIds], ...Impact.compare(project, candidate), operations: results } };

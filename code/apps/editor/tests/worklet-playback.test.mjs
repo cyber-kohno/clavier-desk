@@ -51,6 +51,34 @@ test('initial pedal, retakes, trailing rests and releases survive the MIDI conve
   assert.equal(messages(midi).find(e => e.statusByte === 0x90).ticks, 5000);
 });
 
+test('animation reverb raises the piano send and a new timeline sequence restores it', () => {
+  const synth = new SpessaSynthProcessor(48000);
+  const bytes = readFileSync(new URL('../public/assets/soundfonts/clavierdesk-grand-piano.sf2', import.meta.url));
+  synth.soundBankManager.addSoundBank(SoundBankLoader.fromArrayBuffer(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)), 'test-piano');
+  const seq = new SpessaSynthSequencer(synth);
+  seq.preload = false; seq.skipToFirstNoteOn = false; seq.loopCount = 0;
+  const sequence = plan([note(0, 0.2, [64]), note(0, 0.2, [64])]);
+  const left = new Float32Array(128), right = new Float32Array(128);
+  const process = synth.gsReverbProcessor.process.bind(synth.gsReverbProcessor);
+  let sendEnergy = 0;
+  synth.gsReverbProcessor.process = (input, ...args) => {
+    for (const value of input) sendEnergy += value ** 2;
+    return process(input, ...args);
+  };
+  function play(options) {
+    seq.pause(); synth.stopAll(true);
+    seq.loadNewSongList([BasicMIDI.fromArrayBuffer(createPlaybackMidi(sequence, 88, options))]);
+    seq.currentTime = 0; seq.play();
+    sendEnergy = 0;
+    for (let i = 0; i < 120; i++) { seq.processTick(); synth.process(left, right); }
+    return sendEnergy;
+  }
+  const timeline = play();
+  assert.ok(timeline > 0, 'the SF2 already sends sound to the reverb');
+  assert.ok(play({ reverbDepth: 48 }) > 2 * timeline);
+  assert.ok(Math.abs(play() - timeline) < 0.01 * timeline);
+});
+
 test('real audio engine sequencer releases repeated notes and ends without UI timer callbacks', () => {
   const synth = new SpessaSynthProcessor(48000);
   const seq = new SpessaSynthSequencer(synth);

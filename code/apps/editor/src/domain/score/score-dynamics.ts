@@ -1,6 +1,7 @@
 import ScoreTempo from './score-tempo.ts';
 import MusicalTime from '../theory/musical-time.ts';
 import ScoreTimeline from './score-timeline.ts';
+import ScoreHairpins from './score-hairpins.ts';
 import type { DynamicLevel, ScoreProject } from './types.ts';
 
 namespace ScoreDynamics {
@@ -9,12 +10,47 @@ namespace ScoreDynamics {
   export const defaultVelocities: Record<DynamicLevel, number> = { ppp: 48, pp: 62, p: 75, mp: 82, mf: 88, f: 98, ff: 108, fff: 118 };
   export function isVelocity(value: unknown): value is number { return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 127; }
   export function velocityAt(project: ScoreProject, position: number): number {
-    let velocity = 88;
-    for (const change of changes(project)) {
-      if (MusicalTime.compareNumbers(change.position, position) > 0) break;
-      velocity = change.velocity;
+    return createVelocityLookup(project)(position);
+  }
+
+  type DynamicProject = Pick<ScoreProject, 'outline' | 'dynamicChanges' | 'hairpins'>;
+
+  /** An immediate dynamic inside a hairpin becomes a shared endpoint of two segments. */
+  export function hairpinSegments(project: DynamicProject, marks = changes(project)) {
+    return ScoreHairpins.ranges(project).flatMap(({ hairpin, start, end }) => {
+      const points = [
+        { position: start, velocity: hairpin.velocities?.start },
+        ...marks.filter(mark => mark.position > start && mark.position < end),
+        { position: end, velocity: hairpin.velocities?.end },
+      ];
+      return points.slice(1).map((point, index) => ({ hairpin, start: points[index], end: point }));
+    });
+  }
+
+  export function createVelocityLookup(project: DynamicProject) {
+    type Point = { position: number; velocity: number; order: number; target?: { position: number; velocity: number } };
+    const marks = changes(project);
+    const points: Point[] = marks.map(({ position, velocity }) => ({ position, velocity, order: 1 }));
+    for (const { hairpin, start, end } of hairpinSegments(project, marks)) {
+      if (!hairpin.velocities || start.velocity === undefined || end.velocity === undefined) continue;
+      points.push({ position: start.position, velocity: start.velocity, order: 2,
+        target: { position: end.position, velocity: end.velocity } });
+      points.push({ position: end.position, velocity: end.velocity, order: 0 });
     }
-    return velocity;
+    points.sort((a, b) => a.position - b.position || a.order - b.order);
+    return (position: number): number => {
+      let low = 0, high = points.length;
+      while (low < high) {
+        const middle = (low + high) >>> 1;
+        if (points[middle].position <= position + 1e-8) low = middle + 1;
+        else high = middle;
+      }
+      const point = points[low - 1];
+      if (!point) return defaultVelocities[defaultLevel];
+      if (!point.target) return point.velocity;
+      const fraction = Math.max(0, (position - point.position) / (point.target.position - point.position));
+      return Math.round(point.velocity + (point.target.velocity - point.velocity) * fraction);
+    };
   }
   export const anchors = ScoreTempo.anchors;
   export function isLevel(level: unknown): level is DynamicLevel {

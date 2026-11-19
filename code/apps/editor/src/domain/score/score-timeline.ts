@@ -64,7 +64,7 @@ namespace ScoreTimeline {
       const entry = measures[low];
       return entry && position >= entry.startSixteenths && position < entry.startSixteenths + entry.lengthSixteenths ? entry : undefined;
     };
-    return { length, blockPositions, measureAt, blockAt: (position: number) => measureAt(position)?.measure ?? lastSection };
+    return { length, measures, blockPositions, measureAt, blockAt: (position: number) => measureAt(position)?.measure ?? lastSection };
   }
 
   export function length(outline: readonly OutlineBlock[]): number {

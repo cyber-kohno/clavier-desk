@@ -17,6 +17,8 @@
   import type { OttavaCursor } from '../state/ottava.ts';
   import ScorePedal from '../domain/score/score-pedal.ts';
   import ScoreOttava from '../domain/score/score-ottava.ts';
+  import ScoreDynamics from '../domain/score/score-dynamics.ts';
+  import ScoreHairpins from '../domain/score/score-hairpins.ts';
   import ScorePreview from './ScorePreview.svelte';
   import PlaybackPosition from './PlaybackPosition.svelte';
 
@@ -32,10 +34,13 @@
     type TimelineCursor,
   } from "../state/timeline-cursor";
 
-  let { getPlayingNoteIds = () => [], outline, cursor, timelineCursor, mode, pedalMode = false, pedalCursor, ottavaMode = false, ottavaCursor, playbackPosition = null, playbackActive = false, expressionModalOpen = false, trills = [], tempoChanges = [], clefChanges = [], dynamicChanges = [], slurs = [] }: {
+  let { getPlayingNoteIds = () => [], outline, cursor, timelineCursor, mode, pedalMode = false, pedalCursor, ottavaMode = false, ottavaCursor, hairpinMode = false, hairpinStart = null, hairpins, playbackPosition = null, playbackActive = false, expressionModalOpen = false, trills = [], tempoChanges = [], clefChanges = [], dynamicChanges = [], slurs = [] }: {
     getPlayingNoteIds?: () => readonly string[];
     slurs?: ScoreProject['slurs'];
     dynamicChanges?: ScoreProject['dynamicChanges'];
+    hairpins?: ScoreProject['hairpins'];
+    hairpinMode?: boolean;
+    hairpinStart?: number | null;
     tempoChanges?: ScoreProject['tempoChanges'];
     clefChanges?: ScoreProject['clefChanges'];
     outline: ScoreProject['outline'];
@@ -68,6 +73,9 @@
   const pedalChangePositions = $derived(new Set(pedalEvents.filter(event => event.action === 'change').map(event => event.position)));
   const ottavaEvents = $derived(ScoreOttava.events({ outline }, timelineCursor.staff));
   const ottavaSpans = $derived(ScoreOttava.spans({ outline }, timelineCursor.staff));
+  const hairpinCursor = $derived({ position: timelineCursor.positionSixteenths, value: timelineCursor.placementValue });
+  const activeHairpinId = $derived(hairpinMode ? ScoreHairpins.at({ outline, hairpins }, hairpinCursor.position)?.hairpin.id : undefined);
+  const hairpinSegments = $derived(hairpinMode ? ScoreDynamics.hairpinSegments({ outline, hairpins, dynamicChanges }) : []);
   function syncTimelineScroll() {
     const roll = pianoRollViewport;
     if (!roll) return;
@@ -155,7 +163,8 @@
   const timelineIndex = $derived(ScoreTimeline.index(outline));
   const statusEntry = $derived(timelineIndex.measureAt(playbackPosition !== null
     ? playbackPosition : mode === 'timeline'
-      ? timelineCursor.positionSixteenths : timelineIndex.blockPositions.get(cursor.blockId) ?? 0));
+      ? timelineCursor.positionSixteenths : timelineIndex.blockPositions.get(cursor.blockId) ?? 0) ??
+    (hairpinMode && timelineCursor.positionSixteenths === timelineIndex.length ? timelineIndex.measures.at(-1) : undefined));
   const statusMeasure = $derived(statusEntry?.measure);
   // A scalar ID keeps vertical fitting independent of playback's position ticks.
   const verticalFocusMeasureId = $derived(playbackActive
@@ -269,6 +278,8 @@
   }));
   const visibleOttavaSpans = $derived(ottavaSpans.filter(span =>
     span.end * pixelsPerSixteenth >= visibleTimelineStart && span.start * pixelsPerSixteenth <= visibleTimelineEnd));
+  const visibleHairpinSegments = $derived(hairpinSegments.filter(segment =>
+    segment.end.position * pixelsPerSixteenth >= visibleTimelineStart && segment.start.position * pixelsPerSixteenth <= visibleTimelineEnd));
   $effect(() => {
     const selectedBlockId = cursor.blockId;
     const isTimelineMode = mode === 'timeline';
@@ -351,7 +362,7 @@
   });
 </script>
 
-<section class="timeline" class:pedal-mode={pedalMode || ottavaMode} class:expression-modal-open={expressionModalOpen} aria-label="Timeline panel">
+<section class="timeline" class:pedal-mode={pedalMode || ottavaMode || hairpinMode} class:expression-modal-open={expressionModalOpen} aria-label="Timeline panel">
   <div class="corner" aria-hidden="true"></div>
   <section class="time-header" aria-label="Time header">
     <div class="measure-row" aria-label="Measure row" bind:this={measureRow}>
@@ -393,7 +404,7 @@
         <div
           class="pitch-row"
           class:sharp={pitch.isSharp}
-          class:cursor-pitch={playbackPosition === null && mode === 'timeline' && !ottavaMode && timelineCursor.pitch === pitch.midi}
+          class:cursor-pitch={playbackPosition === null && mode === 'timeline' && !ottavaMode && !hairpinMode && timelineCursor.pitch === pitch.midi}
           role="listitem"
         >
           {pitch.label}
@@ -408,7 +419,7 @@
       {#if playbackPosition !== null}
         <PlaybackPosition position={playbackPosition} {pixelsPerSixteenth} />
       {/if}
-      {#if playbackPosition === null && mode === 'timeline' && !pedalMode && !ottavaMode && timelineCursor.focusedNoteId === null}
+      {#if playbackPosition === null && mode === 'timeline' && !pedalMode && !ottavaMode && !hairpinMode && timelineCursor.focusedNoteId === null}
         <div
           class="timeline-cursor"
           class:invalid={cursorPlacementInvalid}
@@ -429,7 +440,7 @@
           <span class:fixed-input={inputTuplet !== undefined}>Input {WrittenValue.label(inputValue)}{inputTuplet ? ' T' : ''}</span>
         </span>
       {/if}
-      {#if playbackPosition === null && mode === 'timeline' && !pedalMode && !ottavaMode && focusedNote}
+      {#if playbackPosition === null && mode === 'timeline' && !pedalMode && !ottavaMode && !hairpinMode && focusedNote}
         <span
           class="note-value-badge note-focused-value-badge"
           style={`left: ${(focusedNote.measureStartSixteenths + focusedNote.positionSixteenths) * pixelsPerSixteenth + focusedGraceX + 4}px; top: ${pitchTopMargin + (108 - timelineCursor.pitch) * pitchRowHeight - 52}px`}
@@ -627,9 +638,12 @@
       </div>
     </section>
   {/if}
-  {#if ottavaMode}
-    <div class="pedal-label ottava-label"><span>{timelineCursor.staff === 'upperStaff' ? 'Upper' : 'Lower'}</span><span>{timelineCursor.staff === 'upperStaff' ? '8va' : '8vb'}</span></div>
-    <section class="pedal-lane ottava-lane" aria-label={`${timelineCursor.staff === 'upperStaff' ? 'Upper staff 8va' : 'Lower staff 8vb'} editing lane`} bind:this={pedalViewport}>
+  {#if ottavaMode || hairpinMode}
+    {@const lineCursor = hairpinMode ? hairpinCursor : ottavaCursor}
+    <div class="pedal-label ottava-label">
+      {#if hairpinMode}<span>Hairpins</span>{:else}<span>{timelineCursor.staff === 'upperStaff' ? 'Upper' : 'Lower'}</span><span>{timelineCursor.staff === 'upperStaff' ? '8va' : '8vb'}</span>{/if}
+    </div>
+    <section class="pedal-lane" class:ottava-lane={ottavaMode} aria-label={hairpinMode ? 'Hairpin editing lane' : `${timelineCursor.staff === 'upperStaff' ? 'Upper staff 8va' : 'Lower staff 8vb'} editing lane`} bind:this={pedalViewport}>
       <div class="pedal-track">
         <div class="pedal-ruler">
           <div class="pedal-ruler-spacer" style={`width: ${totalTimelineWidth}px`}></div>
@@ -641,8 +655,20 @@
           {/each}
         </div>
         {#if playbackPosition === null}
-          <div class="pedal-unit-range" aria-hidden="true" style={`left: ${ottavaCursor.position * pixelsPerSixteenth}px; width: ${WrittenValue.sixteenths(ottavaCursor.value) * pixelsPerSixteenth}px`}></div>
+          <div class="pedal-unit-range" aria-hidden="true" style={`left: ${lineCursor.position * pixelsPerSixteenth}px; width: ${WrittenValue.sixteenths(lineCursor.value) * pixelsPerSixteenth}px`}></div>
         {/if}
+        {#if hairpinMode}
+          {#each visibleHairpinSegments as { hairpin, start, end } (`${hairpin.id}-${start.position}`)}
+            <svg class="hairpin-span" class:active={hairpin.id === activeHairpinId} role="img" aria-label={hairpin.kind}
+              style={`left: ${start.position * pixelsPerSixteenth}px; width: ${(end.position - start.position) * pixelsPerSixteenth}px`}
+              viewBox="0 0 100 16" preserveAspectRatio="none">
+              <path d={hairpin.kind === 'crescendo' ? 'M 100 2 L 0 8 L 100 14' : 'M 0 2 L 100 8 L 0 14'} vector-effect="non-scaling-stroke" />
+            </svg>
+          {/each}
+          {#if hairpinStart !== null}
+            <span class="pedal-event" role="img" aria-label="Pending hairpin start" style={`left: ${hairpinStart * pixelsPerSixteenth}px`}></span>
+          {/if}
+        {:else}
         {#each visibleOttavaSpans as span (`${span.start}-${span.end}`)}
           <div class="ottava-span" style={`left: ${span.start * pixelsPerSixteenth}px; width: ${Math.max(0, (span.end - span.start) * pixelsPerSixteenth)}px`}>
             <span>{timelineCursor.staff === 'upperStaff' ? '8va' : '8vb'}</span>
@@ -651,9 +677,10 @@
         {#each visibleOttavaEvents as event (event.id)}
           <span class="pedal-event" class:release={event.action === 'stop'} role="img" aria-label={`Ottava ${event.action} at ${event.position}`} style={`left: ${event.position * pixelsPerSixteenth}px`}></span>
         {/each}
+        {/if}
         {#if playbackPosition === null}
-          <div class="pedal-cursor" style={`left: ${ottavaCursor.position * pixelsPerSixteenth}px`}>
-            <span class="note-value-badge pedal-input-badge">Input {WrittenValue.label(ottavaCursor.value)}</span>
+          <div class="pedal-cursor" style={`left: ${lineCursor.position * pixelsPerSixteenth}px`}>
+            <span class="note-value-badge pedal-input-badge">Input {WrittenValue.label(lineCursor.value)}{hairpinMode && hairpinStart !== null ? ' · S to end' : ''}</span>
           </div>
         {/if}
       </div>
@@ -663,7 +690,7 @@
   <aside class="selection-status" aria-label="Current measure, staff and voice">
     <div class="selection-status-measure">Measure {statusMeasureNumber ?? '—'}</div>
     {#each staffNames as staff (staff)}
-      {@const active = mode === 'timeline' && !pedalMode && timelineCursor.staff === staff}
+      {@const active = mode === 'timeline' && !pedalMode && !hairpinMode && timelineCursor.staff === staff}
       <div class="selection-status-row" class:upper={staff === 'upperStaff'} class:lower={staff === 'lowerStaff'} class:active>
         <span class="selection-status-staff" class:active aria-current={active ? 'true' : undefined}>
           {staff === 'upperStaff' ? 'Upper' : 'Lower'}
@@ -677,8 +704,8 @@
   </aside>
   {/if}
   {#if !expressionModalOpen}
-    <ScorePreview {playbackActive} {getPlayingNoteIds} {outline} {trills} {tempoChanges} {clefChanges} {slurs} {dynamicChanges}
-      selectedNoteIds={mode !== 'timeline' || playbackPosition !== null || pedalMode || ottavaMode ? [] : selectedNotes.map(entry => entry.note.id)} activeIndex={previewActiveIndex} />
+    <ScorePreview {playbackActive} {getPlayingNoteIds} {outline} {trills} {tempoChanges} {clefChanges} {slurs} {dynamicChanges} {hairpins}
+      selectedNoteIds={mode !== 'timeline' || playbackPosition !== null || pedalMode || ottavaMode || hairpinMode ? [] : selectedNotes.map(entry => entry.note.id)} activeIndex={previewActiveIndex} />
   {/if}
 </section>
 
@@ -720,6 +747,8 @@
   .pedal-span { position: absolute; top: 50px; height: 10px; background: linear-gradient(to right, rgb(88, 124, 136), rgba(88, 124, 136, 0.3)); }
   .ottava-span { position: absolute; top: 32px; height: 18px; border-top: 2px solid #587c88; border-right: 2px solid #587c88; border-left: 2px solid #587c88; box-sizing: border-box; color: #304b55; font: italic 600 13px Georgia, serif; }
   .ottava-span span { position: absolute; left: 4px; top: -17px; padding: 0 3px; background: #e0eded; }
+  .hairpin-span { position: absolute; top: 39px; height: 16px; overflow: visible; fill: none; stroke: #476977; stroke-width: 1.5px; }
+  .hairpin-span.active { stroke: #a34214; stroke-width: 2px; }
   .pedal-event { position: absolute; top: 33px; width: 10px; height: 16px; transform: translateX(-50%); background: #d93636; z-index: 4; }
   .pedal-event.release { background: #3478d4; }
   .pedal-event.retake { background: #ebc532; }

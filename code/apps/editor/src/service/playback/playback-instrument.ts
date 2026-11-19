@@ -3,9 +3,10 @@ import type { PlaybackPlan } from '../../domain/performance/score-playback-plan.
 export type PlaybackSequence = Pick<PlaybackPlan, 'events' | 'pedalEvents' | 'pedalInitiallyDown' | 'durationSeconds'>;
 export type SequenceRun = { readonly ready?: boolean; readonly currentTime: number };
 export type SequenceCallbacks = { ended(): void; failed(error: unknown): void };
+export type SequencePlaybackOptions = { reverbDepth?: number };
 
 export type PlaybackInstrumentPort = {
-  startSequence(sequence: PlaybackSequence, callbacks: SequenceCallbacks): SequenceRun;
+  startSequence(sequence: PlaybackSequence, callbacks: SequenceCallbacks, options?: SequencePlaybackOptions): SequenceRun;
   play(pitches: readonly number[], velocity: number, durationMs: number): void;
   setSustainPedal(down: boolean): void;
   stop(): void;

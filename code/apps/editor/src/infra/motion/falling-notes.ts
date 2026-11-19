@@ -4,6 +4,10 @@ import type { AnimationPerformance } from '../../domain/performance/animation-pe
 import { createNoteStream, NOTE_FAR_Z, NOTE_PLANE_Y, NOTE_STRIKE_Z } from './note-stream.ts';
 import { createStrikeEffects } from './strike-effects.ts';
 
+export const noteColors = {
+  left: '#70bdf2', right: '#ffad66', leftActive: '#c6ecff', rightActive: '#ffe4bc',
+};
+
 /** One opaque instanced draw for visible bars, shared by the main 3D camera. */
 export function createFallingNotes(scene: THREE.Scene) {
   const group = new THREE.Group(); group.visible = false; scene.add(group);
@@ -18,7 +22,17 @@ export function createFallingNotes(scene: THREE.Scene) {
   const strike = new THREE.Mesh(new THREE.BoxGeometry(KEYBOARD_WIDTH + 0.025, 0.004, 0.004),
     new THREE.MeshBasicMaterial({ color: '#c5e6e4' }));
   strike.position.set(0, NOTE_PLANE_Y, NOTE_STRIKE_Z); group.add(strike);
-  const barGeometry = new THREE.BoxGeometry(1, 1, 1), material = new THREE.MeshBasicMaterial({ color: 'white' });
+  const barGeometry = new THREE.BoxGeometry(1, 1, 1, 8);
+  const positions = barGeometry.getAttribute('position');
+  const shading = new Float32Array(positions.count * 3);
+  for (let index = 0; index < positions.count; index++) {
+    // Shade across the unscaled bar so short and long notes have the same profile.
+    const edge = THREE.MathUtils.smoothstep(2 * Math.abs(positions.getX(index)), 0.20, 1);
+    const brightness = THREE.MathUtils.lerp(1, 0.54, edge);
+    shading.fill(brightness, index * 3, index * 3 + 3);
+  }
+  barGeometry.setAttribute('color', new THREE.BufferAttribute(shading, 3));
+  const material = new THREE.MeshBasicMaterial({ color: 'white', vertexColors: true });
   let capacity = 128;
   function makePool() {
     const mesh = new THREE.InstancedMesh(barGeometry, material, capacity);
@@ -27,8 +41,10 @@ export function createFallingNotes(scene: THREE.Scene) {
   }
   let pool = makePool();
   const transform = new THREE.Object3D();
-  const colors = { left: new THREE.Color('#70bdf2'), right: new THREE.Color('#ffad66'),
-    leftActive: new THREE.Color('#c6ecff'), rightActive: new THREE.Color('#ffe4bc') };
+  const colors = {
+    left: new THREE.Color(noteColors.left), right: new THREE.Color(noteColors.right),
+    leftActive: new THREE.Color(noteColors.leftActive), rightActive: new THREE.Color(noteColors.rightActive),
+  };
   const strikes = createStrikeEffects(group, colors);
   let source: AnimationPerformance | undefined, stream: ReturnType<typeof createNoteStream> | undefined;
   let lastTime = NaN;

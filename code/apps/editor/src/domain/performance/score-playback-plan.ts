@@ -60,7 +60,7 @@ export type PlaybackPlan = {
   events: PlaybackEvent[];
 };
 type Prepared = {
-  dynamics: ReturnType<typeof ScoreDynamics.changes>;
+  velocityAt: ReturnType<typeof ScoreDynamics.createVelocityLookup>;
   voices: { staff: PianoStaffName; voiceIndex: number; groups: LocatedTimelineNote[][] }[];
   slursByNote: Map<string, Set<string>>;
   clock: ReturnType<typeof ScoreClock.create>;
@@ -121,7 +121,7 @@ namespace ScorePlaybackPlan {
       }
     }
     const clock = ScoreClock.createTempo(project);
-    const prepared = { dynamics: ScoreDynamics.changes(project), voices, slursByNote, clock,
+    const prepared = { velocityAt: ScoreDynamics.createVelocityLookup(project), voices, slursByNote, clock,
       playbackClock: ScoreClock.withFermatas(clock, ScoreFermata.groups(project)),
       keys: ScoreKey.buildMeasureCache(project.outline),
       trills: new Map((project.trills ?? []).map(trill => [trill.startNoteId, trill])),
@@ -250,11 +250,7 @@ namespace ScorePlaybackPlan {
             endSeconds: index === members.length - 1 ? undefined : clock.secondsAt(member.measureStartSixteenths + member.positionSixteenths + member.lengthSixteenths) - startSeconds,
           }));
           const position = clock.positionAt(startSeconds + event.startSeconds);
-          let baseVelocity = 88;
-          for (const change of prepared.dynamics) {
-            if (change.position > position + 1e-8) break;
-            baseVelocity = change.velocity;
-          }
+          const baseVelocity = prepared.velocityAt(position);
           event.velocity = Math.min(127, baseVelocity +
             (event.graceNote ? 0 : first.note.accent?.velocityOffset ?? 0));
         }

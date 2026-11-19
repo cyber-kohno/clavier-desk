@@ -44,13 +44,8 @@ namespace PreviewPedals {
     return paths;
   }
 
-  /** OSMD 2.2.1 ties pedal graphics to nearby noteheads and ignores pedal offsets.
-   * Keep standard MusicXML, but draw this independent-time overlay using its score geometry.
-   * No hidden notes or changed rest spelling are inserted into the score.
-   */
-  export function draw(svg: SVGSVGElement, renderer: OpenSheetMusicDisplay, events: PreviewPedalEvent[]) {
-    if (events.length === 0) return;
-    const measures: PedalLayoutMeasure[] = renderer.GraphicSheet.MeasureList.map(column => {
+  export function measureLayouts(renderer: OpenSheetMusicDisplay): PedalLayoutMeasure[] {
+    return renderer.GraphicSheet.MeasureList.map(column => {
       const lower = column[1] ?? column[0];
       const left = lower.PositionAndShape.AbsolutePosition.x * 10;
       const startX = left + lower.beginInstructionsWidth * 10 + 5;
@@ -70,6 +65,15 @@ namespace PreviewPedals {
         anchors: [...anchors].map(([position, x]) => ({ position, x }))
       };
     });
+  }
+
+  /** OSMD 2.2.1 ties pedal graphics to nearby noteheads and ignores pedal offsets.
+   * Keep standard MusicXML, but draw this independent-time overlay using its score geometry.
+   * No hidden notes or changed rest spelling are inserted into the score.
+   */
+  export function draw(svg: SVGSVGElement, renderer: OpenSheetMusicDisplay, events: PreviewPedalEvent[]) {
+    if (events.length === 0) return;
+    const measures = measureLayouts(renderer);
     const bounds = svg.getBBox();
     const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     group.setAttribute('class', 'score-preview-pedals');

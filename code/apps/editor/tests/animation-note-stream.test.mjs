@@ -76,7 +76,7 @@ test('instanced rendering grows for a dense window, seeks deterministically, and
   layer.update(undefined, 0, true); assert.equal(group.visible, false);
 });
 
-test('strike effects stay in their lanes, replay on seek, and fade at key release while a bar can still sound', () => {
+test('strike effects start in their lane, spread, replay on seek, and fade at key release', () => {
   const scene = new Scene(), layer = createFallingNotes(scene);
   const playback = plan([{ ...event(1, 2, 60, 'left'), keyHoldLimitsSeconds: [0.5] }]);
   const performance = { playback, notes: [], origins: [], duration: 20 };
@@ -85,6 +85,8 @@ test('strike effects stay in their lanes, replay on seek, and fade at key releas
   const effects = group.children.find(object => object instanceof Points);
   const position = effects.geometry.getAttribute('position');
   const opacity = effects.geometry.getAttribute('opacity');
+  const diameter = effects.geometry.getAttribute('diameter');
+  const sparkle = effects.geometry.getAttribute('sparkle');
   const count = () => effects.geometry.drawRange.count;
   const frame = () => ({
     positions: [...position.array.slice(0, count() * 3)],
@@ -94,7 +96,7 @@ test('strike effects stay in their lanes, replay on seek, and fade at key releas
   layer.update(performance, onset - 0.05, true);
   assert.equal(count(), 0);
   layer.update(performance, onset, true);
-  assert.equal(count(), 5);
+  assert.ok(count() > 5);
   const [{ x, width }] = createNoteStream(playback).notes;
   near(position.getZ(0), NOTE_STRIKE_Z);
   for (let index = 0; index < count(); index++) {
@@ -102,15 +104,25 @@ test('strike effects stay in their lanes, replay on seek, and fade at key releas
     assert.ok(Math.abs(position.getX(index) - x) < width / 2);
   }
 
+  layer.update(performance, onset + 0.33, true);
+  const particles = Array.from({ length: count() - 1 }, (_, index) => index + 1);
+  assert.ok(particles.some(index => position.getX(index) < x - width / 2));
+  assert.ok(particles.some(index => position.getX(index) > x + width / 2));
+  const mist = particles.filter(index => sparkle.getX(index) === 0);
+  const glints = particles.filter(index => sparkle.getX(index) === 1);
+  assert.ok(mist.length > 0 && glints.length > 0);
+  assert.ok(Math.max(...mist.map(index => diameter.getX(index))) >
+    2 * Math.min(...glints.map(index => diameter.getX(index))));
+
   const hold = onset + 0.34;
   layer.update(performance, hold, true);
   assert.ok(count() > 1);
   const held = frame();
   layer.update(performance, onset + 0.57, true);
   assert.ok(opacity.getX(0) < held.opacities[0]);
-  layer.update(performance, onset + 0.78, true);
-  assert.ok(count() > 0);
   layer.update(performance, onset + 0.90, true);
+  assert.ok(count() > 0);
+  layer.update(performance, onset + 1.10, true);
   assert.equal(count(), 0);
   assert.equal(group.children.find(object => object instanceof InstancedMesh).count, 1);
 

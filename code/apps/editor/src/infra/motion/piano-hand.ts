@@ -2,11 +2,10 @@ import { Bone, MeshStandardMaterial, Quaternion, SkinnedMesh, Vector3, type Buff
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { fingers, pointsForPose, type Finger, type Hand } from '../../domain/motion/fingers.ts';
 import { keys } from '../../domain/motion/keyboard.ts';
-import { handPointWorld, WRIST } from '../../domain/motion/movement.ts';
+import { handPointWorld } from '../../domain/motion/movement.ts';
 import { HOVER, TRAVEL, type HandFrame } from '../../domain/motion/motion.ts';
 
 const digitNames = ['thumb', 'index', 'middle', 'ring', 'little'] as const;
-const wristPivot = new Vector3(...WRIST);
 const up = new Vector3(0, 1, 0);
 const right = new Vector3(1, 0, 0);
 const towardPlayer = new Vector3(0, 0, 1);
@@ -275,7 +274,7 @@ function createPianoHand(root: Object3D, side: Hand) {
       localTowardPlayer.x *= mirror;
       elbowDirection.x *= mirror;
       palmPoint.copy(palm.position).add(lift);
-      armRoot.copy(wristPivot).add(lift).addScaledVector(elbowDirection, forearmLength);
+      armRoot.copy(palmPoint).addScaledVector(elbowDirection, forearmLength);
       armRotation.setFromUnitVectors(forearmAxis, elbowDirection.negate()).multiply(forearm.rotation);
       // The GLB armature object is in the editor's axis-aligned hand coordinates.
       forearm.bone.position.copy(armRoot);
