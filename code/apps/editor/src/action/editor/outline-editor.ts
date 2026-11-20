@@ -23,11 +23,13 @@ namespace OutlineEditor {
   function commit(project: ScoreProject, outline: ScoreProject['outline']) {
     return EditTransaction.commit(project, outline === project.outline ? project : { ...project, outline });
   }
-  function finish(project: ScoreProject, result: { outline: ScoreProject['outline']; blockId: string }) {
-    return { project: commit(project, result.outline), cursor: { blockId: result.blockId } };
+  function finish(project: ScoreProject, cursor: OutlineCursor, result: { outline: ScoreProject['outline']; blockId: string }) {
+    const committed = commit(project, result.outline);
+    if (committed === project && result.outline !== project.outline) return { project, cursor };
+    return { project: committed, cursor: { blockId: result.blockId } };
   }
   export function addMeasure(project: ScoreProject, cursor: OutlineCursor) {
-    return finish(project, ScoreOutline.addMeasure(project.outline, cursor.blockId));
+    return finish(project, cursor, ScoreOutline.addMeasure(project.outline, cursor.blockId));
   }
   export function addSection(project: ScoreProject, cursor: OutlineCursor) {
     return commit(project, ScoreOutline.addSection(project.outline, cursor.blockId));
@@ -36,11 +38,11 @@ namespace OutlineEditor {
     return commit(project, ScoreOutline.renameSection(project.outline, blockId, name));
   }
   export function addKeyChange(project: ScoreProject, cursor: OutlineCursor) {
-    return finish(project, ScoreOutline.addKeyChange(project.outline, cursor.blockId));
+    return finish(project, cursor, ScoreOutline.addKeyChange(project.outline, cursor.blockId));
   }
   export function remove(project: ScoreProject, cursor: OutlineCursor) {
     const blocks = getSelectedOutlineBlocks(project.outline, cursor);
-    return finish(project, blocks.length > 1
+    return finish(project, cursor, blocks.length > 1
       ? ScoreOutline.removeMany(project.outline, blocks.map(block => block.id), cursor.blockId)
       : ScoreOutline.remove(project.outline, cursor.blockId));
   }

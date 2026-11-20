@@ -2,7 +2,7 @@ import ScoreTempo from './score-tempo.ts';
 import MusicalTime from '../theory/musical-time.ts';
 import ScoreTimeline from './score-timeline.ts';
 import ScoreHairpins from './score-hairpins.ts';
-import type { DynamicLevel, ScoreProject } from './types.ts';
+import type { DynamicLevel, HairpinAnchor, ScoreProject } from './types.ts';
 
 namespace ScoreDynamics {
   export const levels: readonly DynamicLevel[] = ['ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff'];
@@ -13,7 +13,39 @@ namespace ScoreDynamics {
     return createVelocityLookup(project)(position);
   }
 
+  export function initialHairpinVelocities(project: ScoreProject, start: number, end: number): { start: number; end: number } | undefined {
+    const endMark = changes(project).reverse().find(mark => MusicalTime.compareNumbers(mark.position, end) === 0);
+    if (endMark) return { start: velocityAt(project, start), end: endMark.velocity };
+  }
+
   type DynamicProject = Pick<ScoreProject, 'outline' | 'dynamicChanges' | 'hairpins'>;
+
+  function hairpinMarkUsage(project: DynamicProject) {
+    const marks = changes(project);
+    return ScoreHairpins.ranges(project).map(({ hairpin, start, end }) => ({
+      hairpin,
+      interiorMarks: marks.filter(mark => mark.position > start && mark.position < end).map(mark => mark.noteId),
+    }));
+  }
+
+  function sameAnchor(a: HairpinAnchor, b: HairpinAnchor): boolean {
+    return a.measureId === b.measureId && MusicalTime.compare(a.offset, b.offset) === 0;
+  }
+
+  export function preservesHairpinMarkRules(before: DynamicProject, after: DynamicProject): boolean {
+    if (!after.hairpins?.length || !after.dynamicChanges?.length || (before.hairpins === after.hairpins &&
+      before.outline === after.outline && before.dynamicChanges === after.dynamicChanges)) return true;
+    const invalid = hairpinMarkUsage(after).filter(range => range.interiorMarks.length);
+    if (!invalid.length) return true;
+
+    // Keep legacy ranges editable without allowing a resize or a new violation.
+    const previous = new Map(hairpinMarkUsage(before).map(range => [range.hairpin.id, range]));
+    return invalid.every(range => {
+      const old = previous.get(range.hairpin.id);
+      return old && sameAnchor(old.hairpin.start, range.hairpin.start) && sameAnchor(old.hairpin.end, range.hairpin.end) &&
+        range.interiorMarks.every(noteId => old.interiorMarks.includes(noteId));
+    });
+  }
 
   /** An immediate dynamic inside a hairpin becomes a shared endpoint of two segments. */
   export function hairpinSegments(project: DynamicProject, marks = changes(project)) {

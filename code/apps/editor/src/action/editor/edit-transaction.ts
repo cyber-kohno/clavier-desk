@@ -46,7 +46,8 @@ namespace EditTransaction {
     return reconcileExpressions(before, next);
   }
   function reconcileExpressions(before: ScoreProject, next: ScoreProject, normalized?: NormalizedRange): ScoreProject {
-    return TieFingerings.reconcile(before, ScoreDynamics.reconcile(ScoreSlur.reconcile(ScoreClef.reconcile(ScoreTempo.reconcile(ScoreTrill.reconcile(before, next, normalized))))));
+    const reconciled = ScoreDynamics.reconcile(ScoreSlur.reconcile(ScoreClef.reconcile(ScoreTempo.reconcile(ScoreTrill.reconcile(before, next, normalized)))));
+    return ScoreDynamics.preservesHairpinMarkRules(before, reconciled) ? TieFingerings.reconcile(before, reconciled) : before;
   }
 }
 export default EditTransaction;

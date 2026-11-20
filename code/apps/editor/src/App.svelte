@@ -326,19 +326,33 @@
     }
     if (event.repeat) return;
     const previous = project;
-    switch (event.key.toLowerCase()) {
+    const key = event.key.toLowerCase();
+    switch (key) {
       case 'escape':
         closeHairpinMode();
         syncOutlineToTimelinePosition(cursor.position);
         break;
       case 'a':
-        if (ScoreTimeline.index(project.outline).measureAt(cursor.position)) hairpinStart = cursor.position;
-        break;
       case 's': {
+        if (event.shiftKey) {
+          const candidate = ScoreHairpins.moveEndpoint(project, key === 'a' ? 'start' : 'end', cursor.position);
+          if (candidate !== project && ScoreDynamics.preservesHairpinMarkRules(project, candidate)) {
+            project = candidate;
+            hairpinStart = null;
+          }
+          break;
+        }
+        if (key === 'a') {
+          if (ScoreHairpins.canStartAt(project, cursor.position)) hairpinStart = cursor.position;
+          break;
+        }
         if (hairpinStart === null) break;
-        const candidate = ScoreHairpins.add(project, hairpinStart, cursor.position);
+        const velocities = ScoreDynamics.initialHairpinVelocities(project, hairpinStart, cursor.position);
+        const candidate = ScoreHairpins.add(project, hairpinStart, cursor.position, velocities);
         if (candidate === project) {
           EditorDialogController.alert({ title: 'Hairpin End Unavailable', messageLines: ['Place the end after the start and keep the new range clear of existing hairpins.'] });
+        } else if (!ScoreDynamics.preservesHairpinMarkRules(project, candidate)) {
+          EditorDialogController.alert({ title: 'Hairpin End Unavailable', messageLines: ['A dynamic mark cannot be inside a hairpin. Place the end at or before the mark.'] });
         } else {
           project = candidate;
           hairpinStart = null;

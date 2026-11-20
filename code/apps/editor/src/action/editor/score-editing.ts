@@ -303,6 +303,8 @@ namespace ScoreEditing {
     candidate = ScoreFermata.reconcileCaptured(fermataTiming, candidate, reappliedFermatas);
     candidate = ScoreDynamics.reconcile(candidate);
     candidate = ScoreHairpins.reconcile(candidate);
+    if (!ScoreDynamics.preservesHairpinMarkRules(project, candidate))
+      Input.fail('operations', 'A dynamic mark cannot be inside a hairpin.', 'INVALID_EDIT');
     Integrity.validate(candidate);
     return { project: candidate, state: nextState, summary: { addedMeasures, addedNotes, measureCount: candidate.outline.filter(b => b.type === 'measure').length,
       unresolvedTies: Object.keys(nextState.pending).length, changedIds: [...changedIds], ...Impact.compare(project, candidate), operations: results } };

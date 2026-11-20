@@ -3,8 +3,16 @@ import ScoreTimeline from './score-timeline.ts';
 import type { Hairpin, HairpinAnchor, ScoreProject } from './types.ts';
 
 type HairpinProject = Pick<ScoreProject, 'outline' | 'hairpins'>;
+type HairpinEndpoint = 'start' | 'end';
 
 namespace ScoreHairpins {
+  function anchorAt(index: ReturnType<typeof ScoreTimeline.index>, endpoint: HairpinEndpoint, position: number): HairpinAnchor | undefined {
+    const entry = endpoint === 'start'
+      ? index.measureAt(position)
+      : index.measures.find(measure => position > measure.startSixteenths && position <= measure.startSixteenths + measure.lengthSixteenths);
+    return entry && { measureId: entry.measure.id, offset: MusicalTime.fromNumber(position - entry.startSixteenths) };
+  }
+
   export function ranges(project: HairpinProject) {
     if (!project.hairpins?.length) return [];
     const measures = new Map(ScoreTimeline.index(project.outline).measures.map(entry => [entry.measure.id, entry]));
@@ -27,20 +35,43 @@ namespace ScoreHairpins {
       ?? rangesInOrder.find(range => position === range.end);
   }
 
-  export function add(project: ScoreProject, start: number, end: number): ScoreProject {
+  export function canStartAt(project: HairpinProject, position: number): boolean {
+    if (!ScoreTimeline.index(project.outline).measureAt(position)) return false;
+    const range = at(project, position);
+    return !range || position === range.end;
+  }
+
+  export function add(project: ScoreProject, start: number, end: number, velocities?: Hairpin['velocities']): ScoreProject {
     if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) return project;
     const index = ScoreTimeline.index(project.outline);
     if (start < 0 || end > index.length || ranges(project).some(range => start < range.end && end > range.start)) return project;
-    const first = index.measureAt(start);
-    const last = index.measures.find(entry => end > entry.startSixteenths && end <= entry.startSixteenths + entry.lengthSixteenths);
+    const first = anchorAt(index, 'start', start);
+    const last = anchorAt(index, 'end', end);
     if (!first || !last) return project;
     const hairpin: Hairpin = {
       id: `hairpin-${crypto.randomUUID()}`,
-      start: { measureId: first.measure.id, offset: MusicalTime.fromNumber(start - first.startSixteenths) },
-      end: { measureId: last.measure.id, offset: MusicalTime.fromNumber(end - last.startSixteenths) },
+      start: first,
+      end: last,
       kind: 'crescendo',
+      ...(velocities && { velocities }),
     };
     return { ...project, hairpins: [...(project.hairpins ?? []), hairpin] };
+  }
+
+  export function moveEndpoint(project: ScoreProject, endpoint: HairpinEndpoint, position: number): ScoreProject {
+    if (!Number.isFinite(position)) return project;
+    const ordered = ranges(project);
+    // Include the opposite endpoint so an edit there cannot reach across to another range.
+    const range = endpoint === 'start'
+      ? ordered.find(range => range.end >= position)
+      : ordered.reverse().find(range => range.start <= position);
+    if (!range || position === range[endpoint]) return project;
+    if (endpoint === 'start' ? position >= range.end : position <= range.start) return project;
+
+    const anchor = anchorAt(ScoreTimeline.index(project.outline), endpoint, position);
+    if (!anchor) return project;
+    return { ...project, hairpins: project.hairpins!.map(hairpin =>
+      hairpin === range.hairpin ? { ...hairpin, [endpoint]: anchor } : hairpin) };
   }
 
   export function configure(project: ScoreProject, id: string, kind: Hairpin['kind'], velocities?: Hairpin['velocities']): ScoreProject {
