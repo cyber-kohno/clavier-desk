@@ -7,6 +7,7 @@ import ScoreClef from "../../domain/score/score-clef.ts";
 
 import ScoreTempo from "../../domain/score/score-tempo.ts";
 import ScoreDynamics from "../../domain/score/score-dynamics.ts";
+import ScoreHairpins from '../../domain/score/score-hairpins.ts';
 
 import ScoreSlur from "../../domain/score/score-slur.ts";
 
@@ -153,12 +154,11 @@ namespace PreviewMusicXml {
       }
       return { measureOffset, position: position - starts[firstIndex + measureOffset], opening };
     }
-    const visibleHairpins: PreviewHairpin[] = ScoreDynamics.hairpinSegments({ outline, dynamicChanges, hairpins }, dynamics)
+    const visibleHairpins: PreviewHairpin[] = ScoreHairpins.ranges({ outline, hairpins })
       .flatMap(({ hairpin, start, end }) => {
-        const left = Math.max(start.position, visibleStart), right = Math.min(end.position, visibleEnd);
+        const left = Math.max(start, visibleStart), right = Math.min(end, visibleEnd);
         if (left >= right) return [];
-        const opening = (position: number) => (hairpin.kind === 'crescendo' ? position - start.position : end.position - position) /
-          (end.position - start.position);
+        const opening = (position: number) => (hairpin.kind === 'crescendo' ? position - start : end - position) / (end - start);
         return [{ start: hairpinEndpoint(left, opening(left), false), end: hairpinEndpoint(right, opening(right), true) }];
       });
     const visibleOttavaEvents = ottavaEvents.filter(event => event.position >= visibleStart && event.position <= visibleEnd);

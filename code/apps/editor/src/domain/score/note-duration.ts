@@ -12,6 +12,7 @@ import type { NoteTarget,NoteTimeResult } from './note-target.ts';
 import NoteSpan from './note-span.ts';
 import RhythmSpelling from './rhythm-spelling.ts';
 import TieFingerings from './tie-fingerings.ts';
+import { withVelocityOffset } from './pitch-velocity.ts';
 namespace NoteDuration {
   export function setValue(
     project: ScoreProject,target: NoteTarget,value: NoteValue,
@@ -170,7 +171,10 @@ namespace NoteDuration {
       }
     }
     plans.forEach((plan,index) => {
-      if(index>0) plan.note.tieFrom=plans[index-1].note.id;
+      if(index>0) {
+        plan.note.tieFrom=plans[index-1].note.id;
+        plan.note.pitches=plan.note.pitches.map(pitch => withVelocityOffset(pitch, 0));
+      }
       if(index+1<plans.length) plan.note.tieTo=plans[index+1].note.id;
     });
     // Only unchanged written segments retain a fermata after normalization.

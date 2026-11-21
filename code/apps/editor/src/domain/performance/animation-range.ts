@@ -57,6 +57,7 @@ namespace AnimationRange {
       events.push({ ...event, startSeconds: onset - start, durationSeconds: Math.max(...durations), pitches,
         ...(event.rollAnchorSeconds !== undefined ? { rollAnchorSeconds: event.rollAnchorSeconds - start } : {}),
         pitchDurationsSeconds: durations, performance: event.performance ? indices.map(index => event.performance![index]) : undefined,
+        ...(event.pitchVelocities ? { pitchVelocities: indices.map(index => event.pitchVelocities![index]) } : {}),
         keyHoldLimitsSeconds: event.keyHoldLimitsSeconds ? indices.map(index =>
           Math.max(0, Math.min(end, event.startSeconds + keyHoldSeconds(event, index)) - onset)) : undefined,
         notationNoteIds: event.notationNoteIds?.filter(id => range.noteIds.has(id)), notationRanges });

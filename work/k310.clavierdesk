@@ -16596,7 +16596,7 @@
     {
       "noteId": "d1113e84-272e-494f-b53c-a179542a9c90",
       "level": "p",
-      "velocity": 75
+      "velocity": 64
     },
     {
       "noteId": "5d923f8f-8e6a-4d64-abb6-aca476c3976b",
@@ -16606,7 +16606,7 @@
     {
       "noteId": "1a38c078-2059-44c6-bfaa-85f8dfbab28d",
       "level": "mp",
-      "velocity": 82
+      "velocity": 74
     },
     {
       "noteId": "4c6868fc-2acd-42cc-be56-0349dbcf1f06",
@@ -16620,8 +16620,8 @@
     },
     {
       "noteId": "df02d875-7924-4334-9b67-7e4f36b74afc",
-      "level": "mf",
-      "velocity": 88
+      "level": "f",
+      "velocity": 94
     },
     {
       "noteId": "e144b213-b869-4ebb-b3a0-3a9841754f3a",
@@ -16635,8 +16635,23 @@
     },
     {
       "noteId": "ce1bc9e3-dd04-4d09-9805-7df1d9d0c9b8",
-      "level": "mp",
-      "velocity": 79
+      "level": "p",
+      "velocity": 69
+    },
+    {
+      "noteId": "48d47f4d-87b1-4fe6-8bda-9b0808b309f1",
+      "level": "mf",
+      "velocity": 88
+    },
+    {
+      "noteId": "dd221c3f-6949-4450-8b49-5aea5f65b50e",
+      "level": "p",
+      "velocity": 70
+    },
+    {
+      "noteId": "3ead5a34-ae8b-4abf-96df-085212ccbd34",
+      "level": "mf",
+      "velocity": 92
     },
     {
       "noteId": "e8f7f2fb-40da-4304-8790-f56fdd59a66c",
@@ -16647,6 +16662,117 @@
       "noteId": "60244b64-5515-4446-b888-37bb97abfdcc",
       "level": "f",
       "velocity": 98
+    }
+  ],
+  "hairpins": [
+    {
+      "id": "hairpin-4db26741-de09-4038-968e-f3a8de11d134",
+      "start": {
+        "measureId": "9f8db4ff-b576-40ac-aaa9-6b09b3a88773",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "a4bb2274-0b62-43fb-b7bc-d8bdf08c754b",
+        "offset": {
+          "numerator": 16,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-b75688d9-c584-41c2-92b7-3385f424a52e",
+      "start": {
+        "measureId": "e653c586-0c91-40f1-b7ef-e7de56965ffb",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "e653c586-0c91-40f1-b7ef-e7de56965ffb",
+        "offset": {
+          "numerator": 16,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-0c788214-4c81-436f-a324-9c821923cdbe",
+      "start": {
+        "measureId": "72a00c12-480b-4c75-9e94-17b567bd953b",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "72a00c12-480b-4c75-9e94-17b567bd953b",
+        "offset": {
+          "numerator": 16,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-118b172f-0e3b-4189-aaf6-976600c1ed5c",
+      "start": {
+        "measureId": "ad81a954-3a2b-41bd-b79a-a9d741c63bfe",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "ad81a954-3a2b-41bd-b79a-a9d741c63bfe",
+        "offset": {
+          "numerator": 16,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-156a4115-c5af-4723-a594-e5318a453bf9",
+      "start": {
+        "measureId": "bc4c7f67-2690-4fa1-ab52-bf01db8dacf6",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "163b7b4c-3ef2-4ba4-a143-beaacfe06e3b",
+        "offset": {
+          "numerator": 16,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-36197dab-e838-4038-bbb7-ce6a8525e807",
+      "start": {
+        "measureId": "00e09ebe-2c63-4209-a338-3105618c798e",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "ada1919e-04a4-4bc1-b9ad-fdc306c5d6f6",
+        "offset": {
+          "numerator": 16,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo",
+      "endVelocity": 103
     }
   ],
   "trills": [

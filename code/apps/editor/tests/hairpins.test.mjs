@@ -29,34 +29,35 @@ test('notation-only hairpins preserve current dynamics and configured velocities
   const sample = score => positionSamples.map(ScoreDynamics.createVelocityLookup(score));
   assert.deepEqual(sample(project), [88, 88, 88, 88, 88, 88, 88]);
 
-  const configured = ScoreHairpins.configure(project, id, 'decrescendo', { start: 60, end: 100 });
-  assert.deepEqual(sample(configured), [88, 60, 70, 80, 90, 100, 100]);
+  const configured = ScoreHairpins.configure(project, id, 'decrescendo', 100);
+  assert.deepEqual(sample(configured), [88, 88, 91, 94, 97, 100, 100]);
   const events = new Map(ScorePlaybackPlan.create(configured, 0).events.map(event => [event.pitches[0], event.velocity]));
-  assert.deepEqual([events.get(62), events.get(69), events.get(50)], [70, 70, 70]);
+  assert.deepEqual([events.get(62), events.get(69), events.get(50)], [91, 91, 91]);
   assert.deepEqual([events.get(65), events.get(72), events.get(53)], [100, 100, 100]);
   assert.deepEqual(sample(ScoreHairpins.remove(configured, 6)), sample(project));
 });
 
-test('a dynamic exactly at a new hairpin end seeds its velocity settings', () => {
+test('endpoint marks supply live velocities without storing either value on the hairpin', () => {
   const score = fixture();
-  const [first, middle, end] = ScoreTimeline.notes(score.outline, 'upperStaff', 0);
+  const [first, , end] = ScoreTimeline.notes(score.outline, 'upperStaff', 0);
   let marked = ScoreDynamics.set(score, first.note.id, 'p', 68);
   marked = ScoreDynamics.set(marked, end.note.id, 'f', 103);
-  const velocities = ScoreDynamics.initialHairpinVelocities(marked, 0, 8);
-  assert.deepEqual(velocities, { start: 68, end: 103 });
-  const project = ScoreHairpins.add(marked, 0, 8, velocities);
-  assert.deepEqual(project.hairpins[0].velocities, velocities);
+  const project = ScoreHairpins.add(marked, 0, 8);
+  const sample = score => [0, 4, 8, 12].map(ScoreDynamics.createVelocityLookup(score));
+  assert.equal(project.hairpins[0].endVelocity, undefined);
+  assert.deepEqual(sample(project), [68, 86, 103, 103]);
+  const editedStart = EditTransaction.commit(project, ScoreDynamics.set(project, first.note.id, 'p', 72));
+  const editedEnd = EditTransaction.commit(editedStart, ScoreDynamics.set(editedStart, end.note.id, 'f', 110));
+  assert.deepEqual(sample(editedEnd), [72, 91, 110, 110]);
+  assert.equal(editedEnd.hairpins[0].endVelocity, undefined);
   assert.equal(ScoreDynamics.velocityAt(project, 4), 86);
-
-  const interior = ScoreDynamics.set(marked, middle.note.id, 'mf', 90);
-  assert.equal(ScoreDynamics.initialHairpinVelocities(interior, 0, 6), undefined);
 });
 
 test('new and resized hairpins allow optional endpoint marks and reject interior dynamics', () => {
   const score = fixture();
   const [first, middle, end] = ScoreTimeline.notes(score.outline, 'upperStaff', 0);
   const mark = (project, entry) => ScoreDynamics.set(project, entry.note.id, 'p', 68);
-  const allowsNew = project => ScoreDynamics.preservesHairpinMarkRules(project, ScoreHairpins.add(project, 0, 8));
+  const allowsNew = project => Boolean(ScoreDynamics.reconcileHairpins(project, ScoreHairpins.add(project, 0, 8)));
   assert.equal(allowsNew(score), true);
   assert.equal(allowsNew(mark(score, first)), true);
   assert.equal(allowsNew(mark(score, end)), true);
@@ -64,14 +65,14 @@ test('new and resized hairpins allow optional endpoint marks and reject interior
   assert.equal(allowsNew(mark(mark(score, first), middle)), false);
 
   const anchored = ScoreHairpins.add(mark(score, end), 0, 8);
-  assert.equal(ScoreDynamics.preservesHairpinMarkRules(anchored, ScoreHairpins.moveEndpoint(anchored, 'start', 4)), true);
-  assert.equal(ScoreDynamics.preservesHairpinMarkRules(anchored, ScoreHairpins.moveEndpoint(anchored, 'end', 6)), true);
-  assert.equal(ScoreDynamics.preservesHairpinMarkRules(anchored, ScoreHairpins.moveEndpoint(anchored, 'end', 12)), false);
-
-  const legacy = ScoreHairpins.add(mark(score, middle), 0, 8);
-  assert.equal(ScoreDynamics.preservesHairpinMarkRules(legacy, mark(legacy, middle)), true);
-  assert.equal(ScoreDynamics.preservesHairpinMarkRules(legacy, ScoreHairpins.moveEndpoint(legacy, 'end', 12)), false);
-  assert.equal(ScoreDynamics.preservesHairpinMarkRules(legacy, ScoreHairpins.moveEndpoint(legacy, 'end', 4)), true);
+  assert.ok(ScoreDynamics.reconcileHairpins(anchored, ScoreHairpins.moveEndpoint(anchored, 'start', 4)));
+  const shortened = ScoreDynamics.reconcileHairpins(anchored, ScoreHairpins.moveEndpoint(anchored, 'end', 6));
+  assert.equal(shortened.hairpins[0].endVelocity, 68);
+  const reattached = ScoreDynamics.reconcileHairpins(shortened, ScoreHairpins.moveEndpoint(shortened, 'end', 8));
+  assert.equal(reattached.hairpins[0].endVelocity, undefined);
+  assert.equal(ScoreDynamics.reconcileHairpins(anchored, ScoreHairpins.moveEndpoint(anchored, 'end', 12)), undefined);
+  const markedStart = ScoreHairpins.add(mark(score, middle), 4, 8);
+  assert.equal(ScoreDynamics.reconcileHairpins(markedStart, ScoreHairpins.moveEndpoint(markedStart, 'start', 0)), undefined);
 });
 
 test('editor commits reject marks in the interior and allow removal of the last endpoint mark', () => {
@@ -84,7 +85,7 @@ test('editor commits reject marks in the interior and allow removal of the last 
   assert.equal(EditTransaction.commit(project, withInterior), project);
   const removed = EditTransaction.commit(project, withoutEnd);
   assert.deepEqual(ScoreDynamics.changes(removed), []);
-  assert.deepEqual(removed.hairpins, project.hairpins);
+  assert.equal(removed.hairpins[0].endVelocity, 103);
 
   const addStart = { type: 'set_dynamic_change', noteId: first.note.id, level: 'p', velocity: 68 };
   const removeEnd = { type: 'set_dynamic_change', noteId: end.note.id, level: null, velocity: 103 };
@@ -93,9 +94,11 @@ test('editor commits reject marks in the interior and allow removal of the last 
   assert.throws(() => ScoreEditing.apply(project, state, [addInterior]), /cannot be inside a hairpin/);
   const removedByBatch = ScoreEditing.apply(project, state, [removeEnd]).project;
   assert.deepEqual(ScoreDynamics.changes(removedByBatch), []);
-  assert.deepEqual(removedByBatch.hairpins, project.hairpins);
+  assert.equal(removedByBatch.hairpins[0].endVelocity, 103);
   const moved = ScoreEditing.apply(project, state, [removeEnd, addStart]).project;
   assert.deepEqual(ScoreDynamics.changes(moved).map(mark => mark.position), [0]);
+  const rested = ScoreEditing.apply(project, state, [{ type: 'set_rest', noteId: end.note.id }]).project;
+  assert.equal(rested.hairpins[0].endVelocity, 103);
 });
 
 test('moving a note that carries an endpoint mark cannot place the mark inside a hairpin', () => {
@@ -110,17 +113,27 @@ test('moving a note that carries an endpoint mark cannot place the mark inside a
   assert.ok(candidate);
   assert.ok(ScoreDynamics.changes(candidate.project)[0].position < 8);
   assert.equal(NoteEditor.move(project, cursor, -1), undefined);
+  const moved = NoteEditor.move(project, cursor, 1).project;
+  assert.ok(ScoreDynamics.changes(moved)[0].position > 8);
+  assert.equal(moved.hairpins[0].endVelocity, 103);
 });
 
-test('interior dynamics split interpolation and an immediate dynamic at the end takes precedence', () => {
-  const project = ScoreHairpins.add(fixture(), 0, 8);
-  const [first, middle, end] = ScoreTimeline.notes(project.outline, 'upperStaff', 0);
-  let configured = ScoreHairpins.configure(project, project.hairpins[0].id, 'crescendo', { start: 60, end: 100 });
-  configured = ScoreDynamics.set(configured, first.note.id, 'p', 71);
-  configured = ScoreDynamics.set(configured, middle.note.id, 'mp', 80);
-  configured = ScoreDynamics.set(configured, end.note.id, 'mf', 85);
-  assert.deepEqual([0, 2, 4, 6, 8, 12].map(ScoreDynamics.createVelocityLookup(configured)), [60, 70, 80, 90, 85, 85]);
-  assert.deepEqual(ScoreDynamics.hairpinSegments(configured).map(({ start, end }) => [start.position, end.position]), [[0, 4], [4, 8]]);
+test('adjacent hairpins share the endpoint velocity, and a mark discards the previous manual setting', () => {
+  const project = ScoreHairpins.add(ScoreHairpins.add(fixture(), 0, 4), 4, 8);
+  const [, shared] = ScoreTimeline.notes(project.outline, 'upperStaff', 0);
+  const [first, second] = project.hairpins;
+  const configured = ScoreHairpins.configure(ScoreHairpins.configure(project, first.id, 'crescendo', 100),
+    second.id, 'decrescendo', 80);
+  const sample = score => [0, 2, 4, 6, 8, 12].map(ScoreDynamics.createVelocityLookup(score));
+  assert.deepEqual(sample(configured), [88, 94, 100, 90, 80, 80]);
+  const withMark = ScoreDynamics.set(configured, shared.note.id, 'f', 106);
+  assert.equal(ScoreDynamics.hasValidHairpins(withMark), false);
+  const marked = EditTransaction.commit(configured, withMark);
+  assert.equal(marked.hairpins[0].endVelocity, undefined);
+  assert.deepEqual(sample(marked), [88, 97, 106, 93, 80, 80]);
+  const removed = EditTransaction.commit(marked, ScoreDynamics.set(marked, shared.note.id, null));
+  assert.equal(removed.hairpins[0].endVelocity, 106);
+  assert.deepEqual(sample(removed), sample(marked));
 });
 
 test('hairpins persist across empty measures and preview boundaries, and reconcile deleted endpoints', () => {
@@ -132,6 +145,12 @@ test('hairpins persist across empty measures and preview boundaries, and reconci
   assert.equal(ScoreHairpins.at(adjacent, 65).hairpin.id, id);
   const restored = JSON.parse(JSON.stringify(project));
   assert.ok(ScoreProjectValidator.isValid(restored));
+  const oldFormat = { ...restored, hairpins: [{ ...restored.hairpins[0], velocities: { start: 70, end: 90 } }] };
+  assert.equal(ScoreProjectValidator.isValid(oldFormat), false);
+  const withEndVelocity = ScoreHairpins.configure(restored, id, 'crescendo', 110);
+  const saved = JSON.parse(JSON.stringify(withEndVelocity));
+  assert.ok(ScoreProjectValidator.isValid(saved));
+  assert.equal(saved.hairpins[0].endVelocity, 110);
   const invalid = { ...restored, hairpins: [{ ...restored.hairpins[0], end: { ...end, measureId: 'missing-measure' } }] };
   assert.equal(ScoreProjectValidator.isValid(invalid), false);
   const clipped = Preview.create(restored.outline, 2, [], [], [], [], [], undefined, restored.hairpins).hairpins;
@@ -158,8 +177,7 @@ test('moving hairpin endpoints uses the containing range or the neighbor in the 
   const left = ScoreHairpins.add(fixture(), 4, 12);
   const both = ScoreHairpins.add(left, 20, 24);
   const [first, second] = both.hairpins;
-  const velocities = { start: 100, end: 60 };
-  const project = ScoreHairpins.configure(both, second.id, 'decrescendo', velocities);
+  const project = ScoreHairpins.configure(both, second.id, 'decrescendo', 60);
   const positions = score => ScoreHairpins.ranges(score).map(({ start, end }) => [start, end]);
 
   const extendedStart = ScoreHairpins.moveEndpoint(project, 'start', 13);

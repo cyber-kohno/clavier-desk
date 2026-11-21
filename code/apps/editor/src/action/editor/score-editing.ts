@@ -15,6 +15,7 @@ import ScoreDynamics from '../../domain/score/score-dynamics.ts';
 import NotePitches from '../../domain/score/note-pitches.ts';
 import ScoreFingerings from '../../domain/score/score-fingerings.ts';
 import TieFingerings from '../../domain/score/tie-fingerings.ts';
+import { withVelocityOffset } from '../../domain/score/pitch-velocity.ts';
 import MusicalTime from '../../domain/theory/musical-time.ts';
 import type { DynamicLevel, KeySignature, PianoNote, PianoStaffName, ScoreProject, TrillSettings, StaccatoSettings, ArpeggioSettings, GracePerformanceSettings, PianoFingering } from '../../domain/score/types.ts';
 
@@ -200,6 +201,7 @@ namespace ScoreEditing {
             const target = note(op.toNoteId).item;
             if (target.tieFrom && target.tieFrom !== source.id) fail('Detach the existing incoming tie first.');
             source.tieTo = target.id; target.tieFrom = source.id;
+            target.pitches = target.pitches.map(pitch => withVelocityOffset(pitch, 0));
             if (TieFingerings.resolve(candidate, source.id, note(source.id).staff)?.conflicts.length)
               fail('Tied attacks have conflicting fingerings. Resolve them before joining the notes.');
             ids.push(target.id);
@@ -298,13 +300,14 @@ namespace ScoreEditing {
       }
     });
     // Validate metrical structure before deriving timing from a possibly multi-operation edit.
-    candidate = TieFingerings.reconcile(project, candidate);
+    candidate = ScoreHairpins.reconcile(TieFingerings.reconcile(project, candidate));
     Authoring.validate(candidate, nextState, false);
     candidate = ScoreFermata.reconcileCaptured(fermataTiming, candidate, reappliedFermatas);
     candidate = ScoreDynamics.reconcile(candidate);
-    candidate = ScoreHairpins.reconcile(candidate);
-    if (!ScoreDynamics.preservesHairpinMarkRules(project, candidate))
+    const withHairpins = ScoreDynamics.reconcileHairpins(project, candidate);
+    if (!withHairpins)
       Input.fail('operations', 'A dynamic mark cannot be inside a hairpin.', 'INVALID_EDIT');
+    candidate = withHairpins;
     Integrity.validate(candidate);
     return { project: candidate, state: nextState, summary: { addedMeasures, addedNotes, measureCount: candidate.outline.filter(b => b.type === 'measure').length,
       unresolvedTies: Object.keys(nextState.pending).length, changedIds: [...changedIds], ...Impact.compare(project, candidate), operations: results } };

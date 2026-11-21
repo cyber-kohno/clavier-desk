@@ -3,6 +3,7 @@ import ScoreVoice from './score-voice.ts';
 import ScoreFermata from './score-fermata.ts';
 import ScoreDynamics from './score-dynamics.ts';
 import ScoreHairpins from './score-hairpins.ts';
+import { isVelocityOffset } from './pitch-velocity.ts';
 import type { MeasureLength, NoteValue, PianoNote, PianoVoiceElement, ScoreProject } from './types.ts';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -27,6 +28,7 @@ function isNote(value: unknown): value is PianoNote {
   if (!isRecord(value) || value.kind !== 'note' || !isId(value.id) || !isNoteValue(value.value) ||
     !Array.isArray(value.pitches) || value.pitches.length === 0 || !value.pitches.every(pitch =>
       isRecord(pitch) && isIntegerIn(pitch.midi, 0, 127) &&
+      (pitch.velocityOffset === undefined || (value.tieFrom === undefined && isVelocityOffset(pitch.velocityOffset))) &&
       (pitch.spellingDirection === undefined || pitch.spellingDirection === 'up' || pitch.spellingDirection === 'down') &&
       (pitch.fingering === undefined || isIntegerIn(pitch.fingering, 1, 5)) &&
       (pitch.substitutionFingering === undefined ||
@@ -53,6 +55,7 @@ function isNote(value: unknown): value is PianoNote {
     isRecord(grace) && isId(grace.id) && isNoteValue(grace.value) && typeof grace.slash === 'boolean' &&
     Array.isArray(grace.pitches) && grace.pitches.length === 1 && grace.pitches.every(pitch =>
       isRecord(pitch) && isIntegerIn(pitch.midi, 0, 127) &&
+      (pitch.velocityOffset === undefined || isVelocityOffset(pitch.velocityOffset)) &&
       (pitch.spellingDirection === undefined || pitch.spellingDirection === 'up' || pitch.spellingDirection === 'down') &&
       (pitch.fingering === undefined || isIntegerIn(pitch.fingering, 1, 5)) &&
       (pitch.substitutionFingering === undefined ||
@@ -67,7 +70,7 @@ function isElement(value: unknown): value is PianoVoiceElement {
   if (value.kind === 'measure-rest') return true;
   if (value.kind !== 'tuplet' || !isIntegerIn(value.actual, 2, 64) ||
     !isIntegerIn(value.normal, 1, 64) || !noteTypes.includes(value.baseType as typeof noteTypes[number]) ||
-    !Array.isArray(value.elements) || value.elements.length !== value.actual) return false;
+    !Array.isArray(value.elements) || !value.elements.length) return false;
   return value.elements.every(child => isRecord(child) &&
     (child.kind === 'note' ? isNote(child) : child.kind === 'rest' && isId(child.id) && isNoteValue(child.value)));
 }
@@ -137,8 +140,8 @@ namespace ScoreProjectValidator {
     if (value.hairpins !== undefined && (!Array.isArray(value.hairpins) || !value.hairpins.every(item =>
       isRecord(item) && isId(item.id) && isHairpinAnchor(item.start) && isHairpinAnchor(item.end) &&
       (item.kind === 'crescendo' || item.kind === 'decrescendo') &&
-      (item.velocities === undefined || isRecord(item.velocities) &&
-        ScoreDynamics.isVelocity(item.velocities.start) && ScoreDynamics.isVelocity(item.velocities.end))) ||
+      (item.endVelocity === undefined || ScoreDynamics.isVelocity(item.endVelocity)) &&
+      Object.keys(item).every(key => ['id', 'start', 'end', 'kind', 'endVelocity'].includes(key))) ||
       !ScoreHairpins.isValid(value as ScoreProject))) return false;
     if (value.clefChanges !== undefined && (!Array.isArray(value.clefChanges) || !value.clefChanges.every(item =>
       isRecord(item) && isId(item.noteId) && ['treble', 'bass'].includes(String(item.clef))))) return false;

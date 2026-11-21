@@ -41,7 +41,7 @@ namespace ScoreHairpins {
     return !range || position === range.end;
   }
 
-  export function add(project: ScoreProject, start: number, end: number, velocities?: Hairpin['velocities']): ScoreProject {
+  export function add(project: ScoreProject, start: number, end: number): ScoreProject {
     if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end) return project;
     const index = ScoreTimeline.index(project.outline);
     if (start < 0 || end > index.length || ranges(project).some(range => start < range.end && end > range.start)) return project;
@@ -53,7 +53,6 @@ namespace ScoreHairpins {
       start: first,
       end: last,
       kind: 'crescendo',
-      ...(velocities && { velocities }),
     };
     return { ...project, hairpins: [...(project.hairpins ?? []), hairpin] };
   }
@@ -74,10 +73,12 @@ namespace ScoreHairpins {
       hairpin === range.hairpin ? { ...hairpin, [endpoint]: anchor } : hairpin) };
   }
 
-  export function configure(project: ScoreProject, id: string, kind: Hairpin['kind'], velocities?: Hairpin['velocities']): ScoreProject {
+  export function configure(project: ScoreProject, id: string, kind: Hairpin['kind'], endVelocity?: number): ScoreProject {
     const current = project.hairpins?.find(hairpin => hairpin.id === id);
-    if (!current || (current.kind === kind && current.velocities?.start === velocities?.start && current.velocities?.end === velocities?.end)) return project;
-    return { ...project, hairpins: project.hairpins!.map(hairpin => hairpin.id === id ? { ...hairpin, kind, velocities } : hairpin) };
+    if (!current || (current.kind === kind && current.endVelocity === endVelocity)) return project;
+    const { endVelocity: previousEndVelocity, ...range } = current;
+    const configured = endVelocity === undefined ? { ...range, kind } : { ...range, kind, endVelocity };
+    return { ...project, hairpins: project.hairpins!.map(hairpin => hairpin === current ? configured : hairpin) };
   }
 
   export function remove(project: ScoreProject, position: number): ScoreProject {

@@ -70,6 +70,32 @@ test('retains the next note onset after a complete triplet', () => {
   assert.ok(!has(result, 'voice-fallback'));
 });
 
+test('imports mixed-value tuplets, including chords and back-to-back groups, and validates saved data', () => {
+  const modification = '<time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes><normal-type>eighth</normal-type></time-modification>';
+  const mark = type => `<notations><tuplet type="${type}"/></notations>`;
+  const excerpt = note('F', 4, 4, modification + mark('start'), 'eighth') +
+    note('D', 5, 4, '<chord/>' + modification, 'eighth') +
+    note('A', 4, 8, modification + mark('stop'), 'quarter') +
+    note('F', 4, 8, modification, 'quarter') +
+    note('G', 4, 4, modification, 'eighth') + note('C');
+  const result = load(score(measure(attributes + excerpt)));
+  const [first, second, next] = elements(result);
+  assert.equal(first.kind, 'tuplet');
+  assert.equal(second.kind, 'tuplet');
+  assert.equal(first.baseType, 'eighth');
+  assert.deepEqual(first.elements.map(element => [element.value.type, element.pitches.map(p => p.midi)]),
+    [['eighth', [74, 65]], ['quarter', [69]]]);
+  assert.deepEqual(second.elements.map(element => element.value.type), ['quarter', 'eighth']);
+  assert.equal(next.kind, 'note');
+  const entries = Voice.flatten(measures(result)[0].data.upperStaff.voices[0], { cnt: 4, unit: 4 });
+  assert.equal(entries[4].positionSixteenths, 8);
+  assert.ok(!has(result, 'voice-fallback'));
+  const saved = JSON.parse(JSON.stringify(result.project));
+  assert.ok(Validator.isValid(saved));
+  saved.outline.find(block => block.type === 'measure').data.upperStaff.voices[0].elements[0].elements.pop();
+  assert.equal(Validator.isValid(saved), false);
+});
+
 test('isolates unsupported rhythms to the affected voice and measure', () => {
   const result = load(score(measure(attributes + note('C', 4, 1, '', '64th') +
     '<backup><duration>1</duration></backup>' + note('D', 4, 48, '', 'whole', 1, 2) +

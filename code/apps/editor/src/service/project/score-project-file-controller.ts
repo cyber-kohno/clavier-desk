@@ -64,7 +64,8 @@ namespace ScoreProjectFileController {
     } catch (error) {
       return { type: 'error', reason: 'parse', error };
     }
-    if (!ScoreProjectValidator.isValid(parsed) || ScoreFermata.hasConflicts(parsed) || !ScoreDynamics.isValid(parsed)) return { type: 'error', reason: 'invalid-project' };
+    if (!ScoreProjectValidator.isValid(parsed) || ScoreFermata.hasConflicts(parsed) || !ScoreDynamics.isValid(parsed) ||
+      !ScoreDynamics.hasValidHairpins(parsed)) return { type: 'error', reason: 'invalid-project' };
     return { type: 'success', value: { handle, project: TieFingerings.normalize(parsed) } };
   }
 }

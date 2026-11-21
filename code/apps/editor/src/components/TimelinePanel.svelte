@@ -17,7 +17,6 @@
   import type { OttavaCursor } from '../state/ottava.ts';
   import ScorePedal from '../domain/score/score-pedal.ts';
   import ScoreOttava from '../domain/score/score-ottava.ts';
-  import ScoreDynamics from '../domain/score/score-dynamics.ts';
   import ScoreHairpins from '../domain/score/score-hairpins.ts';
   import ScorePreview from './ScorePreview.svelte';
   import PlaybackPosition from './PlaybackPosition.svelte';
@@ -34,7 +33,7 @@
     type TimelineCursor,
   } from "../state/timeline-cursor";
 
-  let { getPlayingNoteIds = () => [], outline, cursor, timelineCursor, mode, pedalMode = false, pedalCursor, ottavaMode = false, ottavaCursor, hairpinMode = false, hairpinStart = null, hairpins, playbackPosition = null, playbackActive = false, expressionModalOpen = false, trills = [], tempoChanges = [], clefChanges = [], dynamicChanges = [], slurs = [] }: {
+  let { getPlayingNoteIds = () => [], outline, cursor, timelineCursor, mode, pedalMode = false, pedalCursor, ottavaMode = false, ottavaCursor, hairpinMode = false, hairpinStart = null, hairpins, playbackPosition = null, playbackActive = false, expressionModalOpen = false, trills = [], tempoChanges = [], clefChanges = [], dynamicChanges = [], slurs = [], pitchAnchorId, onPitchAnchor }: {
     getPlayingNoteIds?: () => readonly string[];
     slurs?: ScoreProject['slurs'];
     dynamicChanges?: ScoreProject['dynamicChanges'];
@@ -55,6 +54,8 @@
     ottavaCursor: OttavaCursor;
     playbackPosition?: number | null;
     playbackActive?: boolean;
+    pitchAnchorId?: string;
+    onPitchAnchor?: (id: string, anchor?: HTMLElement) => void;
   } = $props();
   const trillNotes=$derived(new Map(trills.flatMap(span=>ScoreTrill.chain({outline},span.startNoteId).map((note,index)=>[note.id,index===0] as const))));
   const trillFingerings=$derived(new Map(trills.filter(span=>span.settings.fingerings).map(span=>[span.startNoteId,span.settings.fingerings!.join('')])));
@@ -68,6 +69,8 @@
   let timelineViewportHeight = $state(0);
   let scrollTimers: number[] = [];
   let verticalScrollTimers: number[] = [];
+  let horizontalScrollPending = $state(false);
+  let verticalScrollPending = $state(false);
   const pedalEvents = $derived(ScorePedal.events({ outline }));
   const pedalSpans = $derived(ScorePedal.spans({ outline }, { splitAtChanges: true }));
   const pedalChangePositions = $derived(new Set(pedalEvents.filter(event => event.action === 'change').map(event => event.position)));
@@ -75,7 +78,7 @@
   const ottavaSpans = $derived(ScoreOttava.spans({ outline }, timelineCursor.staff));
   const hairpinCursor = $derived({ position: timelineCursor.positionSixteenths, value: timelineCursor.placementValue });
   const activeHairpinId = $derived(hairpinMode ? ScoreHairpins.at({ outline, hairpins }, hairpinCursor.position)?.hairpin.id : undefined);
-  const hairpinSegments = $derived(hairpinMode ? ScoreDynamics.hairpinSegments({ outline, hairpins, dynamicChanges }) : []);
+  const hairpinRanges = $derived(hairpinMode ? ScoreHairpins.ranges({ outline, hairpins }) : []);
   function syncTimelineScroll() {
     const roll = pianoRollViewport;
     if (!roll) return;
@@ -103,13 +106,21 @@
     if (!header || !roll) return;
     for (const timer of scrollTimers) window.clearTimeout(timer);
     scrollTimers = [];
+    const needsScroll = Math.abs(left - roll.scrollLeft) >= 1;
+    horizontalScrollPending = needsScroll;
+    if (!needsScroll) return;
     const divisionCount = 15;
     const step = (left - roll.scrollLeft) / divisionCount;
     for (let division = 0; division < divisionCount; division += 1) {
       const isTail = division === divisionCount - 1;
       const timer = window.setTimeout(() => {
-        roll.scrollLeft += step;
+        roll.scrollLeft = isTail ? left : roll.scrollLeft + step;
         if (isTail || Math.abs(header.scrollLeft - roll.scrollLeft) > 1) header.scrollLeft = roll.scrollLeft;
+        if (isTail) {
+          scrollTimers = [];
+          syncTimelineScroll();
+          horizontalScrollPending = false;
+        }
       }, division * 10);
       scrollTimers.push(timer);
     }
@@ -121,6 +132,9 @@
     if (!roll || !pitch) return;
     for (const timer of verticalScrollTimers) window.clearTimeout(timer);
     verticalScrollTimers = [];
+    const needsScroll = Math.abs(rollTop - roll.scrollTop) >= 1 || Math.abs(pitchTop - pitch.scrollTop) >= 1;
+    verticalScrollPending = needsScroll;
+    if (!needsScroll) return;
     const divisionCount = 15;
     const rollStep = (rollTop - roll.scrollTop) / divisionCount;
     const pitchStep = (pitchTop - pitch.scrollTop) / divisionCount;
@@ -132,6 +146,9 @@
         if (isTail) {
           roll.scrollTop = rollTop;
           pitch.scrollTop = pitchTop;
+          verticalScrollTimers = [];
+          syncTimelineScroll();
+          verticalScrollPending = false;
         }
       }, division * 10);
       verticalScrollTimers.push(timer);
@@ -278,8 +295,8 @@
   }));
   const visibleOttavaSpans = $derived(ottavaSpans.filter(span =>
     span.end * pixelsPerSixteenth >= visibleTimelineStart && span.start * pixelsPerSixteenth <= visibleTimelineEnd));
-  const visibleHairpinSegments = $derived(hairpinSegments.filter(segment =>
-    segment.end.position * pixelsPerSixteenth >= visibleTimelineStart && segment.start.position * pixelsPerSixteenth <= visibleTimelineEnd));
+  const visibleHairpinRanges = $derived(hairpinRanges.filter(range =>
+    range.end * pixelsPerSixteenth >= visibleTimelineStart && range.start * pixelsPerSixteenth <= visibleTimelineEnd));
   $effect(() => {
     const selectedBlockId = cursor.blockId;
     const isTimelineMode = mode === 'timeline';
@@ -326,6 +343,7 @@
     untrack(() => {
       for (const timer of verticalScrollTimers) window.clearTimeout(timer);
       verticalScrollTimers = [];
+      verticalScrollPending = false;
       const measure = outline.find(block => block.id === blockId);
       if (measure?.type !== 'measure') return;
       const top = TimelineView.bestPitchScrollTop(TimelineView.measurePitches(measure), roll.scrollTop,
@@ -333,6 +351,19 @@
       if (Math.abs(top - roll.scrollTop) < 1) return;
       animateTimelineVerticalScroll(top, Math.max(0, Math.min(pitch.scrollHeight - pitch.clientHeight, top)));
     });
+  });
+
+  $effect(() => {
+    const id = pitchAnchorId;
+    const roll = pianoRollViewport;
+    if (!id || !roll || !onPitchAnchor) return;
+    // Wait for both axes and for the visible pitch rows to be rendered.
+    const settled = !horizontalScrollPending && !verticalScrollPending;
+    visibleMeasures;
+    const anchor = settled
+      ? roll.querySelector<HTMLElement>(`[data-fingering-pitch="${CSS.escape(id)}"]`) ?? undefined
+      : undefined;
+    untrack(() => onPitchAnchor?.(id, anchor));
   });
 
   function pitchLaneBackground(measureId: string) {
@@ -658,9 +689,9 @@
           <div class="pedal-unit-range" aria-hidden="true" style={`left: ${lineCursor.position * pixelsPerSixteenth}px; width: ${WrittenValue.sixteenths(lineCursor.value) * pixelsPerSixteenth}px`}></div>
         {/if}
         {#if hairpinMode}
-          {#each visibleHairpinSegments as { hairpin, start, end } (`${hairpin.id}-${start.position}`)}
+          {#each visibleHairpinRanges as { hairpin, start, end } (hairpin.id)}
             <svg class="hairpin-span" class:active={hairpin.id === activeHairpinId} role="img" aria-label={hairpin.kind}
-              style={`left: ${start.position * pixelsPerSixteenth}px; width: ${(end.position - start.position) * pixelsPerSixteenth}px`}
+              style={`left: ${start * pixelsPerSixteenth}px; width: ${(end - start) * pixelsPerSixteenth}px`}
               viewBox="0 0 100 16" preserveAspectRatio="none">
               <path d={hairpin.kind === 'crescendo' ? 'M 100 2 L 0 8 L 100 14' : 'M 0 2 L 100 8 L 0 14'} vector-effect="non-scaling-stroke" />
             </svg>

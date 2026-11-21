@@ -78,7 +78,8 @@ namespace ScoreEditContract {
 
   export const names = operations.items!.anyOf!.map(schema => schema.properties!.type.enum![0] as string);
 
-  // Adding a persisted notation field now requires an explicit MCP coverage decision.
+  // Adding a persisted notation field requires an explicit MCP coverage decision.
+  // Pitch velocity adjustments are authored in the editor.
   export const fieldCoverage = {
     note: { id: ['create_score'], kind: ['create_score', 'set_rest'], value: ['set_value'], pitches: ['set_pitches'],
       tieFrom: ['set_tie'], tieTo: ['set_tie'], beforeGraceNotes: ['set_grace_notes'], gracePerformance: ['set_grace_notes'],
@@ -90,7 +91,7 @@ namespace ScoreEditContract {
       slurs: ['set_slur', 'remove_slur'], trills: ['set_trill'], clefChanges: ['set_clef_change'], tempoChanges: ['set_tempo_change'], dynamicChanges: ['set_dynamic_change'] },
     measure: { length: ['set_measure_length'], upperStaff: ['replace_voice'], lowerStaff: ['replace_voice'],
       pedalEvents: ['set_pedal_event', 'remove_pedal_event'], ottavaEvents: ['set_ottava_event', 'remove_ottava_event'] },
-  } satisfies { note: Record<keyof PianoNote, string[]>; pitch: Record<keyof PianoPitch, string[]>; grace: Record<keyof PianoGraceNote, string[]>;
+  } satisfies { note: Record<keyof PianoNote, string[]>; pitch: Record<Exclude<keyof PianoPitch, 'velocityOffset'>, string[]>; grace: Record<keyof PianoGraceNote, string[]>;
     tuplet: Record<keyof PianoTuplet, string[]>; project: Record<Exclude<keyof ScoreProject, 'hairpins'>, string[]>; measure: Record<keyof MeasureBlock['data'], string[]> };
 
   export function validate(value: unknown, schema: EditSchema = operations, path = 'operations'): void {

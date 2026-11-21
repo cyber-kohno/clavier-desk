@@ -12,9 +12,11 @@ export type FingeringDraft = { assignments: FingeringAssignment[]; warnings: Fin
 export type FingeringResult = { candidates: FingeringDraft[]; issues: FingeringIssue[] };
 type Candidate = { fingers: Finger[]; palm: number; cost: number };
 type Path = { candidate: Candidate; previous?: Path; cost: number; stepCost: number };
+type MelodicTransition = { fromIndex: number; toIndex: number; distance: number; gap: number };
 
 namespace AutomaticFingering {
   const beamWidth = 96, validationLimit = 16;
+  const nonThumbCrossingGap = 0.05;
   const keyByMidi = new Map(keys.map(key => [key.midiNote, key]));
 
   function candidates(passage: FingeringPassage, step: FingeringStep, cache: Map<string, Candidate[]>): Candidate[] {
@@ -62,8 +64,23 @@ namespace AutomaticFingering {
     return result;
   }
 
-  function transition(passage: FingeringPassage, index: number, previous: Candidate, next: Candidate): number {
-    const before = passage.steps[index - 1], after = passage.steps[index];
+  function melodicTransition(before: FingeringStep, after: FingeringStep,
+    hand: FingeringPassage['hand']): MelodicTransition | undefined {
+    // A note held across both steps stays in the chord but has no new attack.
+    const outgoing = before.attacks.filter(a => !after.attacks.some(b => a.targets === b.targets));
+    const incoming = after.attacks.filter(b => !before.attacks.some(a => a.targets === b.targets));
+    if (outgoing.length !== 1 || incoming.length !== 1) return;
+    const [from] = outgoing, [to] = incoming;
+    return {
+      fromIndex: before.attacks.indexOf(from),
+      toIndex: after.attacks.indexOf(to),
+      distance: (to.midi - from.midi) * (hand === 'right' ? 1 : -1),
+      gap: after.time - (before.time + from.duration),
+    };
+  }
+
+  function transition(before: FingeringStep, after: FingeringStep, melody: MelodicTransition | undefined,
+    previous: Candidate, next: Candidate): number {
     const interval = after.time - before.time;
     if (!(interval > 0)) return Infinity;
     // Every still-held contact reserves its finger. This includes slur overlaps.
@@ -78,21 +95,25 @@ namespace AutomaticFingering {
     const freedom = Math.min(1, Math.max(0, gap) / 0.22);
     const movement = Math.abs(next.palm - previous.palm) / WIDTH;
     let cost = movement ** 1.3 * (1 - freedom * 0.8) * 0.55;
-    if (before.attacks.length === 1 && after.attacks.length === 1) {
-      const a = before.attacks[0], b = after.attacks[0], from = previous.fingers[0], to = next.fingers[0];
-      const distance = (b.midi - a.midi) * (passage.hand === 'right' ? 1 : -1);
+    if (melody) {
+      const { fromIndex, toIndex, distance, gap: noteGap } = melody;
+      const from = previous.fingers[fromIndex], to = next.fingers[toIndex];
       const crossing = distance * (to - from) < 0;
-      if (a.midi === b.midi) cost += from === to ? 0 : 0.45;
-      else if (from === to) cost += 2.5 * (1 - freedom);
+      const noteFreedom = Math.min(1, Math.max(0, noteGap) / 0.22);
+      if (distance === 0) cost += from === to ? 0 : 0.45;
+      else if (from === to) cost += 2.5 * (1 - noteFreedom);
       if (crossing) {
         if (from === 1 || to === 1) {
           const outer = Math.max(from, to);
-          cost += (outer === 5 ? 4 : outer === 2 ? 1.4 : outer === 3 ? 0.65 : 0.85) * (1 - freedom);
+          cost += (outer === 5 ? 4 : outer === 2 ? 1.4 : outer === 3 ? 0.65 : 0.85) * (1 - noteFreedom);
           if (Math.abs(distance) > 5) cost += 2;
-        } else cost += 5 * (1 - freedom);
+        } else {
+          if (noteGap < nonThumbCrossingGap) return Infinity;
+          cost += 5 * (1 - noteFreedom);
+        }
       }
       // Quick repetition needs enough time to reset even if the pitch is unchanged.
-      if (a.midi === b.midi && from === to && interval < 0.14) cost += (0.14 - interval) * 14;
+      if (distance === 0 && from === to && interval < 0.14) cost += (0.14 - interval) * 14;
     }
     if (movement > 3 && interval < 0.25) cost += (movement - 3) * (0.25 - interval) * 12;
     return cost;
@@ -118,10 +139,12 @@ namespace AutomaticFingering {
       const noteId = onset?.targets[0]?.noteId;
       if (!available.length) return { candidates: [], issues: [{ message: `${step.label}: no chord fingering satisfies the fixed fingers and this hand model's reach/order limits.`, noteId }] };
       const expanded: Path[] = [];
+      const previousStep = passage.steps[index - 1];
+      const melody = previousStep && melodicTransition(previousStep, step, passage.hand);
       for (const candidate of available) {
         if (!index) expanded.push({ candidate, cost: candidate.cost, stepCost: candidate.cost });
         else for (const previous of beam) {
-          const stepCost = transition(passage, index, previous.candidate, candidate) + candidate.cost;
+          const stepCost = transition(previousStep, step, melody, previous.candidate, candidate) + candidate.cost;
           if (Number.isFinite(stepCost)) expanded.push({ candidate, previous, cost: previous.cost + stepCost, stepCost });
         }
       }
@@ -133,7 +156,7 @@ namespace AutomaticFingering {
         const key = `${path.previous?.candidate.fingers.join('') ?? ''}/${path.candidate.fingers.join('')}`;
         const count = counts.get(key) ?? 0; counts.set(key, count + 1); return count < 3;
       }).slice(0, beamWidth);
-      if (!beam.length) return { candidates: [], issues: [{ message: `${step.label}: no candidate in the bounded search can continue while preserving held fingers and allowing time to release a reused finger or key. Check the fixed fingers or select a shorter range.`, noteId }] };
+      if (!beam.length) return { candidates: [], issues: [{ message: `${step.label}: no candidate in the bounded search can preserve held fingers and continue without a fast crossing between non-thumb fingers or an early reattack. Check the fixed fingers or select a shorter range.`, noteId }] };
     }
     const attempts = beam.slice(0, validationLimit);
     let lastError = '';

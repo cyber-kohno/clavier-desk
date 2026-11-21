@@ -66,7 +66,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 },
@@ -94,7 +94,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 }
@@ -136,7 +136,8 @@
                   "pitches": [
                     {
                       "midi": 47,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -192,7 +193,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 },
@@ -220,7 +221,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 }
@@ -262,7 +263,8 @@
                   "pitches": [
                     {
                       "midi": 45,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -318,7 +320,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 },
@@ -346,7 +348,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 }
@@ -388,7 +390,8 @@
                   "pitches": [
                     {
                       "midi": 43,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -444,7 +447,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 },
@@ -472,7 +475,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 }
@@ -514,7 +517,8 @@
                   "pitches": [
                     {
                       "midi": 50,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -570,7 +574,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 },
@@ -598,7 +602,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 }
@@ -640,7 +644,8 @@
                   "pitches": [
                     {
                       "midi": 47,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -696,7 +701,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 },
@@ -724,7 +729,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 }
@@ -766,7 +771,8 @@
                   "pitches": [
                     {
                       "midi": 45,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -822,7 +828,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 },
@@ -850,7 +856,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 3
+                      "fingering": 4
                     }
                   ]
                 }
@@ -892,7 +898,8 @@
                   "pitches": [
                     {
                       "midi": 43,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -7
                     }
                   ]
                 }
@@ -948,7 +955,7 @@
                   "pitches": [
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 4
                     }
                   ]
                 },
@@ -1134,11 +1141,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -13
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -1241,11 +1250,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -24
                     },
                     {
                       "midi": 52,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -1370,11 +1381,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -1491,7 +1504,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -1594,11 +1608,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -14
                     }
                   ]
                 }
@@ -1701,11 +1717,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -1836,11 +1854,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 50,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -19
                     }
                   ]
                 }
@@ -1957,11 +1977,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -12
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1975,7 +1997,8 @@
                   "pitches": [
                     {
                       "midi": 49,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -12
                     }
                   ]
                 }
@@ -1988,6 +2011,14 @@
             "id": "pedal-e57435b0-fc3a-47be-a2e4-1943ef1035c9",
             "offset": {
               "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-dd8446f1-f7e6-443b-aea5-6ebd930fe2c7",
+            "offset": {
+              "numerator": 8,
               "denominator": 1
             },
             "action": "change"
@@ -2078,11 +2109,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -2185,11 +2218,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -2314,11 +2349,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -2457,7 +2494,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -2588,11 +2626,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -2695,11 +2735,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -12
                     },
                     {
                       "midi": 52,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -11
                     }
                   ]
                 }
@@ -2816,11 +2858,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 50,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -2923,7 +2967,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
@@ -2954,6 +2999,14 @@
             "id": "pedal-271fa883-120c-480b-a237-562bd83889e3",
             "offset": {
               "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-afc06777-b87f-45d4-b7e0-445bf5b10a67",
+            "offset": {
+              "numerator": 8,
               "denominator": 1
             },
             "action": "change"
@@ -3031,11 +3084,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -3138,11 +3193,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -3156,11 +3213,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -3249,11 +3308,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 50,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -3267,7 +3328,8 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -3370,11 +3432,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -3388,7 +3452,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -3478,11 +3543,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -14
                     }
                   ]
                 },
@@ -3496,7 +3563,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -11
                     }
                   ]
                 }
@@ -3585,11 +3653,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -3603,11 +3673,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -3696,11 +3768,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 50,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -3714,7 +3788,8 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -3831,7 +3906,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -3845,7 +3921,8 @@
                   "pitches": [
                     {
                       "midi": 49,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -3948,11 +4025,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -3966,7 +4045,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -4069,11 +4149,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -4087,7 +4169,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -4212,7 +4295,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
@@ -4230,7 +4314,8 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -4347,7 +4432,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -4361,7 +4447,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -4464,7 +4551,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
@@ -4482,7 +4570,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -4585,7 +4674,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
@@ -4603,7 +4693,8 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
@@ -4738,7 +4829,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
@@ -4756,7 +4848,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
@@ -4877,7 +4970,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -4891,7 +4985,8 @@
                   "pitches": [
                     {
                       "midi": 49,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -4904,6 +4999,14 @@
             "id": "pedal-9d31c815-6531-42f9-98a0-42345d3202df",
             "offset": {
               "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-b60d0877-f998-48c4-b5de-6be9a9c4aa55",
+            "offset": {
+              "numerator": 8,
               "denominator": 1
             },
             "action": "change"
@@ -4994,7 +5097,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
@@ -5012,7 +5116,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -5115,7 +5220,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
@@ -5133,7 +5239,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -5258,7 +5365,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 50,
@@ -5276,7 +5384,8 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -5407,7 +5516,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -5421,7 +5531,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -5552,7 +5663,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
@@ -5570,7 +5682,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -5673,11 +5786,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -5691,7 +5806,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -5808,7 +5924,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
@@ -5826,7 +5943,8 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -5943,7 +6061,8 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -5957,7 +6076,8 @@
                   "pitches": [
                     {
                       "midi": 49,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -4
                     }
                   ]
                 }
@@ -5970,6 +6090,14 @@
             "id": "pedal-cff0807d-864f-4b3d-8189-28760e71ae26",
             "offset": {
               "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-69b8ffc2-c9a6-40ba-a00e-b46eba3c3731",
+            "offset": {
+              "numerator": 8,
               "denominator": 1
             },
             "action": "change"
@@ -6017,7 +6145,10 @@
                       "midi": 71,
                       "fingering": 4
                     }
-                  ]
+                  ],
+                  "accent": {
+                    "velocityOffset": 10
+                  }
                 },
                 {
                   "id": "07d3c6c7-c4bd-44fc-996c-06fc5d2562ed",
@@ -6085,11 +6216,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -6103,7 +6236,8 @@
                   "pitches": [
                     {
                       "midi": 64,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 60,
@@ -6233,11 +6367,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -6251,7 +6387,8 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
@@ -6344,11 +6481,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -6362,11 +6501,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -6477,11 +6618,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -11
                     },
                     {
                       "midi": 50,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -6495,11 +6638,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -6616,11 +6761,13 @@
                   "pitches": [
                     {
                       "midi": 58,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -6634,11 +6781,13 @@
                   "pitches": [
                     {
                       "midi": 58,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -19
                     }
                   ]
                 }
@@ -6741,11 +6890,13 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 49,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -6759,11 +6910,13 @@
                   "pitches": [
                     {
                       "midi": 58,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -6853,11 +7006,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -6871,11 +7026,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -6948,7 +7105,10 @@
                       "midi": 61,
                       "fingering": 2
                     }
-                  ]
+                  ],
+                  "accent": {
+                    "velocityOffset": 12
+                  }
                 }
               ]
             },
@@ -6992,11 +7152,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -7010,7 +7172,8 @@
                   "pitches": [
                     {
                       "midi": 46,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -7023,6 +7186,14 @@
             "id": "pedal-515153ef-351e-4a33-860d-fc8f04be7da1",
             "offset": {
               "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-2497b428-c933-4f11-97d1-0c75e02533f0",
+            "offset": {
+              "numerator": 8,
               "denominator": 1
             },
             "action": "change"
@@ -7137,11 +7308,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -7156,11 +7329,13 @@
                     {
                       "midi": 60,
                       "spellingDirection": "down",
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -7263,11 +7438,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -7281,11 +7458,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -7402,7 +7581,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
@@ -7420,7 +7600,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -7537,7 +7718,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 56,
@@ -7555,11 +7737,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 56,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -19
                     }
                   ]
                 }
@@ -7690,11 +7874,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -7708,11 +7894,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -7843,11 +8031,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -7861,11 +8051,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -8229,7 +8421,10 @@
                       "midi": 42,
                       "fingering": 5
                     }
-                  ]
+                  ],
+                  "accent": {
+                    "velocityOffset": 18
+                  }
                 },
                 {
                   "id": "8f548ae4-6b01-4d22-99ea-7291793f0ed1",
@@ -8241,11 +8436,13 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -11
                     },
                     {
                       "midi": 49,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -8259,11 +8456,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -8384,11 +8583,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -11
                     },
                     {
                       "midi": 50,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -8402,11 +8603,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -8527,11 +8730,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -8545,11 +8750,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -8666,11 +8873,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -8684,7 +8893,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -8813,11 +9023,13 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 49,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -8831,11 +9043,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -8960,11 +9174,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 50,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -8978,7 +9194,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
@@ -9111,11 +9328,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -9129,11 +9348,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -9176,17 +9397,25 @@
                   "pitches": [
                     {
                       "midi": 69,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": 10
                     },
                     {
                       "midi": 66,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -4
                     },
                     {
                       "midi": 62,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
-                  ]
+                  ],
+                  "arpeggio": {
+                    "type": "normal",
+                    "spreadRatio": 1,
+                    "timing": 1
+                  }
                 },
                 {
                   "id": "95741b4b-3b26-4a46-82a4-6f462a4db7f7",
@@ -9258,11 +9487,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -9276,7 +9507,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -9325,7 +9557,10 @@
                       "midi": 61,
                       "fingering": 1
                     }
-                  ]
+                  ],
+                  "accent": {
+                    "velocityOffset": 11
+                  }
                 },
                 {
                   "id": "00262d67-1932-40bf-b527-041c44661cb9",
@@ -9405,11 +9640,13 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 49,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -9423,11 +9660,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -16
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -12
                     }
                   ]
                 }
@@ -9470,11 +9709,13 @@
                   "pitches": [
                     {
                       "midi": 69,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -5
                     },
                     {
                       "midi": 62,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -9548,11 +9789,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -14
                     }
                   ]
                 },
@@ -9566,11 +9809,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -9691,11 +9936,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -9709,11 +9956,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -9848,7 +10097,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
@@ -9866,7 +10116,8 @@
                   "pitches": [
                     {
                       "midi": 49,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -8
                     }
                   ]
                 }
@@ -9879,6 +10130,14 @@
             "id": "pedal-97aa2498-9c66-4e4b-a72d-7e5b3ff32e59",
             "offset": {
               "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-62edf9d1-09fe-408b-b1ad-81e9e5337d3b",
+            "offset": {
+              "numerator": 8,
               "denominator": 1
             },
             "action": "change"
@@ -9997,7 +10256,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -11
                     },
                     {
                       "midi": 54,
@@ -10015,7 +10275,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
@@ -10126,11 +10387,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 56,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -10144,11 +10407,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 56,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -10265,11 +10530,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -10283,11 +10550,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -10416,11 +10685,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -10434,11 +10705,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -10567,11 +10840,13 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 49,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -10585,11 +10860,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -11
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -10710,11 +10987,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -10728,11 +11007,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -11
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -10853,11 +11134,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -10871,11 +11154,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -10996,11 +11281,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -11014,7 +11301,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -11147,7 +11435,8 @@
                     },
                     {
                       "midi": 49,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -11161,11 +11450,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -11290,11 +11581,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -11308,7 +11601,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
@@ -11441,11 +11735,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -11459,11 +11755,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -11516,7 +11814,12 @@
                       "midi": 62,
                       "fingering": 1
                     }
-                  ]
+                  ],
+                  "arpeggio": {
+                    "type": "normal",
+                    "spreadRatio": 0.5,
+                    "timing": 1
+                  }
                 },
                 {
                   "id": "aec4a15f-c70a-4d27-98d2-6e05f13d1814",
@@ -11588,11 +11891,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -11606,7 +11911,8 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -11735,11 +12041,13 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 49,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -11753,7 +12061,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
@@ -11878,11 +12187,13 @@
                   "pitches": [
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 50,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -13
                     }
                   ]
                 },
@@ -11896,11 +12207,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -11
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -12021,11 +12334,13 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -12039,11 +12354,13 @@
                   "pitches": [
                     {
                       "midi": 61,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -12178,7 +12495,8 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
@@ -12196,7 +12514,8 @@
                   "pitches": [
                     {
                       "midi": 49,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -7
                     }
                   ]
                 }
@@ -12209,6 +12528,14 @@
             "id": "pedal-5270d657-4c7d-4018-add4-b5f7a33bba47",
             "offset": {
               "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-f6242d50-5358-4e14-ac93-6594ea409669",
+            "offset": {
+              "numerator": 8,
               "denominator": 1
             },
             "action": "change"
@@ -12327,11 +12654,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -12345,11 +12674,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -12456,11 +12787,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 56,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -12474,11 +12807,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -21
                     },
                     {
                       "midi": 56,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -12595,11 +12930,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -12613,11 +12950,13 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -12748,11 +13087,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -12766,7 +13107,8 @@
                   "pitches": [
                     {
                       "midi": 49,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -12779,6 +13121,14 @@
             "id": "pedal-a3235feb-08db-4ad5-97bd-8a0e10f8b928",
             "offset": {
               "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-51241dcb-28a3-472d-bd91-5d203b8b591e",
+            "offset": {
+              "numerator": 8,
               "denominator": 1
             },
             "action": "change"
@@ -12887,11 +13237,13 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 47,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -12970,7 +13322,10 @@
                       "midi": 59,
                       "fingering": 1
                     }
-                  ]
+                  ],
+                  "fermata": {
+                    "lengthRatio": 2.1
+                  }
                 },
                 {
                   "id": "7af2a94d-b4d1-44db-a847-b8f127d1429b",
@@ -13268,7 +13623,10 @@
                       "midi": 54,
                       "fingering": 1
                     }
-                  ]
+                  ],
+                  "fermata": {
+                    "lengthRatio": 1.7
+                  }
                 }
               ]
             },
@@ -13321,5 +13679,294 @@
     }
   ],
   "clefChanges": [],
-  "dynamicChanges": []
+  "dynamicChanges": [
+    {
+      "noteId": "97f306d2-055f-4d66-8c08-f89b7cd411a4",
+      "level": "mp",
+      "velocity": 78
+    },
+    {
+      "noteId": "49facc08-a926-454a-8a05-940bb011d47a",
+      "level": "mf",
+      "velocity": 91
+    },
+    {
+      "noteId": "3b608a4c-3198-444d-9f0f-f580f8bc49fb",
+      "level": "p",
+      "velocity": 75
+    },
+    {
+      "noteId": "397f5df7-ac3a-4327-8703-a02f3e3099c3",
+      "level": "mf",
+      "velocity": 90
+    },
+    {
+      "noteId": "cd0af83d-1825-4e5d-b708-c69612c38bc7",
+      "level": "p",
+      "velocity": 72
+    },
+    {
+      "noteId": "3bd29536-03a8-4200-8564-ed32e111a300",
+      "level": "mp",
+      "velocity": 82
+    },
+    {
+      "noteId": "7820b1ba-c66a-41aa-b349-e086eccba03b",
+      "level": "mf",
+      "velocity": 88
+    },
+    {
+      "noteId": "5d0e34ba-3b07-4f60-a8f4-506968dbbf39",
+      "level": "f",
+      "velocity": 98
+    },
+    {
+      "noteId": "9e57757b-c611-4f53-aeb2-a2f64ffd5e7f",
+      "level": "mp",
+      "velocity": 82
+    },
+    {
+      "noteId": "533f434c-ccd5-4ea9-8dca-f9ef06d951d0",
+      "level": "mf",
+      "velocity": 88
+    },
+    {
+      "noteId": "189cffc1-0ee5-4bec-ae3e-919134200cc4",
+      "level": "mp",
+      "velocity": 82
+    },
+    {
+      "noteId": "0a7f5377-907e-451e-9f2b-eb15163f0bab",
+      "level": "mf",
+      "velocity": 88
+    },
+    {
+      "noteId": "d64ff5be-0d8e-40dd-86c3-6c6afa69aebb",
+      "level": "f",
+      "velocity": 101
+    },
+    {
+      "noteId": "286f6186-d050-462b-8a53-4cefa2a3c2ea",
+      "level": "mf",
+      "velocity": 85
+    },
+    {
+      "noteId": "8812c915-abbf-49ad-b5d0-abd55e2156d4",
+      "level": "mp",
+      "velocity": 82
+    },
+    {
+      "noteId": "b717bedf-6df3-4ff3-8037-55e2b15e91c4",
+      "level": "mf",
+      "velocity": 88
+    }
+  ],
+  "slurs": [
+    {
+      "id": "slur-f00edf82-8083-4999-9bd7-aa2fe3a94308",
+      "startNoteId": "fcaeb582-3bde-4ed5-b402-156498ac5929",
+      "endNoteId": "d277b163-91d5-4f4a-990a-c35b94b659a8"
+    }
+  ],
+  "hairpins": [
+    {
+      "id": "hairpin-b3e9c159-bff6-4e7b-889d-696dceaa46ec",
+      "start": {
+        "measureId": "b300775f-70c0-45d6-9151-5ddf84d11f90",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "b300775f-70c0-45d6-9151-5ddf84d11f90",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-704a1fd0-fc74-45c1-8f04-e4b134fe63da",
+      "start": {
+        "measureId": "b9149d94-538b-45bb-841f-9031ecd6ac32",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "23bdca44-fe51-4f1d-90c3-6191152a5767",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-49907c76-50c1-4fe8-9f17-84417547c75d",
+      "start": {
+        "measureId": "e8db2a1b-f109-4281-8b28-ef4a2056c0fd",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "e8db2a1b-f109-4281-8b28-ef4a2056c0fd",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "decrescendo"
+    },
+    {
+      "id": "hairpin-4e2ee3d6-3c11-41a4-ae97-20b459876901",
+      "start": {
+        "measureId": "6a2a2064-6566-42c7-a70e-0cd4e924a961",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "d93af91d-f3d1-45c2-ac4e-479476a5e973",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-a58341e4-fe59-47b4-a3ba-b1024a35cb7d",
+      "start": {
+        "measureId": "8a7873a0-126d-41bf-87c7-47ee32daaae6",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "8a7873a0-126d-41bf-87c7-47ee32daaae6",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "decrescendo"
+    },
+    {
+      "id": "hairpin-d117919f-6a2f-4ccb-b787-1ab6b53ef128",
+      "start": {
+        "measureId": "3bcfbdb7-3a85-4c37-8d4d-4d296ef21927",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "3bcfbdb7-3a85-4c37-8d4d-4d296ef21927",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "decrescendo"
+    },
+    {
+      "id": "hairpin-b196bf89-3cef-4d14-aa7b-fb936083fb81",
+      "start": {
+        "measureId": "1b60a7c4-c8c0-4b30-8483-408a9b8d5b88",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "1b60a7c4-c8c0-4b30-8483-408a9b8d5b88",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-57f75ec8-a5b7-49de-b678-f30a254b1967",
+      "start": {
+        "measureId": "e4fefb7b-0789-418a-814a-695b94ec36a4",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "e4fefb7b-0789-418a-814a-695b94ec36a4",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-e70a9012-f896-4288-8d99-a5d3f1b15164",
+      "start": {
+        "measureId": "90584d66-881d-4a4c-9c2d-b7726920ebf7",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "90584d66-881d-4a4c-9c2d-b7726920ebf7",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-19a2cc9e-99a7-47cc-ae93-05b81ec2be9d",
+      "start": {
+        "measureId": "bec2a359-2fde-45c4-b275-feef60a29c3d",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "bec2a359-2fde-45c4-b275-feef60a29c3d",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo",
+      "endVelocity": 92
+    },
+    {
+      "id": "hairpin-d0c2d2e2-4345-42ac-b274-d55b6136cb45",
+      "start": {
+        "measureId": "32a04f7f-c204-4a53-b329-288c798d44de",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "32a04f7f-c204-4a53-b329-288c798d44de",
+        "offset": {
+          "numerator": 12,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    }
+  ]
 }

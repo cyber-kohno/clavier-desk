@@ -8,6 +8,8 @@ export type SpellingDirection = 'up' | 'down';
 export type PianoPitch = {
   midi: number;
   spellingDirection?: SpellingDirection;
+  /** Signed MIDI velocity adjustment on a written attack. Zero is omitted. */
+  velocityOffset?: number;
   /** Ordinary tied pitches store fingering on the attack/head only. */
   fingering?: PianoFingering;
   substitutionFingering?: PianoFingering;
@@ -136,8 +138,8 @@ export type Hairpin = {
   start: HairpinAnchor;
   end: HairpinAnchor;
   kind: 'crescendo' | 'decrescendo';
-  /** An omitted pair follows the current dynamics without affecting playback. */
-  velocities?: { start: number; end: number };
+  /** Manual target when there is no dynamic mark at the end. */
+  endVelocity?: number;
 };
 export type ScoreProject = {
   slurs?: { id: string; startNoteId: string; endNoteId: string }[];

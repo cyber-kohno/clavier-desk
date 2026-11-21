@@ -8,8 +8,9 @@ import ScoreKey from './score-key.ts';
 import ScoreFingerings from './score-fingerings.ts';
 import ScoreTrill from './score-trill.ts';
 import TieFingerings from './tie-fingerings.ts';
+import { isVelocityOffset, withVelocityOffset } from './pitch-velocity.ts';
 export type PitchTarget={ noteId: string; staff: PianoStaffName; pitchIndex: number };
-export type FingeringTarget = PitchTarget & { graceNoteId?: string };
+export type WrittenPitchTarget = PitchTarget & { graceNoteId?: string };
 export type PitchEditResult={ project: ScoreProject; midi: number; pitchIndex: number };
 namespace NotePitches {
   export function move(
@@ -63,7 +64,38 @@ namespace NotePitches {
     };
   }
 
-  export function setFingering(project: ScoreProject,target: FingeringTarget,fingering: PianoFingering | null,
+  export function setVelocityOffset(project: ScoreProject, target: WrittenPitchTarget, offset: number): ScoreProject {
+    if (!isVelocityOffset(offset)) return project;
+    const located = ScoreTimeline.note(project.outline, target.noteId, target.staff);
+    if (!located || located.note.tieFrom) return project;
+    const note = located.note;
+    const grace = note.beforeGraceNotes?.find(entry => entry.id === target.graceNoteId);
+    const pitches = target.graceNoteId === undefined ? note.pitches : grace?.pitches;
+    const pitch = pitches?.[target.pitchIndex];
+    if (!pitch || !pitches) return project;
+    const updated = withVelocityOffset(pitch, offset);
+    if (updated === pitch) return project;
+    const updatedPitches = pitches.map((entry, index) => index === target.pitchIndex ? updated : entry);
+    const next = ScoreNotes.map(project, new Set([target.noteId]), note => grace
+      ? { ...note, beforeGraceNotes: note.beforeGraceNotes!.map(entry => entry === grace ? { ...entry, pitches: updatedPitches } : entry) }
+      : { ...note, pitches: updatedPitches }, target.staff);
+    ScoreTimeline.inheritTiming(project.outline, next.outline);
+    return next;
+  }
+
+  export function setRangeVelocityOffset(project: ScoreProject, staff: PianoStaffName, noteIds: ReadonlySet<string>,
+    offset: number): ScoreProject {
+    if (!isVelocityOffset(offset)) return project;
+    const next = ScoreNotes.map(project, noteIds, note => {
+      if (note.tieFrom) return note;
+      const pitches = note.pitches.map(pitch => withVelocityOffset(pitch, offset));
+      return pitches.every((pitch, index) => pitch === note.pitches[index]) ? note : { ...note, pitches };
+    }, staff);
+    ScoreTimeline.inheritTiming(project.outline, next.outline);
+    return next;
+  }
+
+  export function setFingering(project: ScoreProject,target: WrittenPitchTarget,fingering: PianoFingering | null,
     substitutionFingering?: PianoFingering): ScoreProject {
     if(!target.graceNoteId && ScoreTrill.forNote(project,target.noteId)) return project;
     if (!target.graceNoteId) {

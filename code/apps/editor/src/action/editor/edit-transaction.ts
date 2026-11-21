@@ -47,7 +47,8 @@ namespace EditTransaction {
   }
   function reconcileExpressions(before: ScoreProject, next: ScoreProject, normalized?: NormalizedRange): ScoreProject {
     const reconciled = ScoreDynamics.reconcile(ScoreSlur.reconcile(ScoreClef.reconcile(ScoreTempo.reconcile(ScoreTrill.reconcile(before, next, normalized)))));
-    return ScoreDynamics.preservesHairpinMarkRules(before, reconciled) ? TieFingerings.reconcile(before, reconciled) : before;
+    const withHairpins = ScoreDynamics.reconcileHairpins(before, reconciled);
+    return withHairpins ? TieFingerings.reconcile(before, withHairpins) : before;
   }
 }
 export default EditTransaction;

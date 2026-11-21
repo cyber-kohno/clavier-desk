@@ -17,6 +17,7 @@ export function animationSequenceAt(sequence: PlaybackSequence, position: number
       if (end <= at) return [];
       const onset = Math.max(at, event.startSeconds);
       return [{ ...event, pitches: [pitch], performance: event.performance?.[index] ? [event.performance[index]] : undefined,
+        ...(event.pitchVelocities ? { velocity: event.pitchVelocities[index], pitchVelocities: undefined } : {}),
         pitchDurationsSeconds: undefined, startSeconds: (onset - at) / speed, durationSeconds: (end - onset) / speed }];
     })),
   };

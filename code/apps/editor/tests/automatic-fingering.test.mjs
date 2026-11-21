@@ -9,6 +9,7 @@ import Engine from '../src/domain/performance/automatic-fingering.ts';
 import Editor from '../src/action/editor/fingering-editor.ts';
 import History from '../src/service/history/editor-history.ts';
 import { inspectAnimation } from '../src/domain/performance/animation-performance.ts';
+import { evaluate } from '../src/domain/motion/motion.ts';
 import { generateAnimation } from '../src/service/playback/animation-generation.ts';
 import { createNoteMenuItems, controlNoteMenu } from '../src/state/note-menu.ts';
 
@@ -92,6 +93,49 @@ test('a left-hand black-key octave can be assigned and animated between white-ke
   assert.equal(blackOctave[0].time, blackOctave[1].time);
 });
 
+test('a black-key octave with an inner white note can repeat with both outer fingers', () => {
+  const sixteenth = { value: { type: '16th', dots: 0 } };
+  const { project, selection } = setup([
+    note('first-octave', [58, 67, 70], sixteenth),
+    note('first-dyad', [67, 70], sixteenth),
+    note('second-dyad', [67, 70]),
+    note('second-octave', [58, 67, 70]),
+  ]);
+  project.outline[0].data.tempo = 66;
+  const applied = Editor.apply(project, selection, run(project, selection).assignments);
+  const assigned = fingers(applied, selection);
+  assert.deepEqual(assigned[0], [5, 4, 1]);
+  assert.deepEqual(assigned[3], [5, 4, 1]);
+  const inspected = inspectAnimation(applied);
+  assert.deepEqual(inspected.issues, []);
+  const { notes } = generateAnimation(inspected.performance);
+  assert.deepEqual(notes.filter(event => event.midiNote === 58).map(event =>
+    notes.filter(other => other.time === event.time).map(other => other.midiNote).sort((a, b) => a - b)),
+  [[58, 67, 70], [58, 67, 70]]);
+});
+
+test('a left-hand A-flat octave can use the front of the thumb key', () => {
+  const quarter = { value: { type: 'quarter', dots: 0 } };
+  const { project, selection } = setup([
+    note('low-a-flat', [32, 44], quarter),
+    note('e-flat-c', [51, 60]), note('g', [55]),
+    note('e-flat-octave', [39, 51], quarter),
+    note('g-return', [55]), note('e-flat-return', [51]),
+  ], 'lowerStaff');
+  project.outline[0].data.tempo = 66;
+  const applied = Editor.apply(project, selection, run(project, selection).assignments);
+  assert.deepEqual(fingers(applied, selection)[0], [1, 5]);
+  const inspected = inspectAnimation(applied);
+  assert.deepEqual(inspected.issues, []);
+  const { notes } = generateAnimation(inspected.performance);
+  const octave = notes.filter(event => event.midiNote === 32 || event.midiNote === 44);
+  assert.equal(octave.length, 2);
+  assert.equal(octave[0].time, octave[1].time);
+  const frame = evaluate(notes, octave[0].time + 0.1).left;
+  const thumb = frame.activeNotes.findIndex(event => event.midiNote === 44);
+  assert.ok(frame.targets[thumb][2] > -0.01 && frame.targets[thumb][2] < 0);
+});
+
 test('an unannotated scale is assigned as a whole, crosses the thumb and animates', () => {
   const { project, selection } = setup([60, 62, 64, 65, 67, 69, 71, 72].map((midi, i) => note(`n${i}`, [midi])));
   const before = structuredClone(project), draft = run(project, selection);
@@ -104,6 +148,35 @@ test('an unannotated scale is assigned as a whole, crosses the thumb and animate
   generateAnimation(inspected.performance);
   assert.deepEqual(project, before);
   assert.deepEqual(run(project, selection), draft);
+});
+
+test('quick semitones over a held thumb avoid crossing non-thumb fingers', () => {
+  const project = Project.create(), data = Measure.create({ cnt: 3, unit: 4 });
+  Object.assign(project.outline[0].data, { tempo: 148, timeSignature: { cnt: 3, unit: 4 } });
+  const melody = [
+    { id: 'rest', kind: 'rest', value: { type: 'eighth', dots: 1 } },
+    note('c-sharp-1', [61], { value: { type: '16th', dots: 0 } }),
+    note('d-1', [62], { value: { type: 'quarter', dots: 0 } }),
+    note('c-sharp-2', [61], { value: { type: 'eighth', dots: 1 } }),
+    note('d-2', [62], { value: { type: '16th', dots: 0 } }),
+  ];
+  data.upperStaff.voices = [
+    { id: 'melody', elements: melody },
+    { id: 'held', elements: [note('a', [{ midi: 57, fingering: 1 }], { value: { type: 'half', dots: 1 } })] },
+  ];
+  project.outline.push({ id: 'opening', type: 'measure', data });
+  const selection = { staff: 'upperStaff', noteIds: melody.slice(1).map(element => element.id) };
+  const draft = run(project, selection);
+  const applied = Editor.apply(project, selection, draft.assignments);
+  const [first, second, third, fourth] = fingers(applied, selection).flat();
+  assert.ok(first < second && second > third && third < fourth);
+  assert.equal(Timeline.note(applied.outline, 'a', 'upperStaff').note.pitches[0].fingering, 1);
+
+  melody[1].pitches[0].fingering = 3;
+  melody[2].pitches[0].fingering = 2;
+  const rejected = Engine.calculate(Passage.prepare(project, selection).passage);
+  assert.equal(rejected.candidates.length, 0);
+  assert.equal(rejected.issues[0].noteId, 'd-1');
 });
 
 test('middle and end anchors are fixed, and only missing pitches are filled', () => {

@@ -13,8 +13,9 @@ import ScorePedal from '../score/score-pedal.ts';
 import ArticulationPerformance from './articulation-performance.ts';
 import ScoreFermata from '../score/score-fermata.ts';
 import TieFingerings from '../score/tie-fingerings.ts';
+import { soundingVelocity } from '../score/pitch-velocity.ts';
 import { MIN_REATTACK_GAP_SECONDS } from '../theory/performance-timing.ts';
-import type { ScoreProject, PianoStaffName, PianoPitch } from '../score/types.ts';
+import type { ScoreProject, PianoStaffName, PianoPitch, ArpeggioSettings } from '../score/types.ts';
 
 /** Identity and fingering travel with the performed attack, including ornaments. */
 export type PerformancePitch = {
@@ -39,8 +40,10 @@ export type PlaybackEvent = {
   graceNote?: boolean;
   /** Principal onset of the rolled chord, before distributing its attacks. */
   rollAnchorSeconds?: number;
-  /** Absolute MIDI attack velocity. */
+  /** Shared MIDI attack velocity before any per-pitch overrides. */
   velocity?: number;
+  /** Absolute MIDI velocities in pitches order, when at least one pitch is adjusted. */
+  pitchVelocities?: number[];
   sourceNoteId: string;
   notationNoteIds?: string[];
   notationRanges?: { noteId: string; startSeconds: number; endSeconds?: number }[];
@@ -72,6 +75,54 @@ type Prepared = {
 };
 
 namespace ScorePlaybackPlan {
+  function graceTiming(note: LocatedTimelineNote['note'], noteStartSeconds: number,
+    sixteenthSeconds: number, startSeconds: number) {
+    const attacks = GraceNotePerformance.attacks(note.beforeGraceNotes ?? [],
+      note.gracePerformance ?? GraceNotePerformance.defaults, sixteenthSeconds);
+    const tail = attacks.at(-1);
+    const shift = tail ? Math.max(0, startSeconds - (noteStartSeconds + attacks[0].offset)) : 0;
+    const principalStartSeconds = tail ? noteStartSeconds + (tail.offset + tail.duration + shift) : noteStartSeconds;
+    return { attacks, shift, principalStartSeconds };
+  }
+
+  function rollTiming(pitches: PianoPitch[], settings: ArpeggioSettings, principalStartSeconds: number,
+    sixteenthSeconds: number, startSeconds: number, keepPreRoll: boolean) {
+    const attacks = ArpeggioPerformance.attacks(pitches, settings, sixteenthSeconds);
+    const earliest = principalStartSeconds + (attacks[0]?.offset ?? 0);
+    const shift = keepPreRoll ? Math.max(0, startSeconds - earliest) : 0;
+    return { attacks, shift };
+  }
+
+  function unadjustedVelocity(velocityAt: Prepared['velocityAt'], clock: Prepared['clock'], seconds: number,
+    note: LocatedTimelineNote['note'], grace: boolean) {
+    return velocityAt(clock.positionAt(seconds)) + (grace ? 0 : note.accent?.velocityOffset ?? 0);
+  }
+
+  /** Velocity before pitch adjustment and MIDI limits, at the first attack when played from the score start. */
+  export function createAttackVelocityLookup(project: ScoreProject) {
+    const clock = ScoreClock.createTempo(project);
+    const velocityAt = ScoreDynamics.createVelocityLookup(project);
+    return (located: LocatedTimelineNote, pitchIndex: number, graceNoteId?: string) => {
+      const { note } = located;
+      const noteStart = located.measureStartSixteenths + located.positionSixteenths;
+      const noteStartSeconds = clock.secondsAt(noteStart);
+      const sixteenthSeconds = clock.secondsAt(noteStart + 1) - noteStartSeconds;
+      const startSeconds = clock.secondsAt(0);
+      const grace = graceTiming(note, noteStartSeconds, sixteenthSeconds, startSeconds);
+      let onset = grace.principalStartSeconds; // The first trill attack also starts here.
+      if (graceNoteId !== undefined) {
+        const index = note.beforeGraceNotes?.findIndex(entry => entry.id === graceNoteId) ?? -1;
+        const attack = grace.attacks[index];
+        if (attack) onset = noteStartSeconds + attack.offset + grace.shift;
+      } else if (note.arpeggio && ScoreArpeggio.canApply(note)) {
+        const roll = rollTiming(note.pitches, note.arpeggio, onset, sixteenthSeconds, startSeconds, true);
+        const attack = roll.attacks.find(entry => entry.midi === note.pitches[pitchIndex]?.midi);
+        if (attack) onset = onset + attack.offset + roll.shift;
+      }
+      return unadjustedVelocity(velocityAt, clock, Math.max(startSeconds, onset), note, graceNoteId !== undefined);
+    };
+  }
+
   /** Derived data is reused for every start position within one editor revision. */
   export function prepare(project: ScoreProject) {
     const voices = [];
@@ -169,31 +220,26 @@ namespace ScorePlaybackPlan {
         const noteStartSeconds = clock.secondsAt(noteStart);
         let principalStartSeconds = noteStartSeconds;
         const graceEvents: PlaybackEvent[] = [];
-        if (first.note.beforeGraceNotes?.length && noteStart >= startPosition) {
+        const graces = first.note.beforeGraceNotes;
+        if (graces?.length && noteStart >= startPosition) {
           const sixteenthSeconds = clock.secondsAt(noteStart + 1) - noteStartSeconds;
-          const attacks = GraceNotePerformance.attacks(first.note.beforeGraceNotes,
-            first.note.gracePerformance ?? GraceNotePerformance.defaults, sixteenthSeconds);
-          if (attacks.length) {
-            const earliest = Math.min(...attacks.map(attack => attack.offset));
-            const tail = attacks[attacks.length - 1];
-            // Keep the grace sequence before its principal note. When playback starts
-            // on this note, shift the complete group forward instead of scheduling pre-roll.
-            const preRollShift = startPosition <= noteStart
-              ? Math.max(0, startSeconds - (noteStartSeconds + earliest)) : 0;
-            principalStartSeconds += tail.offset + tail.duration + preRollShift;
-            attacks.forEach((attack, index) => {
-              const onset = noteStartSeconds + attack.offset + preRollShift;
-              const effectiveOnset = Math.max(onset, startSeconds);
-              const nextOnset = index + 1 < attacks.length
-                ? noteStartSeconds + attacks[index + 1].offset + preRollShift
-                : principalStartSeconds;
-              const duration = nextOnset - effectiveOnset;
-              if (duration <= 0) return;
-              graceEvents.push({ startSeconds: effectiveOnset - startSeconds, durationSeconds: duration,
-                pitches: [attack.midi], performance: identity(first.note.beforeGraceNotes![index].pitches, first.note.beforeGraceNotes![index].id),
-                sourceNoteId: `${first.note.id}-grace-${index}`, graceNote: true, notationNoteIds: [first.note.beforeGraceNotes![index].id] });
-            });
-          }
+          // Shift the complete grace sequence when playback begins before its pre-roll.
+          const timing = graceTiming(first.note, noteStartSeconds, sixteenthSeconds, startSeconds);
+          const { attacks, shift: preRollShift } = timing;
+          principalStartSeconds = timing.principalStartSeconds;
+          attacks.forEach((attack, index) => {
+            const onset = noteStartSeconds + attack.offset + preRollShift;
+            const effectiveOnset = Math.max(onset, startSeconds);
+            const nextOnset = index + 1 < attacks.length
+              ? noteStartSeconds + attacks[index + 1].offset + preRollShift
+              : principalStartSeconds;
+            const duration = nextOnset - effectiveOnset;
+            if (duration <= 0) return;
+            const grace = graces[index];
+            graceEvents.push({ startSeconds: effectiveOnset - startSeconds, durationSeconds: duration,
+              pitches: [attack.midi], performance: identity(grace.pitches, grace.id),
+              sourceNoteId: `${first.note.id}-grace-${index}`, graceNote: true, notationNoteIds: [grace.id] });
+          });
         }
         const effectiveStartSeconds = Math.max(principalStartSeconds, startSeconds);
         if (performedEndSeconds <= effectiveStartSeconds && graceEvents.length === 0) continue;
@@ -220,12 +266,10 @@ namespace ScorePlaybackPlan {
           });
         } else if (performedEndSeconds > effectiveStartSeconds && first.note.arpeggio && ScoreArpeggio.canApply(first.note)) {
           const sixteenthSeconds = clock.secondsAt(noteStart + 1) - clock.secondsAt(noteStart);
-          const attacks = ArpeggioPerformance.attacks(first.note.pitches, first.note.arpeggio, sixteenthSeconds);
-          const earliestAttackSeconds = principalStartSeconds + Math.min(...attacks.map(attack => attack.offset));
           // A transport cannot sound notes before its start. Preserve the roll by shifting
           // this arpeggio forward as a group when playback begins before its pre-roll.
-          const preRollShift = startPosition <= noteStart
-            ? Math.max(0, startSeconds - earliestAttackSeconds) : 0;
+          const { attacks, shift: preRollShift } = rollTiming(first.note.pitches, first.note.arpeggio, principalStartSeconds,
+            sixteenthSeconds, startSeconds, startPosition <= noteStart);
           attacks.forEach((attack, index) => {
             const absoluteAttackSeconds = principalStartSeconds + attack.offset + preRollShift;
             const effectiveAttackSeconds = Math.max(absoluteAttackSeconds, startSeconds);
@@ -249,10 +293,16 @@ namespace ScorePlaybackPlan {
             startSeconds: index === 0 ? event.startSeconds : clock.secondsAt(member.measureStartSixteenths + member.positionSixteenths) - startSeconds,
             endSeconds: index === members.length - 1 ? undefined : clock.secondsAt(member.measureStartSixteenths + member.positionSixteenths + member.lengthSixteenths) - startSeconds,
           }));
-          const position = clock.positionAt(startSeconds + event.startSeconds);
-          const baseVelocity = prepared.velocityAt(position);
-          event.velocity = Math.min(127, baseVelocity +
-            (event.graceNote ? 0 : first.note.accent?.velocityOffset ?? 0));
+          const unadjusted = unadjustedVelocity(prepared.velocityAt, clock, startSeconds + event.startSeconds,
+            first.note, event.graceNote === true);
+          const writtenPitches = event.graceNote
+            ? graces?.find(grace => grace.id === event.performance?.[0].noteId)?.pitches
+            : first.note.pitches;
+          event.velocity = soundingVelocity(unadjusted);
+          if (writtenPitches?.some(pitch => pitch.velocityOffset) && event.performance) {
+            event.pitchVelocities = event.performance.map(({ pitchIndex }) =>
+              soundingVelocity(unadjusted, writtenPitches[pitchIndex]?.velocityOffset));
+          }
         }
         if (noteEvents.length === 0) continue;
         events.push(...noteEvents);

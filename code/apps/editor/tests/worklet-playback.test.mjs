@@ -16,6 +16,12 @@ const note = (startSeconds, durationSeconds, pitches = [64, 67]) => ({ sourceNot
 const parse = sequence => BasicMIDI.fromArrayBuffer(createPlaybackMidi(sequence));
 const messages = midi => midi.tracks[0].events;
 
+test('MIDI note-on messages use the corresponding chord velocity', () => {
+  const events = messages(parse(plan([{ ...note(0, 0.5, [67, 64, 60]), velocity: 88, pitchVelocities: [109, 88, 65] }])));
+  const attacks = events.filter(event => (event.statusByte & 0xf0) === 0x90);
+  assert.deepEqual(new Map(attacks.map(event => [event.data[0], event.data[1]])), new Map([[67, 109], [64, 88], [60, 65]]));
+});
+
 test('measure 23 repeated chords have one release per attack and a silent fourth beat', () => {
   const quarter = 60 / 144;
   const sequence = plan([0, 0.5, 1, 1.5].map(beat => note(beat * quarter, 0.5 * quarter * 0.95))

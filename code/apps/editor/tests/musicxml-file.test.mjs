@@ -64,11 +64,13 @@ function app(t, { dirty = false, allowed = true, playing = false } = {}) {
       savedProjectFingerprint = 'original', projectIsDirty = dirty, fileOperationInProgress = false,
       outlineCursor, timelineCursor, mode, pedalMode, ottavaMode, hairpinMode, hairpinStart, hairpinDialog = null,
       menuPath = null, noteSettings = null,
-      sectionTextInput = null, fingeringTextInput = null, fingeringSession = null, passageClipboard, savedPlaybackFocus, playbackPosition;
+      sectionTextInput = null, fingeringTextInput = null, fingeringSession = null, velocityOffsetInput = null,
+      passageClipboard, savedPlaybackFocus, playbackPosition;
     const mcpCheckout = false, animationOpen = false;
     const HTMLElement = class {};
     const uiEditAllowed = () => allowed;
     const createOutlineCursor = () => ({}), createTimelineCursor = () => ({});
+    const closeVelocityOffsetInput = () => {};
     const playback = { playing, stop(){} }, notePreview = { stop(){} }, keyHold = {reset(){}};
     const captureHistorySnapshot = () => ({project});
     let historyReset = 0;

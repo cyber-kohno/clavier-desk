@@ -36,10 +36,62 @@ test('both rigs share one model while following their own contacts and elbow gui
   }))]);
   const hands = { left: new Group(), right: new Group() };
   for (const side of ['left', 'right']) verifyHand(rigs[side], hands[side], notes, side);
+  verifyBlackThumbChord(rigs, hands);
   rigs.dispose();
   assert.equal(hands.left.children.length, 0);
   assert.equal(hands.right.children.length, 0);
 });
+
+function verifyBlackThumbChord(rigs, hands) {
+  // Measure 100 of the reported score, plus the same fingering reflected for the left hand.
+  const rightNotes = [note(1, 54, 1, 'right'), note(1, 57, 2, 'right'), note(1, 62, 5, 'right')]
+    .map(event => ({ ...event, duration: 2.25 }));
+  const { notes } = prepareMotion([...rightNotes, ...rightNotes.map(event => ({
+    ...event, hand: 'left', midiNote: 112 - event.midiNote,
+  }))]);
+  const blackKeys = keys.filter(key => key.black);
+  const blackFront = blackKeys[0].z + blackKeys[0].length / 2;
+  const wrist = new Vector3(...WRIST);
+  for (const side of ['right', 'left']) {
+    const hand = hands[side], rig = rigs[side];
+    for (const time of [0.97, 1, 1.025, 1.05, 1.1, 1.5, 3.24, 3.28, 3.32]) {
+      const frame = evaluate(notes, time, 'scale', 'connected', 'smooth', true)[side];
+      hand.rotation.set(...frame.rotation);
+      hand.position.fromArray(frame.position).add(wrist).sub(wrist.clone().applyQuaternion(hand.quaternion));
+      const { wrist: guideWrist, elbow } = forearmEndpoints(frame.position, side, frame.forearmGuide);
+      rig.pose(frame, new Vector3(...elbow).sub(new Vector3(...guideWrist)), hand.quaternion);
+      hand.updateMatrixWorld(true);
+      if (time >= 1 && time < 3.25) {
+        for (const [index, active] of frame.activeNotes.entries()) {
+          const contact = rig.contacts[active.finger].getWorldPosition(new Vector3());
+          const [x, y, z] = frame.targets[index];
+          const surface = y - (frame.depths?.[index] ?? frame.depth) * TRAVEL;
+          assert.ok(Math.hypot(contact.x - x, contact.y - surface) < tolerance);
+          if (active.finger === 1) assert.ok(Math.abs(contact.z - z) < tolerance);
+          else assert.ok(contact.z < blackFront - 0.002, `${side} finger ${active.finger} did not enter the gap`);
+        }
+      }
+      assertSkinClearsKeys(rig.root, blackKeys, frame, time);
+    }
+  }
+}
+
+function assertSkinClearsKeys(scene, checkedKeys, frame, time) {
+  const world = new Vector3();
+  const surfaceBoxes = checkedKeys.map(key => ({ key, top: key.target[1] - keyDepth(frame, key.midiNote) * TRAVEL }));
+  scene.traverse(object => {
+    if (!(object instanceof SkinnedMesh) || object.userData.name !== 'Skin.R') return;
+    for (let index = 0; index < object.geometry.attributes.position.count; index++) {
+      object.localToWorld(object.getVertexPosition(index, world));
+      assert.ok(surfaceBoxes.every(({ key, top }) =>
+        Math.abs(world.x - key.target[0]) >= key.width / 2 ||
+        Math.abs(world.z - key.z) >= key.length / 2 ||
+        world.y < top - key.height ||
+        world.y >= top - 0.0025),
+      `skin penetrated a key by more than 2.5 mm at ${time} s`);
+    }
+  });
+}
 
 function verifyHand(rig, hand, notes, side) {
   const scene = rig.root;
@@ -79,6 +131,14 @@ function verifyHand(rig, hand, notes, side) {
           assert.ok(world.z > expected[2] + 0.005, `${side} idle finger ${finger} remained extended at ${time}s`);
           assert.ok(fingerBend(scene, finger) >= 33.9 * Math.PI / 180,
             `${side} idle finger ${finger} is too straight at ${time}s`);
+          if (time === 0 || holdTimes.has(time)) {
+            const knuckle = scene.getObjectByName(`${digitNames[finger - 1]}proximalR`).getWorldPosition(new Vector3());
+            const middle = scene.getObjectByName(`${digitNames[finger - 1]}middleR`).getWorldPosition(new Vector3());
+            assert.ok(knuckle.y > wristBone.getWorldPosition(new Vector3()).y + 0.008,
+              `${side} idle knuckle ${finger} should rise above the wrist`);
+            assert.ok(knuckle.y > middle.y, `${side} middle joint ${finger} rises above the knuckle at ${time}s`);
+            assert.ok(world.y < knuckle.y, `${side} idle finger ${finger} points up`);
+          }
         }
       }
       assert.ok(world.z >= expected[2] - tolerance, `finger ${finger} moved toward the black keys at ${time}`);
@@ -106,22 +166,7 @@ function verifyHand(rig, hand, notes, side) {
           `${side} finger ${active.finger} is too straight at ${time}s`);
       }
     }
-    if (holdTimes.has(time)) {
-      const surfaceBoxes = keys
-        .map(key => ({ key, top: key.target[1] - keyDepth(frame, key.midiNote) * TRAVEL }));
-      scene.traverse(object => {
-        if (!(object instanceof SkinnedMesh) || object.userData.name !== 'Skin.R') return;
-        for (let index = 0; index < object.geometry.attributes.position.count; index++) {
-          object.localToWorld(object.getVertexPosition(index, world));
-          assert.ok(surfaceBoxes.every(({ key, top }) =>
-            Math.abs(world.x - key.target[0]) >= key.width / 2 ||
-            Math.abs(world.z - key.z) >= key.length / 2 ||
-            world.y < top - key.height ||
-            world.y >= top - 0.0025),
-          `skin penetrated a key by more than 2.5 mm at ${time} s`);
-        }
-      });
-    }
+    if (holdTimes.has(time)) assertSkinClearsKeys(scene, keys, frame, time);
   }
 }
 

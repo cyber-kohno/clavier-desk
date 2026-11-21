@@ -9,13 +9,27 @@ const digitNames = ['thumb', 'index', 'middle', 'ring', 'little'] as const;
 const up = new Vector3(0, 1, 0);
 const right = new Vector3(1, 0, 0);
 const towardPlayer = new Vector3(0, 0, 1);
-const palmClearance = 0.021;
+const palmClearance = 0.026;
+// Keep the wrist raised and let the back of the hand rise further at the knuckles.
+const wristRise = 0.0115;
+const palmTilt = new Quaternion().setFromAxisAngle(right, 14 * Math.PI / 180);
 const pressBendTangent = Math.tan(24 * Math.PI / 180);
 const restBendTangent = Math.tan(34 * Math.PI / 180);
 const restPadRetraction = 0.006;
-const restPadDrop = 0.0025;
+const restPadDrop = 0.015;
 const blackKey = keys.find(key => key.black)!;
-const whitePadDepth = blackKey.z + blackKey.length / 2 + 0.014;
+const blackKeyFront = blackKey.z + blackKey.length / 2;
+const whitePadDepth = blackKeyFront + 0.014;
+const betweenBlackKeysDepth = blackKeyFront - 0.0035;
+
+function canUseRearWhiteContact(frame: HandFrame, index: number) {
+  const key = keys[frame.activeNotes[index].midiNote - keys[0].midiNote];
+  const target = frame.targets[index];
+  // Near a side of the white key, the planned point may not leave enough room
+  // for the skin. The narrow slot is usable when the pad enters near the center.
+  return key && !key.black && target[2] < blackKeyFront &&
+    Math.abs(target[0] - key.target[0]) < 0.0015;
+}
 
 function joint(nodes: Map<string, Object3D>, name: string) {
   const bone = nodes.get(name);
@@ -85,6 +99,7 @@ function createPianoHand(root: Object3D, side: Hand) {
   root.traverse(object => nodes.set(object.userData.name ?? object.name, object));
   const forearm = joint(nodes, 'forearm.R');
   const palm = joint(nodes, 'hand.R');
+  const palmRotation = palmTilt.clone().multiply(palm.rotation);
   const forearmAxis = palm.position.clone().sub(forearm.position);
   const forearmLength = forearmAxis.length();
   forearmAxis.normalize();
@@ -125,7 +140,7 @@ function createPianoHand(root: Object3D, side: Hand) {
   const middleAim = new Vector3();
   const lowerAim = new Vector3();
   const distalAim = new Vector3();
-  const whiteKeyAim = new Vector3();
+  const padDirection = new Vector3();
   const forearmInverse = new Quaternion();
   const inverse = new Quaternion();
   const upperRotation = new Quaternion();
@@ -161,7 +176,7 @@ function createPianoHand(root: Object3D, side: Hand) {
     firstJoint.addScaledVector(normal, Math.max(0, height - guide.dot(normal)));
   }
 
-  function poseDigit(digit: typeof digits[number], pose: HandFrame) {
+  function poseDigit(digit: typeof digits[number], pose: HandFrame, blackThumbChord: boolean) {
     const { finger, upper, middle, distal, lengths } = digit;
     const angles = pose.joints[finger];
     const [knuckle, , target] = pointsForPose('right', finger, angles);
@@ -169,17 +184,18 @@ function createPianoHand(root: Object3D, side: Hand) {
     pad.fromArray(target);
     let hover = 1;
     let whiteContact = 0;
+    const behindBlackKeys = blackThumbChord && active !== -1 && finger !== 1 && canUseRearWhiteContact(pose, active);
     if (active !== -1) {
       const surface = pose.targets[active][1] - (pose.depths?.[active] ?? pose.depth) * TRAVEL;
       const [, height, depth] = handPointWorld(pose.position, pose.rotation, [mirror * target[0], target[1], target[2]]);
       const progress = Math.max(0, Math.min(1, (height - surface) / HOVER));
       hover = progress * progress * (3 - 2 * progress);
-      // The planner may use the narrow rear of a white key. Put the wider
-      // pad in front of the black keys during contact.
+      // Keep a little room at the front of the slots between the black keys.
+      // Other contacts keep the clearance used for ordinary white-key strikes.
       const key = keys.find(key => key.midiNote === pose.activeNotes[active].midiNote);
       if (key && !key.black) {
         whiteContact = 1 - hover;
-        pad.addScaledVector(localTowardPlayer, Math.max(0, whitePadDepth - depth) * whiteContact);
+        pad.addScaledVector(localTowardPlayer, Math.max(0, (behindBlackKeys ? betweenBlackKeysDepth : whitePadDepth) - depth) * whiteContact);
       }
     }
     // Keep the fleshy model clear of adjacent keys. Only release the extra
@@ -196,7 +212,7 @@ function createPianoHand(root: Object3D, side: Hand) {
       pad.addScaledVector(localTowardPlayer, restPadRetraction * hover);
       pad.addScaledVector(lift, -restPadDrop * hover / palmClearance);
     }
-    knucklePoint.copy(upper.position).add(lift);
+    knucklePoint.copy(upper.position).sub(palm.position).applyQuaternion(palmTilt).add(palmPoint);
     aim.copy(pad).sub(knucklePoint);
     const reach = aim.length();
     aim.multiplyScalar(1 / Math.max(reach, 1e-8));
@@ -243,10 +259,14 @@ function createPianoHand(root: Object3D, side: Hand) {
     // As the key travels below its neighbors, bring the pad down with the
     // last segment closer to the direction of the key instead of sideways.
     if (whiteContact > 0) {
-      const downward = finger === 1 ? 1.06 : 0.5;
-      whiteKeyAim.copy(localTowardPlayer).negate().addScaledVector(lift, -downward / palmClearance).normalize();
-      const alignment = finger === 1 ? 0.78 : 0.7;
-      distalAim.lerp(whiteKeyAim, alignment * whiteContact).normalize();
+      const downward = finger === 1 ? 1.06 : behindBlackKeys ? 0.6 : 0.5;
+      padDirection.copy(localTowardPlayer).negate().addScaledVector(lift, -downward / palmClearance).normalize();
+      const alignment = finger === 1 ? 0.78 : behindBlackKeys ? 1 : 0.7;
+      distalAim.lerp(padDirection, alignment * whiteContact).normalize();
+    }
+    if (finger !== 1 && hover > 0) {
+      padDirection.copy(localTowardPlayer).negate().addScaledVector(lift, -1.6 / palmClearance).normalize();
+      distalAim.lerp(padDirection, 0.38 * hover).normalize();
     }
 
     // Use the actual pad length. Extensions move the distal joint, keeping the
@@ -257,7 +277,7 @@ function createPianoHand(root: Object3D, side: Hand) {
     upperRotation.setFromUnitVectors(digit.upperAxis, aim.copy(firstJoint).sub(knucklePoint).normalize()).multiply(upper.rotation);
     middleRotation.setFromUnitVectors(digit.middleAxis, middleAim).multiply(middle.rotation);
     distalRotation.setFromUnitVectors(digit.padAxis, distalAim).multiply(distal.rotation);
-    place(upper, knucklePoint, upperRotation, palmPoint, palm.rotation);
+    place(upper, knucklePoint, upperRotation, palmPoint, palmRotation);
     place(middle, firstJoint, middleRotation, knucklePoint, upperRotation);
     place(distal, secondJoint, distalRotation, firstJoint, middleRotation);
   }
@@ -273,14 +293,26 @@ function createPianoHand(root: Object3D, side: Hand) {
       lift.x *= mirror;
       localTowardPlayer.x *= mirror;
       elbowDirection.x *= mirror;
-      palmPoint.copy(palm.position).add(lift);
+      palmPoint.copy(palm.position).addScaledVector(lift, 1 + wristRise / palmClearance);
+      const thumb = frame.activeNotes.findIndex(note =>
+        note.finger === 1 && keys[note.midiNote - keys[0].midiNote]?.black);
+      const blackThumbChord = thumb !== -1 && frame.activeNotes.some((_, index) =>
+        index !== thumb && canUseRearWhiteContact(frame, index));
+      if (blackThumbChord) {
+        const tip = pointsForPose(side, 1, frame.joints[1])[2];
+        const [, height] = handPointWorld(frame.position, frame.rotation, tip);
+        const surface = frame.targets[thumb][1] - (frame.depths?.[thumb] ?? frame.depth) * TRAVEL;
+        const contact = 1 - Math.min(1, Math.max(0, (height - surface) / HOVER));
+        // Give the other fingers room to descend into the slot, easing in on approach.
+        palmPoint.addScaledVector(localTowardPlayer, 0.012 * contact ** 2 * (3 - 2 * contact));
+      }
       armRoot.copy(palmPoint).addScaledVector(elbowDirection, forearmLength);
       armRotation.setFromUnitVectors(forearmAxis, elbowDirection.negate()).multiply(forearm.rotation);
       // The GLB armature object is in the editor's axis-aligned hand coordinates.
       forearm.bone.position.copy(armRoot);
       forearm.bone.quaternion.copy(armRotation);
-      place(palm, palmPoint, palm.rotation, armRoot, armRotation);
-      for (const digit of digits) poseDigit(digit, frame);
+      place(palm, palmPoint, palmRotation, armRoot, armRotation);
+      for (const digit of digits) poseDigit(digit, frame, blackThumbChord);
     },
   };
 }

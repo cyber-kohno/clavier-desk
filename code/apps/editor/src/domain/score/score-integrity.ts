@@ -86,6 +86,7 @@ namespace ScoreIntegrity {
     }
     if (ScoreTempo.changes(project).length !== (project.tempoChanges?.length ?? 0)) fail('Invalid tempo anchor. Remove or retarget it explicitly.');
     if (!ScoreDynamics.isValid(project)) fail('Invalid or duplicate dynamics anchor or level.');
+    if (!ScoreDynamics.hasValidHairpins(project)) fail('A hairpin cannot contain a dynamic mark or override its end mark.');
     if (ScoreClef.changes(project).length !== (project.clefChanges?.length ?? 0)) fail('Invalid clef anchor. Remove or retarget it explicitly.');
     if (new Set(project.tempoChanges?.map(change => change.noteId)).size !== (project.tempoChanges?.length ?? 0)) fail('Duplicate tempo anchors.');
     if (new Set(project.clefChanges?.map(change => change.noteId)).size !== (project.clefChanges?.length ?? 0)) fail('Duplicate clef anchors.');

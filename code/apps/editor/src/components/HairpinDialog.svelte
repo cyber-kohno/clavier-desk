@@ -3,10 +3,11 @@
   import type { Hairpin } from '../domain/score/types.ts';
   import './expression-dialog.css';
 
-  let { hairpin, baseVelocity, apply, cancel }: {
+  let { hairpin, startVelocity, endMarkVelocity, apply, cancel }: {
     hairpin: Hairpin;
-    baseVelocity: number;
-    apply: (kind: Hairpin['kind'], velocities: Hairpin['velocities']) => void;
+    startVelocity: number;
+    endMarkVelocity?: number;
+    apply: (kind: Hairpin['kind'], endVelocity?: number) => void;
     cancel: () => void;
   } = $props();
 
@@ -14,15 +15,15 @@
   let list: HTMLDivElement;
   let row = $state(0);
   let kind = $state<Hairpin['kind']>('crescendo');
-  let start = $state(0);
-  let end = $state(0);
+  let endVelocity = $state<number>();
+  const displayedEnd = $derived(endMarkVelocity ?? endVelocity ?? startVelocity);
+  const endLocked = $derived(endMarkVelocity !== undefined);
   const labels = ['Notation', 'Start velocity', 'End velocity'];
-  const values = $derived([kind === 'crescendo' ? 'Crescendo (<)' : 'Decrescendo (>)', start, end]);
+  const values = $derived([kind === 'crescendo' ? 'Crescendo (<)' : 'Decrescendo (>)', startVelocity, displayedEnd]);
 
   onMount(() => {
     kind = hairpin.kind;
-    start = hairpin.velocities?.start ?? baseVelocity;
-    end = hairpin.velocities?.end ?? baseVelocity;
+    endVelocity = hairpin.endVelocity;
     dialog.showModal();
     list.focus();
   });
@@ -32,15 +33,16 @@
     event.preventDefault();
     const key = event.key;
     if (key === 'ArrowUp' || key === 'ArrowDown') {
-      row = Math.max(0, Math.min(labels.length - 1, row + (key === 'ArrowUp' ? -1 : 1)));
+      row = key === 'ArrowDown' && !endLocked ? 2 : 0;
     } else if (key === 'ArrowLeft' || key === 'ArrowRight') {
       const delta = key === 'ArrowLeft' ? -1 : 1;
       if (row === 0) kind = delta < 0 ? 'crescendo' : 'decrescendo';
-      else if (row === 1) start = Math.max(1, Math.min(127, start + delta));
-      else end = Math.max(1, Math.min(127, end + delta));
+      else if (!endLocked) {
+        const nextEnd = Math.max(1, Math.min(127, displayedEnd + delta));
+        if (nextEnd !== displayedEnd) endVelocity = nextEnd;
+      }
     } else if (key === 'Enter' && !event.repeat) {
-      const inherited = !hairpin.velocities && start === baseVelocity && end === baseVelocity;
-      apply(kind, inherited ? undefined : { start, end });
+      apply(kind, endLocked ? undefined : endVelocity);
     } else if (key === 'Escape' && !event.repeat) {
       cancel();
     }
@@ -56,8 +58,10 @@
   <div class="expression-list hairpin-content" role="listbox" aria-label="Hairpin settings"
     aria-activedescendant={`hairpin-row-${row}`} tabindex="0" bind:this={list} onkeydown={handleKeydown}>
     {#each labels as label, index (label)}
-      <div id={`hairpin-row-${index}`} role="option" aria-selected={row === index} class="expression-row" class:active={row === index}>
-        <span>{label}</span><span class="expression-value">{values[index]}</span>
+      {@const fixed = index === 1 || (index === 2 && endLocked)}
+      <div id={`hairpin-row-${index}`} role="option" aria-selected={row === index} aria-disabled={fixed || undefined}
+        class="expression-row" class:active={row === index}>
+        <span>{label}{fixed ? ' · Fixed' : ''}</span><span class="expression-value">{values[index]}</span>
       </div>
     {/each}
   </div>

@@ -8,6 +8,7 @@ import TupletNotes from './tuplet-notes.ts';
 import ScoreNotes from './score-notes.ts';
 import MusicalTime from '../theory/musical-time.ts';
 import TieFingerings from './tie-fingerings.ts';
+import { withVelocityOffset } from './pitch-velocity.ts';
 namespace NoteContinuation {
   export function toggleAdjacent(project: ScoreProject, target: NoteTarget): ScoreProject | undefined {
     if (!NoteTargets.resolve(project, target)) return undefined;
@@ -41,6 +42,7 @@ namespace NoteContinuation {
         copy.tieTo = next.note.id;
       } else {
         copy.tieFrom = current.note.id;
+        copy.pitches = copy.pitches.map(pitch => withVelocityOffset(pitch, 0));
       }
       return copy;
     }, target.staff);
@@ -61,18 +63,25 @@ namespace NoteContinuation {
     const result = place(project, target, end, value, selected.note.pitches[pitchIndex].midi);
     if (!result) return undefined;
     const nextId = result.noteId!;
+    const pitches = (TieFingerings.resolve(project, selected.note.id, target.staff)?.pitches ?? selected.note.pitches).map(pitch => {
+      if (tied) return withVelocityOffset(TieFingerings.strip(pitch), 0);
+      if (selected.note.tieFrom) {
+        const base = withVelocityOffset(TieFingerings.strip(pitch), 0);
+        return pitch.fingering === undefined ? base : { ...base, fingering: pitch.fingering };
+      }
+      return { ...pitch };
+    });
     const nextProject = ScoreNotes.map(result.project, new Set(tied ? [selected.note.id, nextId] : [nextId]), note => {
       if (note.id === selected.note.id) return { ...note, tieTo: nextId };
-      return {        
-...note, pitches: (TieFingerings.resolve(project, selected.note.id, target.staff)?.pitches ?? selected.note.pitches).map(pitch =>
-          tied ? TieFingerings.strip(pitch) : selected.note.tieFrom ? { ...TieFingerings.strip(pitch), ...(pitch.fingering === undefined ? {} : { fingering: pitch.fingering }) } : { ...pitch }),
+      return {
+        ...note, pitches,
         ...(tied ? { tieFrom: selected.note.id } : {
           ...(selected.note.fermata ? { fermata: { ...selected.note.fermata } } : {}),
           ...(selected.note.arpeggio ? { arpeggio: { ...selected.note.arpeggio } } : {}),
           ...(selected.note.beforeGraceNotes?.length ? { beforeGraceNotes: selected.note.beforeGraceNotes.map(grace => ({ ...grace, id: 'grace-' + crypto.randomUUID(), value: { ...grace.value }, pitches: grace.pitches.map(pitch => ({ ...pitch })) })) } : {}),
           ...(selected.note.gracePerformance ? { gracePerformance: { ...selected.note.gracePerformance } } : {})
-        })      
-};
+        }),
+      };
     }, target.staff);
     if (ScoreNotes.collides(project.outline, nextProject.outline, target.staff, new Set([nextId]))) return undefined;
     return { ...result, project: nextProject, pitchIndex, pitch: selected.note.pitches[pitchIndex].midi };

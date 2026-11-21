@@ -222,7 +222,8 @@ export function moveTimelineCursorHorizontally(cursor: TimelineCursor,outline: r
   const voiceIndex=getNavigationVoiceIndex(outline,cursor,position);
   return reconcileTimelineCursorVoice(outline,{ ...cursor,voiceIndex,positionSixteenths: position,focusedNoteId: null,focusedPitchIndex: null,selectionAnchorNoteId: null });
 }
-export function focusAdjacentTimelineNote(outline: readonly OutlineBlock[],cursor: TimelineCursor,direction: -1|1): TimelineCursor {
+export function focusAdjacentTimelineNote(outline: readonly OutlineBlock[],cursor: TimelineCursor,direction: -1|1,
+  canFocus?: (note: LocatedTimelineNote['note']) => boolean): TimelineCursor {
   const onset=(entry: LocatedTimelineNote) => MusicalTime.addNumbers(entry.measureStartSixteenths,entry.positionSixteenths);
   const measures=outline.filter((block) => block.type==='measure');
   const current=ScoreTimeline.measureAt(outline,cursor.positionSixteenths)?.measure;
@@ -238,7 +239,8 @@ export function focusAdjacentTimelineNote(outline: readonly OutlineBlock[],curso
   for(let index=currentIndex;index>=0&&index<measures.length;index+=direction) {
     const measure=measures[index];
     if(!measure.data[cursor.staff].voices[voiceIndex]) voiceIndex=0;
-    notes.push(...(notesByMeasure.get(measure)??[]).filter((entry) => entry.voiceIndex===voiceIndex&&entry.note.pitches.length>0));
+    notes.push(...(notesByMeasure.get(measure)??[]).filter(({ note, voiceIndex: index }) =>
+      index===voiceIndex&&note.pitches.length>0&&(!canFocus||note.id===cursor.focusedNoteId||canFocus(note))));
   }
   notes.sort((a,b) => onset(a)-onset(b));
   let target: LocatedTimelineNote|undefined;

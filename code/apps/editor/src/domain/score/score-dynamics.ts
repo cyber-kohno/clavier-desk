@@ -2,7 +2,7 @@ import ScoreTempo from './score-tempo.ts';
 import MusicalTime from '../theory/musical-time.ts';
 import ScoreTimeline from './score-timeline.ts';
 import ScoreHairpins from './score-hairpins.ts';
-import type { DynamicLevel, HairpinAnchor, ScoreProject } from './types.ts';
+import type { DynamicLevel, ScoreProject } from './types.ts';
 
 namespace ScoreDynamics {
   export const levels: readonly DynamicLevel[] = ['ppp', 'pp', 'p', 'mp', 'mf', 'f', 'ff', 'fff'];
@@ -13,61 +13,61 @@ namespace ScoreDynamics {
     return createVelocityLookup(project)(position);
   }
 
-  export function initialHairpinVelocities(project: ScoreProject, start: number, end: number): { start: number; end: number } | undefined {
-    const endMark = changes(project).reverse().find(mark => MusicalTime.compareNumbers(mark.position, end) === 0);
-    if (endMark) return { start: velocityAt(project, start), end: endMark.velocity };
-  }
-
   type DynamicProject = Pick<ScoreProject, 'outline' | 'dynamicChanges' | 'hairpins'>;
 
-  function hairpinMarkUsage(project: DynamicProject) {
-    const marks = changes(project);
-    return ScoreHairpins.ranges(project).map(({ hairpin, start, end }) => ({
-      hairpin,
-      interiorMarks: marks.filter(mark => mark.position > start && mark.position < end).map(mark => mark.noteId),
-    }));
-  }
-
-  function sameAnchor(a: HairpinAnchor, b: HairpinAnchor): boolean {
-    return a.measureId === b.measureId && MusicalTime.compare(a.offset, b.offset) === 0;
-  }
-
-  export function preservesHairpinMarkRules(before: DynamicProject, after: DynamicProject): boolean {
-    if (!after.hairpins?.length || !after.dynamicChanges?.length || (before.hairpins === after.hairpins &&
-      before.outline === after.outline && before.dynamicChanges === after.dynamicChanges)) return true;
-    const invalid = hairpinMarkUsage(after).filter(range => range.interiorMarks.length);
-    if (!invalid.length) return true;
-
-    // Keep legacy ranges editable without allowing a resize or a new violation.
-    const previous = new Map(hairpinMarkUsage(before).map(range => [range.hairpin.id, range]));
-    return invalid.every(range => {
-      const old = previous.get(range.hairpin.id);
-      return old && sameAnchor(old.hairpin.start, range.hairpin.start) && sameAnchor(old.hairpin.end, range.hairpin.end) &&
-        range.interiorMarks.every(noteId => old.interiorMarks.includes(noteId));
+  export function resolveHairpins(project: DynamicProject, marks = changes(project)) {
+    if (!project.hairpins?.length) return [];
+    const markVelocities = new Map(marks.map(mark => [mark.position, mark.velocity]));
+    let markIndex = 0;
+    let velocity = defaultVelocities[defaultLevel];
+    return ScoreHairpins.ranges(project).map(range => {
+      while (markIndex < marks.length && marks[markIndex].position <= range.start) {
+        velocity = marks[markIndex++].velocity;
+      }
+      const startVelocity = velocity;
+      const endMarkVelocity = markVelocities.get(range.end);
+      const endVelocity = endMarkVelocity ?? range.hairpin.endVelocity ?? startVelocity;
+      const hasInteriorMark = markIndex < marks.length && marks[markIndex].position < range.end;
+      velocity = endVelocity;
+      return { ...range, startVelocity, endVelocity, endMarkVelocity, hasInteriorMark };
     });
   }
 
-  /** An immediate dynamic inside a hairpin becomes a shared endpoint of two segments. */
-  export function hairpinSegments(project: DynamicProject, marks = changes(project)) {
-    return ScoreHairpins.ranges(project).flatMap(({ hairpin, start, end }) => {
-      const points = [
-        { position: start, velocity: hairpin.velocities?.start },
-        ...marks.filter(mark => mark.position > start && mark.position < end),
-        { position: end, velocity: hairpin.velocities?.end },
-      ];
-      return points.slice(1).map((point, index) => ({ hairpin, start: points[index], end: point }));
+  export function hasValidHairpins(project: DynamicProject): boolean {
+    if (!project.hairpins?.length) return true;
+    return resolveHairpins(project).every(({ hairpin, endMarkVelocity, hasInteriorMark }) =>
+      !hasInteriorMark && (endMarkVelocity === undefined || hairpin.endVelocity === undefined));
+  }
+
+  /** Preserve the previous mark's value when an edit detaches a surviving endpoint. */
+  export function reconcileHairpins(before: ScoreProject, after: ScoreProject): ScoreProject | undefined {
+    if (!after.hairpins?.length) return after;
+    const ranges = resolveHairpins(after);
+    if (ranges.some(range => range.hasInteriorMark)) return undefined;
+    const previousMarks = new Map(before.hairpins?.length
+      ? resolveHairpins(before).map(({ hairpin, endMarkVelocity }) => [hairpin.id, endMarkVelocity]) : []);
+    let changed = false;
+    const endVelocities = new Map(ranges.map(({ hairpin, endMarkVelocity }) => [hairpin.id, endMarkVelocity === undefined
+      ? previousMarks.get(hairpin.id) ?? hairpin.endVelocity : undefined]));
+    const hairpins = after.hairpins.map(hairpin => {
+      const endVelocity = endVelocities.get(hairpin.id);
+      if (endVelocity === hairpin.endVelocity) return hairpin;
+      changed = true;
+      const { endVelocity: previousEndVelocity, ...range } = hairpin;
+      return endVelocity === undefined ? range : { ...range, endVelocity };
     });
+    return changed ? { ...after, hairpins } : after;
   }
 
   export function createVelocityLookup(project: DynamicProject) {
     type Point = { position: number; velocity: number; order: number; target?: { position: number; velocity: number } };
     const marks = changes(project);
     const points: Point[] = marks.map(({ position, velocity }) => ({ position, velocity, order: 1 }));
-    for (const { hairpin, start, end } of hairpinSegments(project, marks)) {
-      if (!hairpin.velocities || start.velocity === undefined || end.velocity === undefined) continue;
-      points.push({ position: start.position, velocity: start.velocity, order: 2,
-        target: { position: end.position, velocity: end.velocity } });
-      points.push({ position: end.position, velocity: end.velocity, order: 0 });
+    for (const { start, end, startVelocity, endVelocity } of resolveHairpins(project, marks)) {
+      if (startVelocity === endVelocity) continue;
+      points.push({ position: start, velocity: startVelocity, order: 2,
+        target: { position: end, velocity: endVelocity } });
+      points.push({ position: end, velocity: endVelocity, order: 0 });
     }
     points.sort((a, b) => a.position - b.position || a.order - b.order);
     return (position: number): number => {

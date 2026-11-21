@@ -55,12 +55,37 @@ function findChordPlan(hand:Hand,contacts:Contact[],hover:number,travel:number):
     if(hasBlackKey) {
       const betweenColumns=searchChord(hand,inset,hover,travel,true,0.0025);
       if(betweenColumns)return betweenColumns;
+
+      const lowNote=contacts.find(contact=>contact.target[0]===low)?.midiNote;
+      const highNote=contacts.find(contact=>contact.target[0]===high)?.midiNote;
+      const lowKey=keys.find(key=>key.midiNote===lowNote);
+      const highKey=keys.find(key=>key.midiNote===highNote);
+      if(lowKey?.black&&highKey?.black&&highKey.midiNote-lowKey.midiNote===12&&
+        contacts.length===2&&contacts.some(contact=>contact.finger===1)&&contacts.some(contact=>contact.finger===5)) {
+        // Use the front of the thumb's black key when the ordinary range cannot clear its neighbors.
+        const frontThumb=searchChord(hand,inset,hover,travel,true,0,true)??searchChord(hand,inset,hover,travel,true,0.0025,true);
+        if(frontThumb)return frontThumb;
+      }
+      if(lowKey?.black&&highKey?.black&&highKey.midiNote-lowKey.midiNote===12&&
+        contacts.some(contact=>keys.some(key=>key.midiNote===contact.midiNote&&!key.black))) {
+        // Relieve the outer span without pulling a white-key finger off center.
+        // Check the same press path and clearance with a 2 mm inset margin.
+        const octave=contacts.map(contact=>{
+          const edge=contact.midiNote===lowKey.midiNote?lowKey:contact.midiNote===highKey.midiNote?highKey:undefined;
+          if(!edge)return contact;
+          const x=edge.target[0]+Math.sign(midpoint-edge.target[0])*(edge.width/2-0.002);
+          return {...contact,target:[x,contact.target[1],contact.target[2]] as Vec3};
+        });
+        const octavePlan=searchChord(hand,octave,hover,travel,true)??searchChord(hand,octave,hover,travel,true,0.0025);
+        if(octavePlan)return octavePlan;
+      }
     }
   }
   throw new Error(`These ${contacts.length} notes cannot be reached together within this model's spread and joint limits${hasBlackKey?' and black-key clearance':''}.`);
 }
 
-function searchChord(hand:Hand,contacts:Contact[],hover:number,travel:number,checkClearance=false,xOffset=0):ChordPlan|undefined {
+function searchChord(hand:Hand,contacts:Contact[],hover:number,travel:number,checkClearance=false,xOffset=0,
+  allowFrontThumb=false):ChordPlan|undefined {
   // Canonical order makes the search independent of JSON note order. Keep the
   // caller's contact order in the returned plan for note/target correspondence.
   const ordered=[...contacts].sort((a,b)=>a.finger-b.finger);
@@ -116,7 +141,8 @@ function searchChord(hand:Hand,contacts:Contact[],hover:number,travel:number,che
         // Key tops and contact ranges come from the displayed keyboard geometry.
         const adjusted:Contact[]=[];
         for(const [index,contact] of ordered.entries()) {
-          const [back,front]=mixed?contactRange(surfaces[index],true):[WHITE_CONTACT_BACK,WHITE_CONTACT_FRONT];
+          const [back,standardFront]=mixed?contactRange(surfaces[index],true):[WHITE_CONTACT_BACK,WHITE_CONTACT_FRONT];
+          const front=standardFront+(allowFrontThumb&&contact.finger===1&&surfaces[index].black?0.006:0);
           const preferred=Math.max(back,Math.min(front,position[2]+rest[index][2][2]));
           const depths=flexible?Array.from({length:Math.round((front-back)*1000)+1},(_,i)=>back+i*0.001):[preferred];
           const neutral=restPose(contact.finger);

@@ -8,8 +8,9 @@ import type { KeySignature, NoteValue, PianoNote, PianoPitch, PianoRest, PianoSt
 
 export type ImportWarning = { code: string; message: string; measure?: number; count: number };
 export type MusicXmlImportResult = { project: ScoreProject; warnings: ImportWarning[] };
+type TupletMark = { type: string; number: string };
 type Event = { start: number; duration: number; value?: NoteValue; pitches: PianoPitch[];
-  ratio?: { actual: number; normal: number }; tieStart: boolean; tieStop: boolean };
+  ratio?: { actual: number; normal: number; normalType: string }; tuplets: TupletMark[]; tieStart: boolean; tieStop: boolean };
 const EPSILON = 1e-8;
 const near = (a: number, b: number) => Math.abs(a - b) < EPSILON;
 const children = (node: Element, name?: string): Element[] => Array.from(node.childNodes)
@@ -19,6 +20,37 @@ const text = (node: Element, name: string) => child(node, name)?.textContent?.tr
 const number = (node: Element, name: string) => text(node, name) === '' ? NaN : Number(text(node, name));
 const positive = (n: number) => Number.isFinite(n) && n > 0;
 const id = () => crypto.randomUUID();
+
+function readTuplet(events: readonly Event[], start: number) {
+  const first = events[start];
+  const { actual, normal, normalType } = first.ratio!;
+  const opening = first.tuplets.find(mark => mark.type === 'start');
+  const bases = WrittenValue.entries();
+  const fallback = bases.find(([type]) => type === (normalType || first.value?.type));
+  const expected = fallback ? fallback[1] * actual : 0;
+  let position = first.start, written = 0;
+  for (let i = start; i < events.length; i++) {
+    const event = events[i];
+    if (!event.value || event.ratio?.actual !== actual || event.ratio.normal !== normal ||
+      !near(event.start, position)) break;
+    const length = WrittenValue.sixteenths(event.value);
+    if (!near(event.duration, length * normal / actual)) break;
+    written += length;
+    position += event.duration;
+    const closing = event.tuplets.find(mark => mark.type === 'stop');
+    if (event.tuplets.some(mark => (i !== start || mark !== opening) && mark !== closing)) break;
+    if (opening) {
+      // Brackets delimit mixed values and consecutive groups with the same ratio.
+      if (!closing) continue;
+      const base = bases.find(([, length]) => near(length * actual, written));
+      if (closing.number === opening.number && base) return { baseType: base[0], end: i };
+      break;
+    }
+    if (closing || !fallback || written > expected + EPSILON) break;
+    if (near(written, expected)) return { baseType: fallback[0], end: i };
+  }
+  throw new Error('Unsupported tuplet');
+}
 
 namespace ImportMusicXml {
   /** Browser DOMParser does not fetch the external MusicXML DTD. Internal entities are unsupported. */
@@ -148,7 +180,8 @@ namespace ImportMusicXml {
             if (child(node, 'grace')) { warn('grace', 'Grace notes were omitted.', location); previous = undefined; break; }
             let value = written(node);
             const modification = child(node, 'time-modification');
-            const ratio = modification ? { actual: number(modification, 'actual-notes'), normal: number(modification, 'normal-notes') } : undefined;
+            const ratio = modification ? { actual: number(modification, 'actual-notes'), normal: number(modification, 'normal-notes'),
+              normalType: text(modification, 'normal-type') } : undefined;
             const validRatio = ratio && Number.isInteger(ratio.actual) && ratio.actual >= 2 && ratio.actual <= 64 && Number.isInteger(ratio.normal) && ratio.normal >= 1 && ratio.normal <= 64;
             let duration = number(node, 'duration') * 4 / divisions;
             if (!positive(duration) && !child(node, 'duration') && value && (!ratio || validRatio)) {
@@ -174,7 +207,11 @@ namespace ImportMusicXml {
             const tieStart = ties.some(tie => tie.getAttribute('type') === 'start');
             const tieStop = ties.some(tie => tie.getAttribute('type') === 'stop');
             const notation = child(node, 'notations');
-            if (notation && children(notation).some(item => item.localName !== 'tied')) warn('notation', 'Unsupported articulations, ornaments, slurs or technical markings were omitted.', location);
+            const tuplets = notation ? children(notation, 'tuplet').map(node => ({
+              type: node.getAttribute('type') ?? '', number: node.getAttribute('number') || '1',
+            })) : [];
+            if (notation && children(notation).some(item => !['tied', 'tuplet'].includes(item.localName)))
+              warn('notation', 'Unsupported articulations, ornaments, slurs or technical markings were omitted.', location);
             if (child(node, 'lyric')) warn('lyrics', 'Lyrics were omitted.', location);
             if (staff === 1 || staff === 2) {
               if (!voiceIds[staff - 1].has(voice) && voiceIds[staff - 1].size < 3) voiceIds[staff - 1].set(voice, `voice-${voiceIds[staff - 1].size}`);
@@ -185,9 +222,13 @@ namespace ImportMusicXml {
                   if (event.tieStart !== tieStart || event.tieStop !== tieStop) warn('tie', 'Partial-chord ties cannot be represented and were omitted.', location);
                   event.tieStart &&= tieStart; event.tieStop &&= tieStop;
                   event.pitches.push(...pitches);
+                  for (const mark of tuplets) {
+                    if (!event.tuplets.some(existing => existing.type === mark.type && existing.number === mark.number))
+                      event.tuplets.push(mark);
+                  }
                 } else warn('chord', 'An incompatible or cross-staff chord tone was omitted.', location);
               } else {
-                const event: Event = { start, duration, value, pitches, ratio: validRatio ? ratio : undefined, tieStart, tieStop };
+                const event: Event = { start, duration, value, pitches, ratio: validRatio ? ratio : undefined, tuplets, tieStart, tieStop };
                 // Duration is authoritative; unsupported written values are handled by the voice fallback.
                 if (modification && !validRatio) event.value = undefined;
                 const stream = streams[staff - 1].get(voice) ?? [];
@@ -266,16 +307,13 @@ namespace ImportMusicXml {
               if (event.start > position + EPSILON) elements.push(...rests(position, event.start - position));
               if (event.ratio) {
                 const { actual, normal } = event.ratio;
-                const group = events.slice(i, i + actual);
-                const base = event.value?.type;
-                if (!base || group.length !== actual || !group.every((item, j) => item.value && item.ratio?.actual === actual && item.ratio.normal === normal &&
-                  near(item.duration, WrittenValue.sixteenths(item.value) * normal / actual) &&
-                  (j === 0 || near(item.start, group[j - 1].start + group[j - 1].duration)))) throw new Error('Unsupported tuplet');
-                const tuplet = { id: id(), kind: 'tuplet' as const, actual, normal, baseType: base, elements: group.map(makeNote) as (PianoNote | PianoRest)[] };
+                const { baseType, end } = readTuplet(events, i);
+                const group = events.slice(i, end + 1);
+                const tuplet = { id: id(), kind: 'tuplet' as const, actual, normal, baseType, elements: group.map(makeNote) as (PianoNote | PianoRest)[] };
                 Voice.time(tuplet, length);
                 elements.push(tuplet);
                 position = group.at(-1)!.start + group.at(-1)!.duration;
-                i += actual - 1;
+                i = end;
               } else {
                 if (!event.value || !near(WrittenValue.sixteenths(event.value), event.duration)) {
                   // A measure rest need not have a written type.
