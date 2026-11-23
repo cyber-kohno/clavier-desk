@@ -12,6 +12,8 @@ const towardPlayer = new Vector3(0, 0, 1);
 const palmClearance = 0.026;
 // Keep the wrist raised and let the back of the hand rise further at the knuckles.
 const wristRise = 0.0115;
+const whiteKeyPalmDrop = 0.006;
+const blackKeyPalmDrop = 0.003;
 const palmTilt = new Quaternion().setFromAxisAngle(right, 14 * Math.PI / 180);
 const pressBendTangent = Math.tan(24 * Math.PI / 180);
 const restBendTangent = Math.tan(34 * Math.PI / 180);
@@ -293,7 +295,22 @@ function createPianoHand(root: Object3D, side: Hand) {
       lift.x *= mirror;
       localTowardPlayer.x *= mirror;
       elbowDirection.x *= mirror;
-      palmPoint.copy(palm.position).addScaledVector(lift, 1 + wristRise / palmClearance);
+      let palmDrop = 0;
+      let blackKeyApproach = 0;
+      frame.activeNotes.forEach((note, index) => {
+        const tip = pointsForPose(side, note.finger, frame.joints[note.finger])[2];
+        const [, height] = handPointWorld(frame.position, frame.rotation, tip);
+        const surface = frame.targets[index][1] - (frame.depths?.[index] ?? frame.depth) * TRAVEL;
+        const proximity = 1 - Math.min(1, Math.max(0, (height - surface) / HOVER));
+        const approach = proximity ** 2 * (3 - 2 * proximity);
+        palmDrop = Math.max(palmDrop, whiteKeyPalmDrop * approach);
+        if (keys[note.midiNote - keys[0].midiNote]?.black) {
+          blackKeyApproach = Math.max(blackKeyApproach, approach);
+        }
+      });
+      palmDrop *= 1 - blackKeyApproach * (1 - blackKeyPalmDrop / whiteKeyPalmDrop);
+      // Lower the rig before solving its fingers against the original contact points.
+      palmPoint.copy(palm.position).addScaledVector(lift, 1 + (wristRise - palmDrop) / palmClearance);
       const thumb = frame.activeNotes.findIndex(note =>
         note.finger === 1 && keys[note.midiNote - keys[0].midiNote]?.black);
       const blackThumbChord = thumb !== -1 && frame.activeNotes.some((_, index) =>

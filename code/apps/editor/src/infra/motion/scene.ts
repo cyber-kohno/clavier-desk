@@ -35,31 +35,76 @@ function createKeyReflection(renderer: THREE.WebGLRenderer) {
   return reflection;
 }
 
-function addKeyEdgeLighting(material: THREE.MeshPhysicalMaterial, width: number) {
-  const left = { value: new THREE.Color(0, 0, 0) };
-  const right = { value: new THREE.Color(0, 0, 0) };
+function createKeyGeometry(width: number, height: number, length: number, black: boolean, topY: number) {
+  if (!black) return new RoundedBoxGeometry(width, height, length, 4, 0.0013);
+
+  // The front is vertical below the resting white-key surface.
+  const top = height / 2;
+  const bottom = -top;
+  const front = -length / 2;
+  const back = length / 2;
+  const whiteSurface = top - topY;
+  const nose = front + 0.007;
+  const noseRound = 0.0025;
+  const profile = new THREE.Shape();
+  // The profile's X axis becomes -Z after rotation.
+  profile.moveTo(back, bottom);
+  profile.lineTo(front, bottom);
+  profile.lineTo(front, whiteSurface);
+  // Round the transition from the front slope to the flat playing surface.
+  profile.lineTo(nose - noseRound * (nose - front) / topY, top - noseRound);
+  profile.quadraticCurveTo(nose, top, nose + noseRound, top);
+  profile.lineTo(back, top);
+  profile.closePath();
+
+  const bevel = 0.0011;
+  const geometry = new THREE.ExtrudeGeometry(profile, {
+    depth: width - 2 * bevel,
+    bevelThickness: bevel,
+    bevelSize: bevel,
+    bevelOffset: -bevel,
+    bevelSegments: 5,
+    curveSegments: 8,
+  });
+  geometry.rotateY(Math.PI / 2);
+  geometry.translate(-width / 2 + bevel, 0, 0);
+  // Preserve the base width and narrow the two sides towards the top.
+  const positions = geometry.getAttribute('position');
+  const topWidthRatio = 0.78;
+  for (let i = 0; i < positions.count; i++) {
+    const heightRatio = (positions.getY(i) - bottom) / height;
+    positions.setX(i, positions.getX(i) * THREE.MathUtils.lerp(1, topWidthRatio, heightRatio));
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
+function addWhiteKeyWoodSides(material: THREE.MeshPhysicalMaterial, height: number, length: number) {
   material.onBeforeCompile = shader => {
-    shader.uniforms.keyEdgeLeft = left;
-    shader.uniforms.keyEdgeRight = right;
-    shader.uniforms.keyHalfWidth = { value: width / 2 };
-    shader.vertexShader = `
-      uniform float keyHalfWidth;
-      varying float keyAcross;
-    ` + shader.vertexShader.replace('#include <begin_vertex>', `
-      #include <begin_vertex>
-      keyAcross = position.x / keyHalfWidth;
-    `);
+    shader.uniforms.woodColor = { value: new THREE.Color('#ad8256') };
+    shader.uniforms.capBottom = { value: height / 2 - 0.002 };
+    shader.uniforms.woodEnd = { value: length / 2 - 0.002 };
+    shader.vertexShader = 'varying vec3 keyLocalPosition;\nvarying float keySide;\n' +
+      shader.vertexShader.replace('#include <begin_vertex>', `
+        #include <begin_vertex>
+        keyLocalPosition = position;
+        keySide = abs(normal.x);
+      `);
     shader.fragmentShader = `
-      uniform vec3 keyEdgeLeft;
-      uniform vec3 keyEdgeRight;
-      varying float keyAcross;
-    ` + shader.fragmentShader.replace('#include <emissivemap_fragment>', `
-      #include <emissivemap_fragment>
-      totalEmissiveRadiance += keyEdgeLeft * smoothstep(0.46, 1.0, -keyAcross)
-                            + keyEdgeRight * smoothstep(0.46, 1.0, keyAcross);
+      varying vec3 keyLocalPosition;
+      varying float keySide;
+      uniform vec3 woodColor;
+      uniform float capBottom;
+      uniform float woodEnd;
+    ` + shader.fragmentShader.replace('#include <color_fragment>', `
+      #include <color_fragment>
+      float side = smoothstep(0.55, 0.9, keySide);
+      float belowCap = 1.0 - smoothstep(capBottom - 0.0004, capBottom, keyLocalPosition.y);
+      float insideFront = 1.0 - smoothstep(woodEnd - 0.0004, woodEnd, keyLocalPosition.z);
+      float grain = 0.94 + 0.06 * sin(keyLocalPosition.y * 5100.0 + sin(keyLocalPosition.z * 115.0));
+      diffuseColor.rgb = mix(diffuseColor.rgb, woodColor * grain, side * belowCap * insideFront);
     `);
   };
-  return { left: left.value, right: right.value };
 }
 
 export function createScene(container: HTMLElement) {
@@ -67,6 +112,8 @@ export function createScene(container: HTMLElement) {
   scene.background = new THREE.Color('#101a25');
   const camera = new THREE.PerspectiveCamera(40, 1, 0.001, 10);
   const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
   const controls = new OrbitControls(camera, renderer.domElement);
@@ -76,10 +123,23 @@ export function createScene(container: HTMLElement) {
   controls.maxDistance = 8;
   const moveCamera = createKeyboardCamera(camera, controls);
   const fallingNotes = createFallingNotes(scene);
-  scene.add(new THREE.HemisphereLight(0xe5f4ff, 0x526175, 3));
-  const light = new THREE.DirectionalLight(0xffffff, 3);
-  light.position.set(-0.2, 0.6, 0.3);
+  scene.add(new THREE.HemisphereLight(0xe5f4ff, 0x526175, 1.4));
+  const light = new THREE.DirectionalLight(0xfff4e5, 3);
+  light.position.set(-0.16, 0.55, -0.34);
+  light.castShadow = true;
+  light.shadow.mapSize.set(2048, 1024);
+  Object.assign(light.shadow.camera, {
+    left: -0.72, right: 0.72, top: 0.32, bottom: -0.32, near: 0.1, far: 1.4,
+  });
+  light.shadow.camera.updateProjectionMatrix();
+  light.shadow.normalBias = 0.0007;
+  light.shadow.bias = -0.00015;
+  light.shadow.radius = 2;
   scene.add(light);
+  // A low front fill reveals the sloped faces that point away from the main light.
+  const frontFill = new THREE.DirectionalLight(0xe8eef8, 0.85);
+  frontFill.position.set(0, 0.17, 0.55);
+  scene.add(frontFill);
   function box(w:number,h:number,d:number,color:string) {
     return new THREE.Mesh(new THREE.BoxGeometry(w,h,d), new THREE.MeshStandardMaterial({color, roughness:0.55}));
   }
@@ -90,30 +150,46 @@ export function createScene(container: HTMLElement) {
   const rightGlow = new THREE.Color(noteColors.right);
   const whiteKeyColor = new THREE.Color('#89867f');
   const blackKeyColor = new THREE.Color('#111114');
-  const keyMeshes = keys.map((k, index) => {
-    const geometry = new RoundedBoxGeometry(k.width, k.height, k.length, 2, k.black ? 0.0011 : 0.00065);
+  const ledZ = -0.091;
+  const ledGeometry = new RoundedBoxGeometry(0.007, 0.002, 0.004, 2, 0.0008);
+  const ledRail = box(KEYBOARD_WIDTH, 0.009, 0.008, '#171c23');
+  ledRail.position.set(0, 0.01, ledZ);
+  scene.add(ledRail);
+  // Every key can glow. A fixed pool lights the surrounding keys and hands.
+  const ledLights = Array.from({ length: 10 }, () => {
+    const led = new THREE.PointLight(0xffffff, 0, 0.12, 2);
+    scene.add(led);
+    return led;
+  });
+  const keyMeshes = keys.map(k => {
+    const geometry = createKeyGeometry(k.width, k.height, k.length, k.black, k.target[1]);
     const material = new THREE.MeshPhysicalMaterial({
       color: k.black ? blackKeyColor : whiteKeyColor,
-      roughness: k.black ? 0.36 : 0.30,
-      clearcoat: k.black ? 0.30 : 0.45,
-      clearcoatRoughness: 0.25,
+      roughness: k.black ? 0.28 : 0.30,
+      clearcoat: k.black ? 0.55 : 0.45,
+      clearcoatRoughness: k.black ? 0.19 : 0.25,
       envMap: keyReflection.texture,
-      envMapIntensity: 0.40,
+      envMapIntensity: k.black ? 0.55 : 0.40,
     });
+    if (!k.black) addWhiteKeyWoodSides(material, k.height, k.length);
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(k.target[0],k.target[1]-k.height/2,k.z);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     scene.add(mesh);
-    const edges = addKeyEdgeLighting(material, k.width);
-    const neighbors = keys.flatMap((other, otherIndex) => {
-      if (otherIndex === index) return [];
-      const offset = other.target[0] - k.target[0];
-      const distance = Math.abs(offset);
-      if (distance > 0.024) return [];
-      return [{ index: otherIndex, weight: 0.14 * (1 - distance / 0.04),
-        edge: offset < 0 ? edges.left : edges.right }];
-    });
-    return { mesh, restY: mesh.position.y, key: k, edges, neighbors, left: 0, right: 0 };
+    const led = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial());
+    led.position.set(k.target[0], 0.015, ledZ);
+    scene.add(led);
+    return { mesh, restY: mesh.position.y, key: k, led, lightColor: new THREE.Color(), depth: 0 };
   });
+  function enableHandShadows(root: THREE.Object3D) {
+    root.traverse(object => {
+      if (object instanceof THREE.Mesh) {
+        object.castShadow = true;
+        object.receiveShadow = true;
+      }
+    });
+  }
   const colors = ['#ffbd70','#63dfcf','#7faaff','#c5a0ff','#ff8ca5'];
   function makeHand(side:Hand) {
     const group=new THREE.Group(); scene.add(group);
@@ -141,6 +217,8 @@ export function createScene(container: HTMLElement) {
     const elbow=new THREE.Mesh(new THREE.SphereGeometry(0.026,16,12),material);
     const wrist=new THREE.Mesh(new THREE.SphereGeometry(0.016,16,12),material);
     arm.add(forearm,elbow,wrist);
+    enableHandShadows(legacyHand);
+    enableHandShadows(arm);
     return {side,group,legacyHand,digits,targets,arm,forearm,elbow,wrist};
   }
   const hands=[makeHand('left'),makeHand('right')];
@@ -149,7 +227,10 @@ export function createScene(container: HTMLElement) {
   void new GLTFLoader().loadAsync(handModelUrl).then(({ scene: root }) => {
     if (disposed) { disposePianoHandModels(root); return; }
     const loaded = createPianoHands(root);
-    for (const { side, group } of hands) group.add(loaded[side].root);
+    for (const { side, group } of hands) {
+      enableHandShadows(loaded[side].root);
+      group.add(loaded[side].root);
+    }
     rigs = loaded;
   }).catch(error => {
     if (!disposed) console.warn('Could not load the hand models:', error);
@@ -229,31 +310,23 @@ export function createScene(container: HTMLElement) {
         });
       });
       for (const state of keyMeshes) {
-        state.left = keyDepth(frame.left, state.key.midiNote);
-        state.right = keyDepth(frame.right, state.key.midiNote);
-        state.mesh.position.y = state.restY - Math.max(state.left, state.right) * TRAVEL;
+        const left = keyDepth(frame.left, state.key.midiNote);
+        const right = keyDepth(frame.right, state.key.midiNote);
+        state.depth = Math.max(left, right);
+        state.mesh.position.y = state.restY - state.depth * TRAVEL;
+        state.lightColor.copy(leftGlow).lerp(rightGlow, right / (left + right || 1));
+        state.mesh.material.emissive.copy(state.lightColor).multiplyScalar(state.depth * 1.05);
+        state.led.material.color.copy(state.lightColor).multiplyScalar(state.depth * 1.8);
+        if (state.depth === 0) state.led.material.color.setHex(0x343941);
       }
-      for (const { mesh, key, left, right, edges, neighbors } of keyMeshes) {
-        const direct = Math.max(left, right);
-        edges.left.setRGB(0, 0, 0);
-        edges.right.setRGB(0, 0, 0);
-        for (const { index, weight, edge } of neighbors) {
-          const blue = keyMeshes[index].left * weight;
-          const amber = keyMeshes[index].right * weight;
-          edge.r = Math.max(edge.r, leftGlow.r * blue + rightGlow.r * amber);
-          edge.g = Math.max(edge.g, leftGlow.g * blue + rightGlow.g * amber);
-          edge.b = Math.max(edge.b, leftGlow.b * blue + rightGlow.b * amber);
-        }
-        // Sample the current key depth so seeking and releasing keys also update their light.
-        const overlap = Math.max(1, left + right);
-        const blue = 1.4 * left / overlap;
-        const amber = 1.4 * right / overlap;
-        mesh.material.color.copy(key.black ? blackKeyColor : whiteKeyColor).multiplyScalar(1 - 0.45 * direct);
-        mesh.material.emissive.setRGB(
-          leftGlow.r * blue + rightGlow.r * amber,
-          leftGlow.g * blue + rightGlow.g * amber,
-          leftGlow.b * blue + rightGlow.b * amber,
-        );
+      const pressed = keyMeshes.filter(key => key.depth > 0).sort((a, b) => b.depth - a.depth);
+      for (const [index, light] of ledLights.entries()) {
+        const state = pressed[index];
+        light.intensity = state ? 0.075 * state.depth : 0;
+        if (!state) continue;
+        const surfaceY = state.key.target[1] - state.depth * TRAVEL;
+        light.position.set(state.key.target[0], surfaceY + 0.028, state.key.target[2]);
+        light.color.copy(state.lightColor);
       }
       controls.update(); renderer.render(scene,camera);
 
@@ -265,10 +338,13 @@ export function createScene(container: HTMLElement) {
       scene.traverse(object => {
         if (object instanceof THREE.InstancedMesh) object.dispose();
         if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments || object instanceof THREE.Points) {
-          object.geometry.dispose(); const materials=Array.isArray(object.material)?object.material:[object.material]; materials.forEach(m=>m.dispose());
+          if (object.geometry !== ledGeometry) object.geometry.dispose();
+          const materials=Array.isArray(object.material)?object.material:[object.material]; materials.forEach(m=>m.dispose());
         }
       });
       keyReflection.dispose();
+      ledGeometry.dispose();
+      light.shadow.dispose();
       renderer.dispose(); renderer.domElement.remove();
 
     },
