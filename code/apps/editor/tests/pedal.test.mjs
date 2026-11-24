@@ -24,7 +24,7 @@ test('pedal state rejects invalid or duplicate events without altering notes', (
   assert.equal(addPedalEvent(p, 0, 'change'), p);
   assert.equal(addPedalEvent(p, 48, 'start'), p);
   const down = addPedalEvent(p, 0, 'start');
-  assert.equal(addPedalEvent(down, 4, 'start'), down);
+  assert.equal(addPedalEvent(down, 0, 'start'), down);
   assert.equal(addPedalEvent(down, 0, 'stop'), down);
   assert.equal(down.outline[2].data.upperStaff, p.outline[2].data.upperStaff);
 });
@@ -54,13 +54,30 @@ test('pedal cursor clamps to score bounds and uses its own undotted note unit', 
   cursor={position:0,value:{type:'32nd',dots:0}};
   assert.equal(movePedalCursor(p,cursor,1).position,.5);
 });
-test('placing an earlier stop trims changes and the previous stop; an earlier start merges the next span', () => {
+test('placing a stop before a retake splits the span and preserves the later events', () => {
   let p=score();
-  for (const [position,action] of [[4,'start'],[12,'change'],[20,'stop']]) p=addPedalEvent(p,position,action);
+  const originalEvents = [[4,'start'],[12,'change'],[16,'change'],[20,'change'],[24,'stop'],[28,'start'],[32,'stop']];
+  for (const [position,action] of originalEvents) p=addPedalEvent(p,position,action);
+  const retake = getPedalEvents(p).find(event => event.position === 16);
+
+  const afterStart = addPedalEvent(p,8,'stop');
+  assert.deepEqual(events(afterStart), [[4,'start'],[8,'stop'],[12,'start'],[16,'change'],[20,'change'],[24,'stop'],[28,'start'],[32,'stop']]);
+
+  const afterChange = addPedalEvent(p,15.5,'stop');
+  assert.deepEqual(events(afterChange), [[4,'start'],[12,'change'],[15.5,'stop'],[16,'start'],[20,'change'],[24,'stop'],[28,'start'],[32,'stop']]);
+  assert.deepEqual(getPedalSpans(afterChange), [{start:4,end:15.5},{start:16,end:24},{start:28,end:32}]);
+  assert.deepEqual(getPedalEvents(afterChange).find(event => event.position === 16), { ...retake, action: 'start' });
+  assert.equal(addPedalEvent(p,16,'stop'), p);
+  assert.deepEqual(events(p), originalEvents);
+});
+test('moving a pedal boundary keeps its event ID and the following span', () => {
+  let p=score();
+  for (const [position,action] of [[4,'start'],[12,'stop'],[20,'start'],[24,'change'],[28,'stop']]) p=addPedalEvent(p,position,action);
+  const [start, stop] = getPedalEvents(p);
+  p=addPedalEvent(p,6,'start');
   p=addPedalEvent(p,8,'stop');
-  assert.deepEqual(events(p), [[4,'start'],[8,'stop']]);
-  p=addPedalEvent(p,0,'start');
-  assert.deepEqual(events(p), [[0,'start'],[8,'stop']]);
+  assert.deepEqual(events(p), [[6,'start'],[8,'stop'],[20,'start'],[24,'change'],[28,'stop']]);
+  assert.deepEqual(getPedalEvents(p).slice(0,2).map(event => event.id), [start.id, stop.id]);
 });
 test('deleting a measure discards orphan pedal events; shortening cannot leave events outside the bar', async () => {
   const { deleteOutlineBlock, changeOutlineMeasureBeats } = await import('../src/state/outline-cursor.ts');

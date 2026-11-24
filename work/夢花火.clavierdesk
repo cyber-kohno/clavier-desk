@@ -434,7 +434,44 @@
                   ]
                 },
                 {
-                  "id": "8d02e2b7-6789-47d7-9973-432c2164ef85",
+                  "id": "rest-5bc3af2a-85e6-4d12-bedd-f062f4442590",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-e01e3448-35ae-4f10-8e00-ebeb2bda108f",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-dfcd69fe-aa5b-45f9-9dd3-8de290a09a25",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-bb6948d2-d4b4-4db9-9e1b-7747f8b66616",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-1",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -445,7 +482,8 @@
                       "midi": 64,
                       "fingering": 5
                     }
-                  ]
+                  ],
+                  "tieTo": "note-2"
                 }
               ]
             }
@@ -593,10 +631,6 @@
                   },
                   "pitches": [
                     {
-                      "midi": 64,
-                      "fingering": 5
-                    },
-                    {
                       "midi": 60,
                       "fingering": 2
                     },
@@ -647,6 +681,33 @@
                       "fingering": 1
                     }
                   ]
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-2",
+                  "kind": "note",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 64
+                    }
+                  ],
+                  "tieFrom": "note-1"
+                },
+                {
+                  "id": "rest-929a35da-47d0-4587-9227-067ff54a7b5f",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
                 }
               ]
             }
@@ -1076,18 +1137,12 @@
                   ]
                 },
                 {
-                  "id": "f29adb3e-3f35-4a35-9f56-082a1000ea35",
-                  "kind": "note",
+                  "id": "rest-63177f61-2abb-447c-af88-73ec48aaf09a",
+                  "kind": "rest",
                   "value": {
                     "type": "eighth",
                     "dots": 0
-                  },
-                  "pitches": [
-                    {
-                      "midi": 62,
-                      "fingering": 4
-                    }
-                  ]
+                  }
                 },
                 {
                   "id": "36558312-b24b-4b19-aeff-a82bd485942e",
@@ -1098,12 +1153,9 @@
                   },
                   "pitches": [
                     {
-                      "midi": 62,
-                      "fingering": 4
-                    },
-                    {
                       "midi": 59,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 55,
@@ -1155,6 +1207,72 @@
                   "tieFrom": "15e87083-5275-4e26-bb32-296d727e637a"
                 }
               ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-0ce8e662-ccf2-44eb-8e6f-c1f216a78cf3",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-c9c46cc0-0093-4360-add3-0a2e61060451",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-3",
+                  "kind": "note",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 62,
+                      "fingering": 4
+                    }
+                  ],
+                  "tieTo": "note-4"
+                },
+                {
+                  "id": "note-4",
+                  "kind": "note",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 62
+                    }
+                  ],
+                  "tieFrom": "note-3"
+                },
+                {
+                  "id": "rest-6f996ffe-cf98-4bbb-9b94-b9ad110c72e3",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-c7ce168d-5e73-496d-a850-f8b6b2e1544e",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                }
+              ]
             }
           ]
         },
@@ -1173,7 +1291,8 @@
                   "pitches": [
                     {
                       "midi": 40,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1187,7 +1306,8 @@
                   "pitches": [
                     {
                       "midi": 47,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1201,7 +1321,8 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1215,7 +1336,8 @@
                   "pitches": [
                     {
                       "midi": 40,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -10
                     }
                   ],
                   "tieTo": "a43e6065-4120-4843-8d16-a8158f27e2c1"
@@ -1244,7 +1366,8 @@
                   "pitches": [
                     {
                       "midi": 47,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1258,7 +1381,8 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1272,7 +1396,8 @@
                   "pitches": [
                     {
                       "midi": 47,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -1429,7 +1554,8 @@
                   "pitches": [
                     {
                       "midi": 38,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1443,7 +1569,8 @@
                   "pitches": [
                     {
                       "midi": 45,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1457,7 +1584,8 @@
                   "pitches": [
                     {
                       "midi": 50,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1471,7 +1599,8 @@
                   "pitches": [
                     {
                       "midi": 38,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -10
                     }
                   ],
                   "tieTo": "e2b1e229-fed3-4875-8b2a-df7069dbc20d"
@@ -1500,7 +1629,8 @@
                   "pitches": [
                     {
                       "midi": 45,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -1514,7 +1644,8 @@
                   "pitches": [
                     {
                       "midi": 50,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 }
@@ -3582,7 +3713,8 @@
                   "pitches": [
                     {
                       "midi": 64,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": 10
                     },
                     {
                       "midi": 59,
@@ -4104,7 +4236,10 @@
                       "fingering": 3
                     }
                   ],
-                  "tieTo": "12d7fe7f-a05f-4a00-88b9-18c4b6164362"
+                  "tieTo": "12d7fe7f-a05f-4a00-88b9-18c4b6164362",
+                  "accent": {
+                    "velocityOffset": 18
+                  }
                 }
               ]
             }
@@ -5430,12 +5565,12 @@
         },
         "pedalEvents": [
           {
-            "id": "pedal-3e3cb360-8008-46ef-ab42-6304c89f5c5d",
+            "id": "pedal-492b11e5-fbd5-47ec-9b09-97b741f2c333",
             "offset": {
               "numerator": 0,
               "denominator": 1
             },
-            "action": "change"
+            "action": "stop"
           }
         ]
       }
@@ -5527,16 +5662,7 @@
             }
           ]
         },
-        "pedalEvents": [
-          {
-            "id": "pedal-88775229-591a-41cf-a6d5-826523dc8516",
-            "offset": {
-              "numerator": 0,
-              "denominator": 1
-            },
-            "action": "change"
-          }
-        ]
+        "pedalEvents": []
       }
     },
     {
@@ -5735,12 +5861,12 @@
         },
         "pedalEvents": [
           {
-            "id": "pedal-80738500-08e0-4124-b7bf-31eaf774fcd7",
+            "id": "pedal-88775229-591a-41cf-a6d5-826523dc8516",
             "offset": {
               "numerator": 0,
               "denominator": 1
             },
-            "action": "change"
+            "action": "start"
           }
         ]
       }
@@ -7220,27 +7346,13 @@
                   "id": "a5a133ab-f1e6-49b2-b325-6a6dc05b1df5",
                   "kind": "note",
                   "value": {
-                    "type": "eighth",
+                    "type": "quarter",
                     "dots": 0
                   },
                   "pitches": [
                     {
                       "midi": 62,
                       "fingering": 3
-                    }
-                  ]
-                },
-                {
-                  "id": "dbbe409d-db9f-415c-99a5-a46066ca2616",
-                  "kind": "note",
-                  "value": {
-                    "type": "eighth",
-                    "dots": 0
-                  },
-                  "pitches": [
-                    {
-                      "midi": 60,
-                      "fingering": 2
                     }
                   ]
                 },
@@ -7253,7 +7365,7 @@
                   },
                   "pitches": [
                     {
-                      "midi": 62,
+                      "midi": 60,
                       "fingering": 4
                     }
                   ]
@@ -7882,7 +7994,7 @@
                   },
                   "pitches": [
                     {
-                      "midi": 66,
+                      "midi": 67,
                       "fingering": 4
                     },
                     {
@@ -7900,7 +8012,7 @@
                   },
                   "pitches": [
                     {
-                      "midi": 67,
+                      "midi": 69,
                       "fingering": 3
                     }
                   ]
@@ -7914,8 +8026,9 @@
                   },
                   "pitches": [
                     {
-                      "midi": 69,
-                      "fingering": 4
+                      "midi": 70,
+                      "fingering": 4,
+                      "spellingDirection": "up"
                     }
                   ]
                 }
@@ -8621,15 +8734,18 @@
                   "pitches": [
                     {
                       "midi": 66,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 62,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -8657,7 +8773,8 @@
                   "pitches": [
                     {
                       "midi": 71,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 66,
@@ -8669,21 +8786,7 @@
                   "id": "44381f1f-471f-41da-8a58-ef1963be53dd",
                   "kind": "note",
                   "value": {
-                    "type": "eighth",
-                    "dots": 0
-                  },
-                  "pitches": [
-                    {
-                      "midi": 69,
-                      "fingering": 4
-                    }
-                  ]
-                },
-                {
-                  "id": "0589f7d7-6127-4d62-b5be-3c74dc0d9261",
-                  "kind": "note",
-                  "value": {
-                    "type": "eighth",
+                    "type": "quarter",
                     "dots": 0
                   },
                   "pitches": [
@@ -8861,18 +8964,12 @@
                   }
                 },
                 {
-                  "id": "aa6708a5-3981-4caf-b63c-f84056339a9f",
-                  "kind": "note",
+                  "id": "rest-f837d204-80f1-485e-b448-dbc7f6665cd9",
+                  "kind": "rest",
                   "value": {
                     "type": "eighth",
                     "dots": 0
-                  },
-                  "pitches": [
-                    {
-                      "midi": 71,
-                      "fingering": 5
-                    }
-                  ]
+                  }
                 },
                 {
                   "id": "7ed45a2d-ecdd-459a-90a6-5f0dbb4e051a",
@@ -9109,7 +9206,44 @@
                   ]
                 },
                 {
-                  "id": "0f5fda11-9437-419b-9dcb-9b0d2f7a96cd",
+                  "id": "rest-01d787b5-ff94-43db-8651-71e34865f04f",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-71eda31e-6848-4769-b190-5f712b70479c",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-a8480f7e-d7d9-4286-85c2-a7a2d0f8769e",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-f49b2b62-cd26-4093-90b7-4d30027e721c",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-8",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -9120,7 +9254,8 @@
                       "midi": 69,
                       "fingering": 5
                     }
-                  ]
+                  ],
+                  "tieTo": "note-9"
                 }
               ]
             }
@@ -9220,7 +9355,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-1e16f4b9-549c-4357-bbb2-c3e477122139",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -9245,11 +9389,8 @@
                   },
                   "pitches": [
                     {
-                      "midi": 69,
-                      "fingering": 5
-                    },
-                    {
                       "midi": 64,
+                      "velocityOffset": -10,
                       "fingering": 2
                     },
                     {
@@ -9319,7 +9460,58 @@
                   ]
                 },
                 {
-                  "id": "dba77e73-3147-47c9-a9aa-147ba37fbb6e",
+                  "id": "rest-9bd5f72a-2591-4a28-9ae1-1c4f6e4d9d06",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-9",
+                  "kind": "note",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 69
+                    }
+                  ],
+                  "tieFrom": "note-8"
+                },
+                {
+                  "id": "rest-77ce036d-b29f-4292-b0c2-7630d2b64fce",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-4b614dbf-e0da-4cf0-9c34-1a1d357c5720",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-72cf30ef-68cf-45c7-a6bf-1f62ef5bd3bb",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-10",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -9330,7 +9522,8 @@
                       "midi": 66,
                       "fingering": 4
                     }
-                  ]
+                  ],
+                  "tieTo": "note-11"
                 }
               ]
             }
@@ -9430,7 +9623,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-715378a9-680a-4fbe-889d-ccbf15a2f48f",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -9455,12 +9657,9 @@
                   },
                   "pitches": [
                     {
-                      "midi": 66,
-                      "fingering": 4
-                    },
-                    {
                       "midi": 63,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 59,
@@ -9546,6 +9745,49 @@
                       "fingering": 2
                     }
                   ]
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-11",
+                  "kind": "note",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 66
+                    }
+                  ],
+                  "tieFrom": "note-10"
+                },
+                {
+                  "id": "rest-702f889c-da45-4bc9-8f19-036c3b44a094",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-9c10b82e-72a4-4c9c-b780-a27f90ba1762",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-e79e1948-ea07-4b6d-9765-abc049178fbc",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
                 }
               ]
             }
@@ -9645,7 +9887,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-f5dc408a-854f-46b8-8649-5291a5386b7c",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -9725,12 +9976,49 @@
                   "pitches": [
                     {
                       "midi": 67,
-                      "fingering": 4
+                      "fingering": 2
                     }
                   ]
                 },
                 {
-                  "id": "4517bb54-f024-4c11-bf35-5f173b49b045",
+                  "id": "rest-cc165ec8-2b34-46c7-ad2c-473a4f7de020",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-2e010622-2ef6-4b87-ba6d-c81a970d3427",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-e24af218-556f-4d62-8f8a-9ca34452fc9c",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-ce03d938-c84f-48a5-b851-f667f0ff09b3",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-12",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -9739,9 +10027,10 @@
                   "pitches": [
                     {
                       "midi": 71,
-                      "fingering": 5
+                      "fingering": 4
                     }
-                  ]
+                  ],
+                  "tieTo": "note-13"
                 }
               ]
             }
@@ -9841,7 +10130,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-bd2c8307-96ac-4ab2-99e5-b96f9f8323ab",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -9866,12 +10164,9 @@
                   },
                   "pitches": [
                     {
-                      "midi": 71,
-                      "fingering": 4
-                    },
-                    {
                       "midi": 68,
-                      "fingering": 3
+                      "velocityOffset": -20,
+                      "fingering": 2
                     },
                     {
                       "midi": 64,
@@ -9953,7 +10248,7 @@
                   "pitches": [
                     {
                       "midi": 71,
-                      "fingering": 5
+                      "fingering": 4
                     },
                     {
                       "midi": 68,
@@ -9962,7 +10257,58 @@
                   ]
                 },
                 {
-                  "id": "0c73eed0-fea9-4ff2-8afd-86d2474ab150",
+                  "id": "rest-c590128f-bb8c-4b0d-836c-8f4cfc88802a",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-13",
+                  "kind": "note",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 71
+                    }
+                  ],
+                  "tieFrom": "note-12"
+                },
+                {
+                  "id": "rest-1894f193-9dd3-41c4-ac8e-76264d80d913",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-2b6a68ed-373e-4d05-943c-58b59fc55dc0",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-5e3e4c7c-9ab0-43bc-9ccb-df7cc0c06cde",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-14",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -9973,7 +10319,8 @@
                       "midi": 72,
                       "fingering": 5
                     }
-                  ]
+                  ],
+                  "tieTo": "note-15"
                 }
               ]
             }
@@ -10073,7 +10420,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-9c82a934-ed13-4b0a-b1e3-215872b4217a",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -10098,11 +10454,8 @@
                   },
                   "pitches": [
                     {
-                      "midi": 72,
-                      "fingering": 5
-                    },
-                    {
                       "midi": 64,
+                      "velocityOffset": -10,
                       "fingering": 2
                     },
                     {
@@ -10128,6 +10481,33 @@
                       "fingering": 2
                     }
                   ]
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-15",
+                  "kind": "note",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 72
+                    }
+                  ],
+                  "tieFrom": "note-14"
+                },
+                {
+                  "id": "rest-0420efba-795d-4ddb-88a2-e9fd11f9208e",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
                 }
               ]
             }
@@ -10227,7 +10607,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-334ec707-323d-4ad9-8c3a-fa3b30a1a40e",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -10253,7 +10642,8 @@
                   "pitches": [
                     {
                       "midi": 66,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -10
                     },
                     {
                       "midi": 62,
@@ -10423,7 +10813,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-6cd57c0f-2f28-4d38-b802-858c540a25f0",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -10632,7 +11031,24 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-1a1be018-ff34-4deb-a8a1-fc299853b42b",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-34653233-0136-4a33-a639-813641a0710b",
+            "offset": {
+              "numerator": 8,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -10800,7 +11216,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-929d3ebc-e15e-4faf-b5f8-8fa8b8fe5da8",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -10996,7 +11421,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-79900d8a-88b9-49f3-bea8-54f72189246c",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -11169,7 +11603,23 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-26e187d5-9dd1-452b-bf81-93551cff89be",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
+      }
+    },
+    {
+      "id": "section-5",
+      "type": "section",
+      "data": {
+        "name": "section"
       }
     },
     {
@@ -11359,7 +11809,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-1ad0bcee-42df-4fbb-ac68-0f62174498cf",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -11555,7 +12014,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-0831a104-f176-4c90-b5d4-86ad598bff2a",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -11648,7 +12116,44 @@
                   ]
                 },
                 {
-                  "id": "07e5cb27-7d0c-46ce-82b2-70afcf522908",
+                  "id": "rest-43b7a55a-0b89-4b31-8ab1-193d13c79015",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-3eaad55b-dc82-48fa-9dd6-28d15aa15e0f",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-f5f32307-fc38-4e90-8aef-c9319232be71",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-cd045271-0b32-473d-ae19-68ac94a1f28e",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-23",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -11657,10 +12162,10 @@
                   "pitches": [
                     {
                       "midi": 64,
-                      "fingering": 2
+                      "fingering": 5
                     }
                   ],
-                  "tieTo": "6ecc1f4d-569c-4e3c-8809-cbe826f02bf4"
+                  "tieTo": "note-24"
                 }
               ]
             }
@@ -11760,7 +12265,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-c9d9a2ac-d77b-4d40-b7de-eb8c15c7e09a",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -11777,18 +12291,31 @@
               "id": "voice-0",
               "elements": [
                 {
-                  "id": "6ecc1f4d-569c-4e3c-8809-cbe826f02bf4",
+                  "id": "note-25",
                   "kind": "note",
                   "value": {
-                    "type": "quarter",
+                    "type": "eighth",
                     "dots": 0
                   },
                   "pitches": [
                     {
-                      "midi": 64
+                      "midi": 60,
+                      "fingering": 2
+                    },
+                    {
+                      "midi": 55,
+                      "velocityOffset": -10,
+                      "fingering": 1
                     }
-                  ],
-                  "tieFrom": "07e5cb27-7d0c-46ce-82b2-70afcf522908"
+                  ]
+                },
+                {
+                  "id": "rest-a1d7e054-8ee7-4ab5-8be8-3b5fe244de03",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
                 },
                 {
                   "id": "159502a0-ee11-41ed-98af-fa647bc77237",
@@ -11800,7 +12327,7 @@
                   "pitches": [
                     {
                       "midi": 64,
-                      "fingering": 2
+                      "fingering": 5
                     }
                   ]
                 },
@@ -11837,7 +12364,58 @@
                   ]
                 },
                 {
-                  "id": "565be474-2f46-4603-aa55-1d4b3ef2ea39",
+                  "id": "rest-96e8f8bc-89a4-434d-9436-07910ab6aa12",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-24",
+                  "kind": "note",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 64
+                    }
+                  ],
+                  "tieFrom": "note-23"
+                },
+                {
+                  "id": "rest-ec1d0a42-8c55-48a3-bccb-90ac4ee7261f",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-100cb464-ce3c-434a-ab05-0fc004bfdff5",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-2206ca1a-5e9e-4b29-b0e0-d8daea2465eb",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-16",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -11849,7 +12427,7 @@
                       "fingering": 5
                     }
                   ],
-                  "tieTo": "7efbc3cf-fd9d-4a51-a609-af20bdfd9d82"
+                  "tieTo": "note-17"
                 }
               ]
             }
@@ -11949,7 +12527,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-6cbc9ced-3acd-4339-a887-9dddab86c463",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -11966,7 +12553,7 @@
               "id": "voice-0",
               "elements": [
                 {
-                  "id": "7efbc3cf-fd9d-4a51-a609-af20bdfd9d82",
+                  "id": "note-18",
                   "kind": "note",
                   "value": {
                     "type": "quarter",
@@ -11974,10 +12561,15 @@
                   },
                   "pitches": [
                     {
-                      "midi": 69
+                      "midi": 64,
+                      "velocityOffset": -20,
+                      "fingering": 2
+                    },
+                    {
+                      "midi": 60,
+                      "fingering": 1
                     }
-                  ],
-                  "tieFrom": "565be474-2f46-4603-aa55-1d4b3ef2ea39"
+                  ]
                 },
                 {
                   "id": "d9226951-6d3d-4a72-880f-dfdf7c1ec417",
@@ -12040,7 +12632,58 @@
                   ]
                 },
                 {
-                  "id": "bd13a042-e9c0-4f70-abba-693a675e57ad",
+                  "id": "rest-ecd0e176-b664-4473-a8ce-1ba7b07e0033",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-17",
+                  "kind": "note",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 69
+                    }
+                  ],
+                  "tieFrom": "note-16"
+                },
+                {
+                  "id": "rest-c8b041f0-3dd9-4e18-827c-c8ee418c7462",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-0b932472-5bc8-4951-9d8f-f5920668a1d6",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-61c6090e-1856-46a5-8caa-3577e93fd45d",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-19",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -12051,7 +12694,8 @@
                       "midi": 66,
                       "fingering": 4
                     }
-                  ]
+                  ],
+                  "tieTo": "note-20"
                 }
               ]
             }
@@ -12151,7 +12795,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-0ffd10d3-5a4c-449c-b689-3e864cdf064e",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -12175,10 +12828,6 @@
                     "dots": 0
                   },
                   "pitches": [
-                    {
-                      "midi": 66,
-                      "fingering": 4
-                    },
                     {
                       "midi": 63,
                       "fingering": 2
@@ -12248,6 +12897,49 @@
                       "fingering": 2
                     }
                   ]
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-20",
+                  "kind": "note",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 66
+                    }
+                  ],
+                  "tieFrom": "note-19"
+                },
+                {
+                  "id": "rest-001982b1-17e8-40e5-b0fd-aae72960534a",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-b0b030cc-5fbb-4826-9dec-18397097d189",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-04922166-3db1-4842-973e-806b7e321a9d",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
                 }
               ]
             }
@@ -12347,7 +13039,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-c20ddacc-8750-40c0-9b5c-a22bfa820dd3",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -12432,7 +13133,44 @@
                   ]
                 },
                 {
-                  "id": "000a25e5-9e31-4384-b31b-a8efd7ab4240",
+                  "id": "rest-81268ce5-7751-480f-af0b-92a81cf02275",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-fc622d7b-be1f-4a3a-bf49-c34c269c4557",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-3a2e9d68-7dc2-41cd-a3bb-14b33ab0eefa",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-5e10f4c3-0b4f-453b-9f78-6e20097e51a1",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-21",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -12441,9 +13179,10 @@
                   "pitches": [
                     {
                       "midi": 71,
-                      "fingering": 5
+                      "fingering": 4
                     }
-                  ]
+                  ],
+                  "tieTo": "note-22"
                 }
               ]
             }
@@ -12543,7 +13282,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-f26ce386-2e15-4322-ac7c-25c82998e925",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -12568,12 +13316,8 @@
                   },
                   "pitches": [
                     {
-                      "midi": 71,
-                      "fingering": 5
-                    },
-                    {
                       "midi": 68,
-                      "fingering": 4
+                      "fingering": 2
                     },
                     {
                       "midi": 64,
@@ -12652,6 +13396,41 @@
                       "fingering": 3
                     }
                   ]
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-22",
+                  "kind": "note",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 71
+                    }
+                  ],
+                  "tieFrom": "note-21"
+                },
+                {
+                  "id": "rest-ae323238-2814-41c6-b1a9-dd2fb4a77243",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-3684b0ab-769f-4845-92c5-5caec4fedc16",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
                 }
               ]
             }
@@ -12752,7 +13531,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-5e144413-6f6e-4ef9-a85b-94eefd8da024",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -12927,7 +13715,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-4fe88430-6e67-4d32-9152-9f46fd67159f",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -13123,7 +13920,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-c4730ab9-ff2d-4d0d-b240-3238a5f0400c",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -13319,7 +14125,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-66091133-6282-4477-bedb-566264ac35dd",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -13462,7 +14277,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-c79db61f-c80f-428a-85da-5800d7f320ee",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -13539,7 +14363,44 @@
                   ]
                 },
                 {
-                  "id": "f1d27a95-3089-4f2f-987d-5f6288aba440",
+                  "id": "rest-a799795c-65e4-446e-9813-ed3ad937b39c",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-d60c0050-795d-495a-8210-b0e23b7b52a0",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-6e0b7cda-f26f-4a55-99cf-69dfd4f1268c",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-0ed912a0-66eb-44ef-a656-7797e6cd4856",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-26",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -13550,7 +14411,8 @@
                       "midi": 66,
                       "fingering": 3
                     }
-                  ]
+                  ],
+                  "tieTo": "note-27"
                 }
               ]
             }
@@ -13650,7 +14512,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-c10689d6-86f5-4da8-bcba-069272eb9713",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -13674,10 +14545,6 @@
                     "dots": 0
                   },
                   "pitches": [
-                    {
-                      "midi": 66,
-                      "fingering": 4
-                    },
                     {
                       "midi": 63,
                       "fingering": 2
@@ -13760,6 +14627,49 @@
                   ]
                 }
               ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-27",
+                  "kind": "note",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 66
+                    }
+                  ],
+                  "tieFrom": "note-26"
+                },
+                {
+                  "id": "rest-97f8c233-cd29-4675-81eb-71aaeaafea73",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-7dbbc51f-8912-47cc-8caf-e8404bed5135",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-1986ab01-e0a9-418e-8a6f-ab83e517b3f4",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                }
+              ]
             }
           ]
         },
@@ -13830,7 +14740,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-7ac9976f-c570-459e-86ef-ed23d3a6dd6e",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "stop"
+          }
+        ]
       }
     },
     {
@@ -13906,7 +14825,44 @@
                   }
                 },
                 {
-                  "id": "c06ffd51-d2da-4ee3-9909-639d88ad88d8",
+                  "id": "rest-f2ba5a67-6186-4d3d-ad13-c15cbe7711d7",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-72583e63-733c-463c-b64f-ce22c0b60cf9",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-884d7fa4-a531-4c0d-aa8f-b8db4ec9ca73",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-65e3caf7-b7a2-4315-937a-7e0aa045a3fe",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-28",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -13915,9 +14871,10 @@
                   "pitches": [
                     {
                       "midi": 64,
-                      "fingering": 4
+                      "fingering": 3
                     }
-                  ]
+                  ],
+                  "tieTo": "note-29"
                 }
               ]
             }
@@ -14031,7 +14988,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-f0c4bdd8-0598-45f5-9864-6fd58df37397",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "start"
+          }
+        ]
       }
     },
     {
@@ -14056,12 +15022,9 @@
                   },
                   "pitches": [
                     {
-                      "midi": 64,
-                      "fingering": 3
-                    },
-                    {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -14100,6 +15063,41 @@
                       "fingering": 1
                     }
                   ]
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-29",
+                  "kind": "note",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 1
+                  },
+                  "pitches": [
+                    {
+                      "midi": 64
+                    }
+                  ],
+                  "tieFrom": "note-28"
+                },
+                {
+                  "id": "rest-c50eb268-ab28-47d8-bef3-42eedb4186f6",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-878389da-a653-41ef-b94a-372b57a9b3c4",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
                 }
               ]
             }
@@ -14213,7 +15211,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-050c8515-3da8-4362-b65b-b5cd5626ed23",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -14285,7 +15292,44 @@
                   }
                 },
                 {
-                  "id": "e7e5468e-c23e-4e46-be74-0371e7ab373f",
+                  "id": "rest-6e804085-50fb-4932-afc7-baf5df291f5f",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "rest-199eac34-e0fd-4f64-be6a-f2f6c4a44502",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-fc8f8016-9fc1-473c-aa53-4999df6a0fa7",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-ea6e20b3-3250-463c-afc6-b1b8bc2443e6",
+                  "kind": "rest",
+                  "value": {
+                    "type": "eighth",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "note-6",
                   "kind": "note",
                   "value": {
                     "type": "eighth",
@@ -14296,7 +15340,8 @@
                       "midi": 64,
                       "fingering": 3
                     }
-                  ]
+                  ],
+                  "tieTo": "note-7"
                 }
               ]
             }
@@ -14396,7 +15441,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-d4c3fba1-48c5-4b6f-9768-2ab2ead923df",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -14421,12 +15475,9 @@
                   },
                   "pitches": [
                     {
-                      "midi": 64,
-                      "fingering": 2
-                    },
-                    {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -10
                     }
                   ]
                 },
@@ -14440,6 +15491,41 @@
                 },
                 {
                   "id": "b2b8bbd9-7af2-41ef-9559-fca4577959ee",
+                  "kind": "rest",
+                  "value": {
+                    "type": "half",
+                    "dots": 0
+                  }
+                }
+              ]
+            },
+            {
+              "id": "voice-1",
+              "elements": [
+                {
+                  "id": "note-7",
+                  "kind": "note",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 64
+                    }
+                  ],
+                  "tieFrom": "note-6"
+                },
+                {
+                  "id": "rest-a0b6ee2d-883b-4208-a376-ab692fbee83a",
+                  "kind": "rest",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  }
+                },
+                {
+                  "id": "rest-91c27129-dea2-4aa2-9e66-63a914b68f72",
                   "kind": "rest",
                   "value": {
                     "type": "half",
@@ -14544,7 +15630,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-b3ff0e1d-1c54-47f7-a0d1-d2e880854148",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -14745,7 +15840,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-1520ee1a-d349-4141-8787-6b5f0009b30d",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -14971,7 +16075,16 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-4d8f91d1-f61b-490f-950c-f3b763be9076",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -15211,7 +16324,23 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-02f9c264-c8a3-417d-a356-4e8d28c5538d",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
+      }
+    },
+    {
+      "id": "section-4",
+      "type": "section",
+      "data": {
+        "name": "section"
       }
     },
     {
@@ -15330,15 +16459,18 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 55,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -15352,19 +16484,23 @@
                   "pitches": [
                     {
                       "midi": 59,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 55,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 48,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -15372,7 +16508,24 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-753bbdf3-d713-4dca-92e5-8fff9fb34972",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-e631e99d-e027-4bfe-82bf-b448d5ee9be9",
+            "offset": {
+              "numerator": 8,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -15491,15 +16644,18 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 51,
-                      "fingering": 4
+                      "fingering": 4,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -15513,15 +16669,18 @@
                   "pitches": [
                     {
                       "midi": 55,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 48,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -15529,7 +16688,24 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-17900a5f-9f9c-410f-9938-b8b403bc8c79",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-4327d668-b838-4969-9a2e-44e76e98bae7",
+            "offset": {
+              "numerator": 8,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
@@ -15597,7 +16773,8 @@
                   "pitches": [
                     {
                       "midi": 63,
-                      "fingering": 3
+                      "fingering": 3,
+                      "spellingDirection": "up"
                     },
                     {
                       "midi": 59,
@@ -15609,31 +16786,35 @@
                   "id": "ef2c87bc-51cd-49c2-a0b1-28f9ae529f3a",
                   "kind": "note",
                   "value": {
-                    "type": "eighth",
-                    "dots": 1
-                  },
-                  "pitches": [
-                    {
-                      "midi": 63,
-                      "fingering": 3
-                    }
-                  ],
-                  "tieTo": "e6f561e0-e62d-493a-85c8-3ad853181f8b"
-                },
-                {
-                  "id": "e6f561e0-e62d-493a-85c8-3ad853181f8b",
-                  "kind": "note",
-                  "value": {
-                    "type": "eighth",
+                    "type": "16th",
                     "dots": 0
                   },
                   "pitches": [
                     {
-                      "midi": 63
+                      "midi": 63,
+                      "fingering": 3,
+                      "spellingDirection": "up"
+                    }
+                  ],
+                  "tieTo": "note-5"
+                },
+                {
+                  "id": "note-5",
+                  "kind": "note",
+                  "value": {
+                    "type": "quarter",
+                    "dots": 0
+                  },
+                  "pitches": [
+                    {
+                      "midi": 63,
+                      "spellingDirection": "up"
                     }
                   ],
                   "tieFrom": "ef2c87bc-51cd-49c2-a0b1-28f9ae529f3a",
-                  "tieTo": "a017d122-4951-4ea3-a150-d683b9670edb"
+                  "fermata": {
+                    "lengthRatio": 3.5
+                  }
                 }
               ]
             }
@@ -15654,15 +16835,18 @@
                   "pitches": [
                     {
                       "midi": 60,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 57,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 52,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -20
                     }
                   ]
                 },
@@ -15676,19 +16860,23 @@
                   "pitches": [
                     {
                       "midi": 57,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 54,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 51,
-                      "fingering": 3
+                      "fingering": 3,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 47,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -15696,16 +16884,33 @@
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-f2a21e81-657e-40c6-a89b-9fad01410e1c",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "change"
+          },
+          {
+            "id": "pedal-2fbb89e6-00db-4c9b-8472-a514011c53dc",
+            "offset": {
+              "numerator": 8,
+              "denominator": 1
+            },
+            "action": "change"
+          }
+        ]
       }
     },
     {
-      "id": "4ddc7acf-86ef-448d-bc82-b454ca556cd3",
+      "id": "measure-1",
       "type": "measure",
       "data": {
         "length": {
-          "cnt": 4,
-          "unit": 4
+          "cnt": 1,
+          "unit": 2
         },
         "upperStaff": {
           "voices": [
@@ -15713,50 +16918,8 @@
               "id": "voice-0",
               "elements": [
                 {
-                  "id": "a017d122-4951-4ea3-a150-d683b9670edb",
-                  "kind": "note",
-                  "value": {
-                    "type": "quarter",
-                    "dots": 0
-                  },
-                  "pitches": [
-                    {
-                      "midi": 63
-                    }
-                  ],
-                  "tieFrom": "e6f561e0-e62d-493a-85c8-3ad853181f8b"
-                },
-                {
-                  "id": "0f82b458-059f-447b-b6f2-07e4c7579fcf",
-                  "kind": "rest",
-                  "value": {
-                    "type": "quarter",
-                    "dots": 0
-                  }
-                },
-                {
-                  "id": "af55f251-d600-4498-a628-0919d8db0582",
-                  "kind": "rest",
-                  "value": {
-                    "type": "eighth",
-                    "dots": 0
-                  }
-                },
-                {
-                  "id": "923e138c-ed94-4365-abf4-1e85c4164cd4",
-                  "kind": "rest",
-                  "value": {
-                    "type": "eighth",
-                    "dots": 0
-                  }
-                },
-                {
-                  "id": "fe5e6af0-87b2-43ae-8c9f-24bb157b9895",
-                  "kind": "rest",
-                  "value": {
-                    "type": "quarter",
-                    "dots": 0
-                  }
+                  "id": "rest-8d6655ca-2723-4fd9-af94-9e23dcaf8015",
+                  "kind": "measure-rest"
                 }
               ]
             }
@@ -15768,42 +16931,23 @@
               "id": "voice-0",
               "elements": [
                 {
-                  "id": "a827bc9e-ad2c-4caf-a03f-8ec388227a2a",
-                  "kind": "rest",
-                  "value": {
-                    "type": "half",
-                    "dots": 0
-                  }
-                },
-                {
-                  "id": "d9b61973-61ba-4e6c-9dcd-98bb5ddbf76a",
-                  "kind": "rest",
-                  "value": {
-                    "type": "eighth",
-                    "dots": 0
-                  }
-                },
-                {
-                  "id": "13b43f5e-6da4-426a-9c7b-252c15750f8f",
-                  "kind": "rest",
-                  "value": {
-                    "type": "eighth",
-                    "dots": 0
-                  }
-                },
-                {
-                  "id": "44cda5fb-5b25-4ae8-b7d6-b9e0d92db7a6",
-                  "kind": "rest",
-                  "value": {
-                    "type": "quarter",
-                    "dots": 0
-                  }
+                  "id": "rest-cca2949e-699c-4e5d-8958-dbaac9e28583",
+                  "kind": "measure-rest"
                 }
               ]
             }
           ]
         },
-        "pedalEvents": []
+        "pedalEvents": [
+          {
+            "id": "pedal-d268ee60-6126-4054-a188-6878b885914e",
+            "offset": {
+              "numerator": 0,
+              "denominator": 1
+            },
+            "action": "stop"
+          }
+        ]
       }
     },
     {
@@ -15894,7 +17038,8 @@
                   "pitches": [
                     {
                       "midi": 64,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": 11
                     },
                     {
                       "midi": 59,
@@ -15904,7 +17049,15 @@
                       "midi": 56,
                       "fingering": 1
                     }
-                  ]
+                  ],
+                  "fermata": {
+                    "lengthRatio": 1.3
+                  },
+                  "arpeggio": {
+                    "type": "normal",
+                    "spreadRatio": 1,
+                    "timing": 1
+                  }
                 }
               ]
             }
@@ -15925,15 +17078,18 @@
                   "pitches": [
                     {
                       "midi": 52,
-                      "fingering": 1
+                      "fingering": 1,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 47,
-                      "fingering": 2
+                      "fingering": 2,
+                      "velocityOffset": -20
                     },
                     {
                       "midi": 40,
-                      "fingering": 5
+                      "fingering": 5,
+                      "velocityOffset": -20
                     }
                   ]
                 }
@@ -15949,10 +17105,55 @@
     {
       "noteId": "c1a1cad6-e183-4f2c-92bc-1af019f09a0f",
       "bpm": 150
+    },
+    {
+      "noteId": "a8e46431-5bbd-492e-8e32-11d1ac5267e6",
+      "bpm": 69
     }
   ],
   "clefChanges": [],
-  "dynamicChanges": [],
+  "dynamicChanges": [
+    {
+      "noteId": "668129e1-4a08-4047-bc7b-e8f0c9536a77",
+      "level": "mp",
+      "velocity": 87
+    },
+    {
+      "noteId": "571ad0c8-8ac0-4408-9727-d6ada3515b4a",
+      "level": "mp",
+      "velocity": 86
+    },
+    {
+      "noteId": "3ecda93f-644f-4e7f-917e-0827d4f6700b",
+      "level": "f",
+      "velocity": 98
+    },
+    {
+      "noteId": "0f431522-47af-4f89-a403-128012c32272",
+      "level": "ff",
+      "velocity": 108
+    },
+    {
+      "noteId": "8075824e-7fc6-45cb-8786-664cbc3147ae",
+      "level": "f",
+      "velocity": 98
+    },
+    {
+      "noteId": "9b394af6-1265-4f38-a69d-ab7a0e70421c",
+      "level": "ppp",
+      "velocity": 48
+    },
+    {
+      "noteId": "a8e46431-5bbd-492e-8e32-11d1ac5267e6",
+      "level": "mp",
+      "velocity": 82
+    },
+    {
+      "noteId": "10f8141c-e781-45d0-9cc2-02e0fcf3326d",
+      "level": "mf",
+      "velocity": 88
+    }
+  ],
   "glissandi": [
     {
       "id": "1a631035-efa1-42c2-ac79-f7913ea918f4",
@@ -15966,6 +17167,87 @@
       },
       "lineType": "wavy",
       "keySet": "white"
+    }
+  ],
+  "hairpins": [
+    {
+      "id": "hairpin-8e1ce480-362a-4643-8282-4174c2207861",
+      "start": {
+        "measureId": "e1af16b4-1fe4-4b52-92d6-6f022e2e9ebc",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "28312a92-a86a-4957-abe3-76602439b234",
+        "offset": {
+          "numerator": 16,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-eacd517c-7100-4003-8f78-02836a1af4ec",
+      "start": {
+        "measureId": "db0d5088-4117-49fb-b66c-fec467bd7f85",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "db0d5088-4117-49fb-b66c-fec467bd7f85",
+        "offset": {
+          "numerator": 16,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-9e75dfb0-529c-436a-ab4b-68075e51ddbb",
+      "start": {
+        "measureId": "1b37e0cc-7dd4-4bb9-8a4a-a0d6ca7730aa",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "2ed481d3-da99-4a05-a5af-fb5bd714cfd3",
+        "offset": {
+          "numerator": 14,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    },
+    {
+      "id": "hairpin-05d6999e-9520-491e-889b-f969c9256f4a",
+      "start": {
+        "measureId": "748bdf23-546b-4a91-9a20-0fcce820e806",
+        "offset": {
+          "numerator": 0,
+          "denominator": 1
+        }
+      },
+      "end": {
+        "measureId": "748bdf23-546b-4a91-9a20-0fcce820e806",
+        "offset": {
+          "numerator": 8,
+          "denominator": 1
+        }
+      },
+      "kind": "crescendo"
+    }
+  ],
+  "slurs": [
+    {
+      "id": "slur-5283e172-70c8-4657-a049-347c2e0fdafe",
+      "startNoteId": "d47579c8-b30e-4ced-babc-4f95c69e636a",
+      "endNoteId": "e2f8fc1e-087b-4c2c-b302-be115e417468"
     }
   ]
 }

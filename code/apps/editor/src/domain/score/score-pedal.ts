@@ -32,8 +32,8 @@ namespace ScorePedal {
     const previous = previousIndex >= 0 ? events[previousIndex] : undefined;
     const following = events.slice(previousIndex + 1);
     const down = previous !== undefined && previous.action !== 'stop';
-    const removed = new Set<string>();
     let moved: PedalEvent | undefined;
+    let restartId: string | undefined;
 
     if (action === 'start' && down) {
       // Move the active span's start forward, but never across a retake.
@@ -46,10 +46,9 @@ namespace ScorePedal {
     } else if (action === 'change') {
       if (!down) return project;
     } else if (action === 'stop' && down) {
-      // A stop can shorten an unbroken span. Once a retake exists, only the
-      // final segment may be shortened with a stop.
-      if (following.some(event => event.action === 'change')) return project;
-      moved = following.find(event => event.action === 'stop');
+      const next = following[0];
+      if (next?.action === 'change') restartId = next.id;
+      else if (next?.action === 'stop') moved = next;
     } else if (action === 'stop') {
       // Extend the preceding span through the gap, stopping before the next start.
       if (previous?.action !== 'stop') return project;
@@ -60,25 +59,20 @@ namespace ScorePedal {
       return project;
     }
 
-    if (moved) removed.add(moved.id);
-    if (action === 'stop' && down) {
-      // An earlier stop removes intervening changes and the old stop.
-      for (const event of following) {
-        if (event.action === 'start') break;
-        removed.add(event.id);
-        if (event.action === 'stop') break;
-      }
-    }
     const owner = measures.find(entry => position >= entry.start && position < entry.start + entry.length)
       ?? (position === length ? measures.at(-1) : undefined);
     if (!owner) return project;
-    const event: PedalEvent = moved
-      ? { ...moved, offset: MusicalTime.fromNumber(position - owner.start) }
-      : { id: `pedal-${crypto.randomUUID()}`, offset: MusicalTime.fromNumber(position - owner.start), action };
+    const event: PedalEvent = {
+      id: moved?.id ?? `pedal-${crypto.randomUUID()}`,
+      offset: MusicalTime.fromNumber(position - owner.start),
+      action,
+    };
     return {
       ...project, outline: project.outline.map(block => {
         if (block.type !== 'measure') return block;
-        const retained = (block.data.pedalEvents ?? []).filter(entry => !removed.has(entry.id));
+        const retained = (block.data.pedalEvents ?? [])
+          .filter(entry => entry.id !== moved?.id)
+          .map(entry => entry.id === restartId ? { ...entry, action: 'start' as const } : entry);
         if (block.id === owner.measure.id) retained.push(event);
         return { ...block, data: { ...block.data, pedalEvents: retained.sort((a, b) => MusicalTime.toNumber(a.offset) - MusicalTime.toNumber(b.offset)) } };
       }) as ScoreProject['outline']
