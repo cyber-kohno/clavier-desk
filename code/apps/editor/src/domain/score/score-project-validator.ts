@@ -3,6 +3,7 @@ import ScoreVoice from './score-voice.ts';
 import ScoreFermata from './score-fermata.ts';
 import ScoreDynamics from './score-dynamics.ts';
 import ScoreHairpins from './score-hairpins.ts';
+import ScoreGlissando from './score-glissando.ts';
 import { isVelocityOffset } from './pitch-velocity.ts';
 import type { MeasureLength, NoteValue, PianoNote, PianoVoiceElement, ScoreProject } from './types.ts';
 
@@ -133,6 +134,14 @@ namespace ScoreProjectValidator {
     })) return false;
     if (value.slurs !== undefined && (!Array.isArray(value.slurs) || !value.slurs.every(item =>
       isRecord(item) && isId(item.id) && isId(item.startNoteId) && isId(item.endNoteId)))) return false;
+    const isEndpoint = (endpoint: unknown) => isRecord(endpoint) && isId(endpoint.noteId) && isIntegerIn(endpoint.midi, 21, 108);
+    if (value.glissandi !== undefined && (!Array.isArray(value.glissandi) || !value.glissandi.every(span =>
+      isRecord(span) && isId(span.id) && isEndpoint(span.start) && isEndpoint(span.end) &&
+      typeof span.lineType === 'string' && ['solid', 'dashed', 'dotted', 'wavy'].includes(span.lineType) &&
+      (span.text === undefined || typeof span.text === 'string') &&
+      (span.keySet === undefined || span.keySet === 'white' || span.keySet === 'black')) ||
+      new Set(value.glissandi.map(span => span.id)).size !== value.glissandi.length ||
+      ScoreGlissando.ranges(value as ScoreProject).length !== value.glissandi.length)) return false;
     if (value.tempoChanges !== undefined && (!Array.isArray(value.tempoChanges) || !value.tempoChanges.every(item =>
       isRecord(item) && isId(item.noteId) && isIntegerIn(item.bpm, 10, 400)))) return false;
     if (value.dynamicChanges !== undefined && (!Array.isArray(value.dynamicChanges) || !value.dynamicChanges.every(item =>

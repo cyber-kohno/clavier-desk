@@ -3,6 +3,7 @@ import PreviewFingerings from './preview-fingerings.ts';
 import PreviewSections from './preview-sections.ts';
 import PreviewPedals from './preview-pedals.ts';
 import PreviewHairpins from './preview-hairpins.ts';
+import { drawGlissandi } from './preview-glissandi.ts';
 import PreviewViewport from './preview-viewport.ts';
 import type PreviewMusicXml from '../musicxml/preview-musicxml.ts';
 export type PreviewDocument = NonNullable<ReturnType<typeof PreviewMusicXml.create>>;
@@ -38,6 +39,7 @@ namespace ScorePreviewRenderer {
       const painter = PreviewSelection.createPainter(PreviewSelection.mapNotes(renderer, preview.noteTargets));
       PreviewPedals.draw(svg, renderer, preview.pedals);
       PreviewHairpins.draw(svg, renderer, preview.hairpins);
+      drawGlissandi(svg, renderer, preview.glissandi, preview.glissandoLabels);
       PreviewFingerings.draw(svg, renderer);
       PreviewSections.draw(svg, renderer, preview.sectionMarks);
       // OSMD positions use staff-space units; its default SVG uses ten pixels per unit.

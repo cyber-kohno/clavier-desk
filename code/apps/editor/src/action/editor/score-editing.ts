@@ -179,6 +179,8 @@ namespace ScoreEditing {
           ids.push(target.item.id);
         } else if (type === 'set_fingering') {
           const target = note(op.noteId);
+          if (op.graceNoteId === undefined && op.fingering !== null && !ScoreFingerings.isAssignable(candidate, target.item.id))
+            fail('Glissando notes use a fixed hand shape and do not accept fingering.');
           if (op.graceNoteId === undefined && ScoreTrill.forNote(candidate,target.item.id)) fail('Use set_trill settings.fingerings for a trill; substitutions are not allowed.');
           const grace = op.graceNoteId === undefined ? undefined : target.item.beforeGraceNotes?.find(child => child.id === op.graceNoteId);
           if (op.graceNoteId !== undefined && !grace) fail('Grace note not found.', 'TARGET_NOT_FOUND');

@@ -3,7 +3,7 @@
   import ScorePreviewRenderer from '../infra/notation/score-preview-renderer.ts';
   import type { ScoreProject } from '../domain/score/types.ts';
 
-  let { playbackActive = false, getPlayingNoteIds = () => [], outline, activeIndex, trills, tempoChanges, clefChanges, slurs, dynamicChanges, hairpins, selectedNoteIds = [] }: { playbackActive?: boolean; getPlayingNoteIds?: () => readonly string[]; outline: ScoreProject['outline']; activeIndex: number; trills?: ScoreProject['trills']; tempoChanges?: ScoreProject['tempoChanges']; clefChanges?: ScoreProject['clefChanges']; dynamicChanges?: ScoreProject['dynamicChanges']; hairpins?: ScoreProject['hairpins']; slurs?: ScoreProject['slurs']; selectedNoteIds?: string[] } = $props();
+  let { playbackActive = false, getPlayingNoteIds = () => [], outline, activeIndex, trills, tempoChanges, clefChanges, slurs, dynamicChanges, hairpins, glissandi, selectedNoteIds = [] }: { playbackActive?: boolean; getPlayingNoteIds?: () => readonly string[]; outline: ScoreProject['outline']; activeIndex: number; trills?: ScoreProject['trills']; tempoChanges?: ScoreProject['tempoChanges']; clefChanges?: ScoreProject['clefChanges']; dynamicChanges?: ScoreProject['dynamicChanges']; hairpins?: ScoreProject['hairpins']; slurs?: ScoreProject['slurs']; glissandi?: ScoreProject['glissandi']; selectedNoteIds?: string[] } = $props();
   let host = $state<HTMLDivElement>();
   let message = $state<string | null>(null);
   let paintSelection = $state<((ids: readonly string[], color?: string) => void) | null>(null);
@@ -21,13 +21,13 @@
     // Capture dependencies now, but defer preparation as well as rendering.
     // Held-key edits cancel the entire pending preview calculation.
     const target=host, score=outline, index=activeIndex, ornaments=trills,
-      tempos=tempoChanges, clefs=clefChanges, curves=slurs, dynamics=dynamicChanges, wedges=hairpins;
+      tempos=tempoChanges, clefs=clefChanges, curves=slurs, dynamics=dynamicChanges, wedges=hairpins, glides=glissandi;
     paintSelection=null;
     if(!target)return;
     const controller=new AbortController();
     const timer=window.setTimeout(async()=>{
       try {
-        const document=PreviewMusicXml.create(score,index,ornaments,tempos,clefs,curves,dynamics,undefined,wedges);
+        const document=PreviewMusicXml.create(score,index,ornaments,tempos,clefs,curves,dynamics,undefined,wedges,glides);
         if (!document) { target.replaceChildren(); message='No measures'; return; }
         const painter=await ScorePreviewRenderer.render(target,document,controller.signal);
         if(controller.signal.aborted)return;

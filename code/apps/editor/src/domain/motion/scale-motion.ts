@@ -121,7 +121,7 @@ function strokeAt(plan:ScalePlan,step:Gesture,time:number):{height:number;depth:
   return {height:-depth*TRAVEL+HOVER*Math.max(0,ratio*2-1),depth};
 }
 
-export const isScaleNote=(note:Note)=>keys.some(k=>k.midiNote===note.midiNote);
+export const isScaleNote=(note:Note)=>!note.glissando&&!note.glissandoArrival&&keys.some(k=>k.midiNote===note.midiNote);
 export function crossingDirection(a:Note,b:Note):number {
   const direction=Math.sign(b.midiNote-a.midiNote)*(a.hand==='right'?1:-1);
   return direction===1&&[3,4].includes(a.finger)&&b.finger===1?1:

@@ -92,7 +92,7 @@ namespace ScoreEditContract {
     measure: { length: ['set_measure_length'], upperStaff: ['replace_voice'], lowerStaff: ['replace_voice'],
       pedalEvents: ['set_pedal_event', 'remove_pedal_event'], ottavaEvents: ['set_ottava_event', 'remove_ottava_event'] },
   } satisfies { note: Record<keyof PianoNote, string[]>; pitch: Record<Exclude<keyof PianoPitch, 'velocityOffset'>, string[]>; grace: Record<keyof PianoGraceNote, string[]>;
-    tuplet: Record<keyof PianoTuplet, string[]>; project: Record<Exclude<keyof ScoreProject, 'hairpins'>, string[]>; measure: Record<keyof MeasureBlock['data'], string[]> };
+    tuplet: Record<keyof PianoTuplet, string[]>; project: Record<Exclude<keyof ScoreProject, 'hairpins' | 'glissandi'>, string[]>; measure: Record<keyof MeasureBlock['data'], string[]> };
 
   export function validate(value: unknown, schema: EditSchema = operations, path = 'operations'): void {
     if (schema.anyOf) {

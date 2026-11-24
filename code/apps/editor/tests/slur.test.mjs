@@ -69,14 +69,17 @@ test('normalization preserves both endpoint identities and a boundary after the 
 test('menu checks disable commands before execution and do not run disabled actions', () => {
   const { project, ids } = setup();
   let items = createNoteMenuItems(project, [ids[0]]);
-  assert.equal(items[1].disabled, true);
-  assert.deepEqual(controlNoteMenu([1], 'Enter', items).path, [1]);
+  const slur = items.findIndex(item => item.label === 'Slur');
+  const add = [slur, 0], remove = [slur, 1];
+  assert.deepEqual(controlNoteMenu([slur], 'ArrowRight', items).path, add);
+  assert.deepEqual(controlNoteMenu(add, 'Enter', items), { path: add });
+  assert.deepEqual(controlNoteMenu(add, 'ArrowLeft', items).path, [slur]);
   items = createNoteMenuItems(project, ids);
   assert.equal(items[0].disabled, true);
-  assert.equal(items[1].disabled, false);
-  assert.equal(items[2].disabled, true);
+  assert.deepEqual(controlNoteMenu(add, 'Enter', items), { path: null, action: 'add-slur' });
+  assert.deepEqual(controlNoteMenu(remove, 'Enter', items), { path: remove });
   const updated = addSlur(project, ids);
-  assert.equal(createNoteMenuItems(updated, [ids[1]])[2].disabled, false);
+  assert.deepEqual(controlNoteMenu(remove, 'Enter', createNoteMenuItems(updated, [ids[1]])), { path: null, action: 'remove-slur' });
 });
 test('MusicXML renders one slur per range and reconstructs clipped windows', () => {
   const { project, ids } = setup([0, 16, 32, 48]);

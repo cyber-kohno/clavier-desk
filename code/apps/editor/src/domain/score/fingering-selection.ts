@@ -2,6 +2,7 @@ import ScoreTimeline, { type LocatedTimelineNote } from './score-timeline.ts';
 import ScoreNotes from './score-notes.ts';
 import ScoreVoice from './score-voice.ts';
 import ScoreArpeggio from './score-arpeggio.ts';
+import ScoreGlissando from './score-glissando.ts';
 import TieFingerings from './tie-fingerings.ts';
 import ScorePlaybackPlan, { keyHoldSeconds, type PlaybackEvent } from '../performance/score-playback-plan.ts';
 import MusicalTime from '../theory/musical-time.ts';
@@ -115,6 +116,8 @@ namespace FingeringSelection {
 
   export function inspect(project: ScoreProject, selection: FingeringSelection) {
     const { entries, ids, issues, selectedCount, first, last, events } = scope(project, selection);
+    const glideNotes = ScoreGlissando.fingeringNotes(project);
+    const assignable = entries.filter(entry => !glideNotes.has(entry.note.id));
     const trills = new Map((project.trills ?? []).filter(trill => ids.has(trill.startNoteId)).map(trill => [trill.startNoteId, trill]));
     const trillEvents = new Map<string, PlaybackEvent[]>();
     for (const event of events) {
@@ -124,7 +127,7 @@ namespace FingeringSelection {
       sequence.push(event);
       trillEvents.set(source.noteId, sequence);
     }
-    for (const entry of entries) {
+    for (const entry of assignable) {
       const { note } = entry;
       const issue = (message: string, pitchIndex?: number) => issues.push({ message: `${label(project, entry, selection.staff)}: ${message}`, noteId: note.id, pitchIndex });
       if (note.arpeggio && (!ScoreArpeggio.canApply(note) || !ScoreArpeggio.validate(note.arpeggio)))
@@ -139,7 +142,7 @@ namespace FingeringSelection {
         if (pitch.fingering !== undefined) seen.add(pitch.fingering);
       });
     }
-    const attacks = entries.filter(entry => !entry.note.tieFrom).map(entry => {
+    const attacks = assignable.filter(entry => !entry.note.tieFrom).map(entry => {
       const state = entry.note.tieTo ? TieFingerings.resolve(project, entry.note.id, selection.staff)!
         : { note: entry.note, conflicts: [] };
       for (const index of state.conflicts) issues.push({ message: `${label(project, entry, selection.staff)}, MIDI ${entry.note.pitches[index].midi}: conflicting fingerings inside a tie. Resolve the fixed fingers before Auto Assign.`, noteId: entry.note.id, pitchIndex: index });
@@ -168,7 +171,8 @@ namespace FingeringSelection {
     const total = performanceAttacks.reduce((sum, entry) => sum + entry.note.pitches.length, 0);
     const fixed = performanceAttacks.reduce((sum, entry) => sum + entry.note.pitches.filter(pitch => pitch.fingering !== undefined).length, 0);
     const measures = project.outline.filter(block => block.type === 'measure');
-    return { entries, attacks, performanceAttacks, events, addedNotes: entries.length - selectedCount, voiceCount: new Set(entries.map(entry => entry.voiceIndex)).size, issues, total, fixed, missing: total - fixed, voiceIndex: first?.voiceIndex ?? 0,
+    return { entries, attacks, performanceAttacks, events, glissandoNotes: entries.length - assignable.length,
+      addedNotes: entries.length - selectedCount, voiceCount: new Set(entries.map(entry => entry.voiceIndex)).size, issues, total, fixed, missing: total - fixed, voiceIndex: first?.voiceIndex ?? 0,
       firstMeasure: first ? measures.indexOf(entries[0].measure) + 1 : 0, lastMeasure: last ? measures.indexOf(entries.at(-1)!.measure) + 1 : 0 };
   }
 

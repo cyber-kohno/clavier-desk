@@ -111,7 +111,11 @@
       {#if inspection.issues.length}
         <div class="issues" role="alert"><h3>Selection needs attention</h3><ul>{#each inspection.issues as issue}<li>{issue.message}</li>{/each}</ul></div>
       {:else if !inspection.missing}
-        <p role="status">All selected pitches already have fingers. There is nothing to fill. Use Fingering → Clear to start again.</p>
+        {#if !inspection.total && inspection.glissandoNotes}
+          <p role="status">Glissando notes use a fixed hand shape and do not need fingering.</p>
+        {:else}
+          <p role="status">All assignable pitches already have fingers. Use Fingering → Clear to start again.</p>
+        {/if}
       {/if}
     {:else if phase === 'result' && draft}
       {#if draft.warnings.length}<ul class="warnings">{#each draft.warnings as warning}<li>{warning.message}</li>{/each}</ul>{/if}

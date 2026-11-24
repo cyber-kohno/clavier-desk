@@ -10,6 +10,7 @@ import ScoreDynamics from "../../domain/score/score-dynamics.ts";
 import ScoreHairpins from '../../domain/score/score-hairpins.ts';
 
 import ScoreSlur from "../../domain/score/score-slur.ts";
+import ScoreGlissando from '../../domain/score/score-glissando.ts';
 
 import PitchSpelling from "../../domain/theory/pitch-spelling.ts";
 
@@ -21,7 +22,7 @@ import ScoreOttava from "../../domain/score/score-ottava.ts";
 
 import { type Clef } from "../../domain/score/score-clef.ts";
 
-import { type KeySignature, type PedalEvent, type PianoPitch, type PianoStaffName, type ScoreProject } from "../../domain/score/types.ts";
+import { type Glissando, type KeySignature, type PedalEvent, type PianoPitch, type PianoStaffName, type ScoreProject } from "../../domain/score/types.ts";
 import type { OutlineBlock } from "../../domain/score/types.ts";
 
 export type PreviewPedalEvent = {
@@ -30,10 +31,17 @@ export type PreviewPedalEvent = {
   type: PedalEvent['action'] | 'resume' | 'discontinue';
 };
 export type PreviewOttavaEvent = { measureOffset: number; position: number; staff: PianoStaffName; type: 'up' | 'down' | 'stop' };
+export type PreviewNoteTarget = {
+  noteId: string; measureOffset: number; staffIndex: number; voiceNumber: number; position: number; graceIndex?: number;
+};
 export type PreviewHairpin = {
   start: { measureOffset: number; position: number; opening: number };
   end: { measureOffset: number; position: number; opening: number };
 };
+type GlissandoTarget = PreviewNoteTarget & { pitchIndex: number; documentIndex: number };
+export type PreviewGlissando = Pick<Glissando, 'lineType' | 'text'> & { start: GlissandoTarget; end: GlissandoTarget };
+export type PreviewGlissandoLabel = { target: GlissandoTarget; start?: true; end?: true };
+const pitchKey = (noteId: string, midi: number) => `${noteId}/${midi}`;
 
 namespace PreviewMusicXml {
   export const spellPitch = PitchSpelling.forPreview;
@@ -79,7 +87,7 @@ namespace PreviewMusicXml {
     return { measures, starts, incomingPedal, sectionNameByMeasure: sectionMarkers(outline), keys: ScoreKey.buildMeasureCache(outline) };
   }
 
-  export function create(outline: ScoreProject['outline'], activeIndex: number, trills: ScoreProject['trills'] = [], tempoChanges: ScoreProject['tempoChanges'] = [], clefChanges: ScoreProject['clefChanges'] = [], slurs: ScoreProject['slurs'] = [], dynamicChanges: ScoreProject['dynamicChanges'] = [], prepared = prepare(outline), hairpins: ScoreProject['hairpins'] = []) {
+  export function create(outline: ScoreProject['outline'], activeIndex: number, trills: ScoreProject['trills'] = [], tempoChanges: ScoreProject['tempoChanges'] = [], clefChanges: ScoreProject['clefChanges'] = [], slurs: ScoreProject['slurs'] = [], dynamicChanges: ScoreProject['dynamicChanges'] = [], prepared = prepare(outline), hairpins: ScoreProject['hairpins'] = [], glissandi: ScoreProject['glissandi'] = []) {
     const { measures, starts, incomingPedal, sectionNameByMeasure, keys } = prepared;
     if (activeIndex < 0 || activeIndex >= measures.length) return null;
     const firstIndex = Math.max(0, activeIndex - 1);
@@ -87,10 +95,45 @@ namespace PreviewMusicXml {
     const visibleIds = new Set(visible.flatMap((measure) => [measure.data.upperStaff, measure.data.lowerStaff]
       .flatMap((staff) => staff.voices.flatMap((voice) => ScoreVoice.flatten(voice, measure.data.length).map(({ element }) => element.id)))));
     const initial = outline[0].data;
-    const noteTargets = visible.flatMap((measure, measureOffset) => [measure.data.upperStaff, measure.data.lowerStaff].flatMap((staff, staffIndex) =>
-      staff.voices.flatMap((voice, voiceIndex) => ScoreVoice.flatten(voice, measure.data.length).flatMap(entry => entry.element.kind === 'note'
-        ? [{ noteId: entry.element.id, measureOffset, staffIndex, voiceNumber: staffIndex * 3 + voiceIndex + 1, position: entry.positionSixteenths },
-          ...(entry.element.beforeGraceNotes ?? []).map((grace, graceIndex) => ({ noteId: grace.id, measureOffset, staffIndex, voiceNumber: staffIndex * 3 + voiceIndex + 1, position: entry.positionSixteenths, graceIndex }))] : []))));
+    const pitchTargets = new Map<string, GlissandoTarget>();
+    const noteTargets: PreviewNoteTarget[] = visible.flatMap((measure, measureOffset) => [measure.data.upperStaff, measure.data.lowerStaff].flatMap((staff, staffIndex) =>
+      staff.voices.flatMap((voice, voiceIndex) => ScoreVoice.flatten(voice, measure.data.length).flatMap(entry => {
+        if (entry.element.kind !== 'note') return [];
+        const note = entry.element;
+        const target = { noteId: note.id, measureOffset, staffIndex, voiceNumber: staffIndex * 3 + voiceIndex + 1, position: entry.positionSixteenths };
+        if (glissandi.length) note.pitches.forEach((pitch, pitchIndex) =>
+          pitchTargets.set(pitchKey(note.id, pitch.midi), { ...target, pitchIndex, documentIndex: pitchTargets.size }));
+        return [target, ...(note.beforeGraceNotes ?? []).map((grace, graceIndex) => ({ ...target, noteId: grace.id, graceIndex }))];
+      }))));
+    const previewGlissandi: PreviewGlissando[] = [];
+    const glissandoRanges = ScoreGlissando.ranges({ outline, glissandi, trills });
+    const glissandoRoles = ScoreGlissando.endpointRoles(glissandoRanges);
+    const glissandoFingeringNotes = ScoreGlissando.fingeringNotes({ outline }, glissandoRanges);
+    const glissandoLabels: PreviewGlissandoLabel[] = [...pitchTargets.values()].flatMap(target => {
+      const role = glissandoRoles.get(target.noteId);
+      return role ? [{ target, ...role }] : [];
+    });
+    const glissandoMarks = new Map<string, { start?: string; stop?: string }>();
+    const spans = glissandi.flatMap(span => {
+      const startKey = pitchKey(span.start.noteId, span.start.midi), endKey = pitchKey(span.end.noteId, span.end.midi);
+      const start = pitchTargets.get(startKey), end = pitchTargets.get(endKey);
+      return start && end ? [{ span, start, end, startKey, endKey,
+        first: Math.min(start.documentIndex, end.documentIndex), last: Math.max(start.documentIndex, end.documentIndex) }] : [];
+    }).sort((a, b) => a.first - b.first);
+    const occupiedUntil = Array<number>(16).fill(-1);
+    for (const { span, start, end, startKey, endKey, first, last } of spans) {
+      previewGlissandi.push({ start, end, lineType: span.lineType, text: span.text });
+      const slot = occupiedUntil.findIndex(boundary => boundary <= first);
+      if (slot < 0) continue;
+      occupiedUntil[slot] = last;
+      const number = slot + 1;
+      const label = span.text?.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;') ?? '';
+      const open = glissandoMarks.get(startKey) ?? {}, close = glissandoMarks.get(endKey) ?? {};
+      open.start = (open.start ?? '') + `<glissando type="start" number="${number}" line-type="${span.lineType}">${label}</glissando>`;
+      close.stop = (close.stop ?? '') + `<glissando type="stop" number="${number}" line-type="${span.lineType}"/>`;
+      glissandoMarks.set(startKey, open);
+      glissandoMarks.set(endKey, close);
+    }
     const slurMarks = new Map<string, string>();
     // Non-overlapping ranges per staff/voice require at most six simultaneous numbers.
     for (const span of ScoreSlur.ranges({ outline, slurs })) {
@@ -286,14 +329,16 @@ namespace PreviewMusicXml {
           const to = element.tieTo !== undefined && visibleIds.has(element.tieTo);
           element.pitches.forEach((pitch, pitchIndex) => {
             const ties = `${from ? '<tie type="stop"/>' : ''}${to ? '<tie type="start"/>' : ''}`;
+            const glissando = glissandoMarks.get(pitchKey(element.id, pitch.midi));
             const notations = (pitchIndex === 0 ? bracket + (slurMarks.get(element.id) ?? '') : '') +
+              (glissando?.stop ?? '') + (glissando?.start ?? '') +
               (pitchIndex === 0 && trillByNote.has(element.id) ? '<ornaments>' + trillByNote.get(element.id)!.replaceAll('number="1"', 'number="' + voiceNumber + '"') + '</ornaments>' : '') + `${from ? '<tied type="stop"/>' : ''}${to ? '<tied type="start"/>' : ''}` +
               (pitchIndex === 0 && element.fermata ? '<fermata type="upright"/>' : '') +
               (pitchIndex === 0 && (element.staccato || element.accent) ? `<articulations>${element.accent ? '<accent/>' : ''}${element.staccato ? `<${element.staccato.type === 'normal' ? 'staccato' : 'staccatissimo'}/>` : ''}</articulations>` : '') +
               (element.arpeggio ? `<arpeggiate number="${voiceNumber}"${element.arpeggio.type === 'down' ? ' direction="down"' : ''}/>` : '') +
               (trillByNote.has(element.id)
                 ? pitchIndex === 0 && trillFingerings.has(element.id) ? `<technical><fingering>${trillFingerings.get(element.id)}</fingering></technical>` : ''
-                : fingeringXml(pitch));
+                : glissandoFingeringNotes.has(element.id) ? '' : fingeringXml(pitch));
             body += `<note>${pitchIndex ? '<chord/>' : ''}${pitchXml(pitch, measureKey)}<duration>${duration}</duration>${ties}<voice>${voiceNumber}</voice>${written}${modification}` +
               (staff.voices.length > 1 ? `<stem>${voiceIndex % 2 === 0 ? 'up' : 'down'}</stem>` : '') +
               `<staff>${staffIndex + 1}</staff>${notations ? `<notations>${notations}</notations>` : ''}</note>`;
@@ -319,6 +364,8 @@ namespace PreviewMusicXml {
       pedals,
       ottavas,
       hairpins: visibleHairpins,
+      glissandi: previewGlissandi,
+      glissandoLabels,
       xml: '<?xml version="1.0" encoding="UTF-8"?>' +
         '<score-partwise version="4.0"><part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>' +
         `<part id="P1">${content}</part></score-partwise>`,

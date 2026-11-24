@@ -3,6 +3,7 @@ import Validator from './score-project-validator.ts';
 import ScoreVoice from './score-voice.ts';
 import ScoreFermata from './score-fermata.ts';
 import ScoreSlur from './score-slur.ts';
+import ScoreGlissando from './score-glissando.ts';
 import ScoreTrill from './score-trill.ts';
 import ScoreArpeggio from './score-arpeggio.ts';
 import ScoreTempo from './score-tempo.ts';
@@ -72,6 +73,9 @@ namespace ScoreIntegrity {
     const slurs = ScoreSlur.ranges(project);
     if (slurs.length !== (project.slurs?.length ?? 0)) fail('A slur endpoint was removed or moved outside its voice. Remove or retarget the slur explicitly.');
     for (const slur of slurs) add(slur.id);
+    const glissandi = ScoreGlissando.ranges(project);
+    if (glissandi.length !== (project.glissandi?.length ?? 0)) fail('Invalid glissando endpoint.');
+    for (const { span } of glissandi) add(span.id);
     for (let i = 0; i < slurs.length; i++) for (let j = i + 1; j < slurs.length; j++)
       if (slurs[i].members.some(entry => slurs[j].members.some(other => entry.note.id === other.note.id))) fail('Overlapping slurs are not supported.');
     const trillTargets = new Set<string>();

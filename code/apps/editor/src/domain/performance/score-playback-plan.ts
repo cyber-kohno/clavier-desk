@@ -13,6 +13,8 @@ import ScorePedal from '../score/score-pedal.ts';
 import ArticulationPerformance from './articulation-performance.ts';
 import ScoreFermata from '../score/score-fermata.ts';
 import TieFingerings from '../score/tie-fingerings.ts';
+import ScoreGlissando from '../score/score-glissando.ts';
+import { expandGlissandi, type GlissandoStep } from './glissando-performance.ts';
 import { soundingVelocity } from '../score/pitch-velocity.ts';
 import { MIN_REATTACK_GAP_SECONDS } from '../theory/performance-timing.ts';
 import type { ScoreProject, PianoStaffName, PianoPitch, ArpeggioSettings } from '../score/types.ts';
@@ -38,6 +40,8 @@ export type PlaybackEvent = {
   /** Upper bound on key hold when a slur extends the sounding duration. */
   keyHoldLimitsSeconds?: number[];
   graceNote?: boolean;
+  glissando?: GlissandoStep;
+  glissandoArrival?: { id: string; finger: NonNullable<PianoPitch['fingering']> };
   /** Principal onset of the rolled chord, before distributing its attacks. */
   rollAnchorSeconds?: number;
   /** Shared MIDI attack velocity before any per-pitch overrides. */
@@ -70,6 +74,7 @@ type Prepared = {
   playbackClock: ReturnType<typeof ScoreClock.create>;
   keys: ReturnType<typeof ScoreKey.buildMeasureCache>;
   trills: Map<string, NonNullable<ScoreProject['trills']>[number]>;
+  glissandi: ReturnType<typeof ScoreGlissando.ranges>;
   pedalEvents: ReturnType<typeof ScorePedal.events>;
   endPosition: number;
 };
@@ -176,6 +181,7 @@ namespace ScorePlaybackPlan {
       playbackClock: ScoreClock.withFermatas(clock, ScoreFermata.groups(project)),
       keys: ScoreKey.buildMeasureCache(project.outline),
       trills: new Map((project.trills ?? []).map(trill => [trill.startNoteId, trill])),
+      glissandi: ScoreGlissando.ranges(project),
       pedalEvents: ScorePedal.events(project), endPosition: ScoreTimeline.length(project.outline) };
     return { clock: prepared.playbackClock,
       create: (requestedStart: number) => createPrepared(project, requestedStart, prepared) };
@@ -365,14 +371,17 @@ namespace ScorePlaybackPlan {
     const eventDuration = events.reduce((maximum, event) => Math.max(maximum, event.startSeconds + event.durationSeconds), 0);
     const plan = { startPosition, endPosition, durationSeconds: Math.max(scoreDuration, eventDuration),
       pedalInitiallyDown, pedalEvents, events };
-    if (prepared.playbackClock === clock) return { ...plan, events: ReattackPerformance.apply(plan.events) };
+    const performedStart = prepared.playbackClock.secondsAt(startPosition);
+    const expand = (input: PlaybackEvent[]) => ReattackPerformance.apply(expandGlissandi(input, prepared.glissandi,
+      position => prepared.playbackClock.secondsAt(position) - performedStart,
+      seconds => prepared.velocityAt(prepared.playbackClock.positionAt(performedStart + seconds))));
+    if (prepared.playbackClock === clock) return { ...plan, events: expand(plan.events) };
     // Build ornaments and articulations in base time first. Stretch each onset/release
     // afterwards, so attacks crossing a boundary slow only inside the fermata range.
-    const performedStart = prepared.playbackClock.secondsAt(startPosition);
     const timeAt = (seconds: number) => prepared.playbackClock.secondsAt(clock.positionAt(startSeconds + seconds)) - performedStart;
     return { ...plan, durationSeconds: timeAt(plan.durationSeconds),
       pedalEvents: pedalEvents.map(event => ({ ...event, atSeconds: timeAt(event.atSeconds) })),
-      events: ReattackPerformance.apply(events.map(event => {
+      events: expand(events.map(event => {
         const start = timeAt(event.startSeconds);
         const pitchDurationsSeconds = event.pitchDurationsSeconds?.map(duration => timeAt(event.startSeconds + duration) - start);
         const keyHoldLimitsSeconds = event.keyHoldLimitsSeconds?.map(duration => timeAt(event.startSeconds + duration) - start);

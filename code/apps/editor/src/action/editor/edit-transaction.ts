@@ -9,6 +9,7 @@ import ScoreTrill from "../../domain/score/score-trill.ts";
 import ScoreFermata from '../../domain/score/score-fermata.ts';
 import ScoreDynamics from '../../domain/score/score-dynamics.ts';
 import ScoreHairpins from '../../domain/score/score-hairpins.ts';
+import ScoreGlissando from '../../domain/score/score-glissando.ts';
 import ScoreTimeline from '../../domain/score/score-timeline.ts';
 import TieFingerings from '../../domain/score/tie-fingerings.ts';
 import type { ScoreProject } from "../../domain/score/types.ts";
@@ -19,7 +20,8 @@ namespace EditTransaction {
   /** Pitch-only actions preserve note IDs, written durations and expression anchors.
    * They still validate collisions in NotePitches and reconcile affected trills. */
   export function commitPitches(before: ScoreProject, after: ScoreProject): ScoreProject {
-    return before === after ? before : TieFingerings.reconcile(before, ScoreTrill.reconcile(before, after));
+    return before === after ? before : ScoreGlissando.clearFingerings(
+      TieFingerings.reconcile(before, ScoreGlissando.reconcile(ScoreTrill.reconcile(before, after))));
   }
   export function commit(before: ScoreProject, after: ScoreProject, normalized?: NormalizedRange): ScoreProject {
     if (before === after) return before;
@@ -47,8 +49,8 @@ namespace EditTransaction {
   }
   function reconcileExpressions(before: ScoreProject, next: ScoreProject, normalized?: NormalizedRange): ScoreProject {
     const reconciled = ScoreDynamics.reconcile(ScoreSlur.reconcile(ScoreClef.reconcile(ScoreTempo.reconcile(ScoreTrill.reconcile(before, next, normalized)))));
-    const withHairpins = ScoreDynamics.reconcileHairpins(before, reconciled);
-    return withHairpins ? TieFingerings.reconcile(before, withHairpins) : before;
+    const withHairpins = ScoreDynamics.reconcileHairpins(before, ScoreGlissando.reconcile(reconciled));
+    return withHairpins ? ScoreGlissando.clearFingerings(TieFingerings.reconcile(before, withHairpins)) : before;
   }
 }
 export default EditTransaction;

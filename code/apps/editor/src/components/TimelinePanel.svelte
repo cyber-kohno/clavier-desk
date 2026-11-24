@@ -18,6 +18,8 @@
   import ScorePedal from '../domain/score/score-pedal.ts';
   import ScoreOttava from '../domain/score/score-ottava.ts';
   import ScoreHairpins from '../domain/score/score-hairpins.ts';
+  import ScoreGlissando from '../domain/score/score-glissando.ts';
+  import { glissandoEndpointLabel, glissandoPath } from '../infra/notation/glissando-line.ts';
   import ScorePreview from './ScorePreview.svelte';
   import PlaybackPosition from './PlaybackPosition.svelte';
 
@@ -33,9 +35,10 @@
     type TimelineCursor,
   } from "../state/timeline-cursor";
 
-  let { getPlayingNoteIds = () => [], outline, cursor, timelineCursor, mode, pedalMode = false, pedalCursor, ottavaMode = false, ottavaCursor, hairpinMode = false, hairpinStart = null, hairpins, playbackPosition = null, playbackActive = false, expressionModalOpen = false, trills = [], tempoChanges = [], clefChanges = [], dynamicChanges = [], slurs = [], pitchAnchorId, onPitchAnchor }: {
+  let { getPlayingNoteIds = () => [], outline, cursor, timelineCursor, mode, pedalMode = false, pedalCursor, ottavaMode = false, ottavaCursor, hairpinMode = false, hairpinStart = null, hairpins, playbackPosition = null, playbackActive = false, expressionModalOpen = false, trills = [], tempoChanges = [], clefChanges = [], dynamicChanges = [], slurs = [], glissandi = [], pitchAnchorId, onPitchAnchor }: {
     getPlayingNoteIds?: () => readonly string[];
     slurs?: ScoreProject['slurs'];
+    glissandi?: ScoreProject['glissandi'];
     dynamicChanges?: ScoreProject['dynamicChanges'];
     hairpins?: ScoreProject['hairpins'];
     hairpinMode?: boolean;
@@ -283,6 +286,15 @@
   const visibleTimelineEnd = $derived(renderWindow.end);
   const visibleTiePaths = $derived(tiePaths.filter(path => path.x2 >= visibleTimelineStart && path.x1 <= visibleTimelineEnd));
   const visibleSlurPaths = $derived(slurPaths.filter(path => path.x2 >= visibleTimelineStart && path.x1 <= visibleTimelineEnd));
+  const glissandoRanges = $derived(ScoreGlissando.ranges({ outline, glissandi, trills }));
+  const glissandoRoles = $derived(ScoreGlissando.endpointRoles(glissandoRanges));
+  const visibleGlissandi = $derived(glissandoRanges.flatMap(({ span, first, last, playbackReason }) => {
+    const x1 = (first.onset + 0.25) * pixelsPerSixteenth, x2 = (last.onset + 0.25) * pixelsPerSixteenth;
+    if (x2 < visibleTimelineStart || x1 > visibleTimelineEnd) return [];
+    const y = (midi: number) => pitchTopMargin + (108 - midi) * pitchRowHeight + pitchRowHeight / 2;
+    return [{ span, playbackReason, path: glissandoPath(x1, y(span.start.midi), x2, y(span.end.midi), span.lineType === 'wavy'),
+      active: !pedalMode && first.staff === timelineCursor.staff && first.voiceIndex === timelineCursor.voiceIndex }];
+  }));
   const visiblePedalEvents = $derived(pedalEvents.filter(event => {
     const x = event.position * pixelsPerSixteenth;
     return x >= visibleTimelineStart && x <= visibleTimelineEnd;
@@ -551,6 +563,7 @@
             {/if}
             {#each note.pitches as pitch, pitchIndex (`${note.id}-${pitch.midi}`)}
               {@const pitchInactive = pedalMode || mode === 'outline' || entry.staff !== timelineCursor.staff || entry.voiceIndex !== timelineCursor.voiceIndex}
+              {@const glissandoRole = glissandoRoles.get(note.id)}
               <div
                 class="score-note-pitch"
                 data-fingering-pitch={`${note.id}:${pitchIndex}`}
@@ -566,10 +579,12 @@
                 aria-current={mode === 'timeline' && !pedalMode && !ottavaMode && !focusedGrace && entry.staff === timelineCursor.staff && timelineCursor.focusedNoteId === note.id && timelineCursor.focusedPitchIndex === pitchIndex ? 'true' : undefined}
                 style={`left: ${entry.position * pixelsPerSixteenth}px; top: ${pitchTopMargin + (108 - pitch.midi) * pitchRowHeight}px; width: ${entry.displayLength * pixelsPerSixteenth}px; --active-note-height: ${activeNoteHeight}px`}
               >{#if note.staccato && pitchIndex === 0}<span class="staccato-mark" aria-label={note.staccato.type === 'normal' ? 'Staccato' : 'Staccatissimo'}>{note.staccato.type === 'normal' ? '•' : '▾'}</span>{/if}{#if note.accent && pitchIndex === 0}<span class="accent-mark" aria-label="Accent">&gt;</span>{/if}{#if note.fermata && pitchIndex === 0}<span class="fermata-mark" style:top={note.staccato || note.accent ? "-36px" : "-22px"} aria-label="Fermata">𝄐</span>{/if}</div>
-              {#if trillFingerings.has(note.id) || !trillNotes.has(note.id) && pitch.fingering !== undefined}
-                <span class="fingering-badge" aria-hidden="true"
+              {#if glissandoRole || trillFingerings.has(note.id) || !trillNotes.has(note.id) && pitch.fingering !== undefined}
+                <span class="fingering-badge" class:glissando-badge={!!glissandoRole}
+                  aria-hidden={!glissandoRole}
+                  aria-label={glissandoRole?.start && glissandoRole.end ? 'Glissando end and start' : glissandoRole?.start ? 'Glissando start' : glissandoRole ? 'Glissando end' : undefined}
                   style={`left: ${entry.position * pixelsPerSixteenth - 2}px; top: ${pitchTopMargin + (108 - pitch.midi) * pitchRowHeight + (pitchInactive ? pitchRowHeight * 0.75 : (pitchRowHeight + activeNoteHeight) / 2) + 12}px; transform: translateY(-100%)`}
-                >{trillFingerings.get(note.id) ?? `${pitch.fingering}${pitch.substitutionFingering === undefined ? '' : `-${pitch.substitutionFingering}`}`}</span>
+                >{glissandoRole ? glissandoEndpointLabel(glissandoRole) : trillFingerings.get(note.id) ?? `${pitch.fingering}${pitch.substitutionFingering === undefined ? '' : `-${pitch.substitutionFingering}`}`}</span>
               {/if}
             {/each}
             {#if note.arpeggio && note.pitches.length >= 2}
@@ -627,6 +642,16 @@
       {#if mode === 'timeline' && visibleSlurPaths.length > 0}
         <svg class="tie-links slur-links" width="100%" height="100%" aria-label="Slurs" role="img">
           {#each visibleSlurPaths as slur (slur.id)}<path d={slur.path} class:inactive={!slur.active}></path>{/each}
+        </svg>
+      {/if}
+      {#if mode === 'timeline' && visibleGlissandi.length > 0}
+        <svg class="tie-links glissando-links" width="100%" height="100%" aria-label="Glissandi" role="img">
+          {#each visibleGlissandi as entry (entry.span.id)}
+            <path d={entry.path} class:inactive={!entry.active} class:unavailable={!!entry.playbackReason}
+              stroke-dasharray={entry.span.lineType === 'dashed' ? '4 3' : entry.span.lineType === 'dotted' ? '1 2' : undefined}>
+              <title>{entry.playbackReason || 'Glissando'}</title>
+            </path>
+          {/each}
         </svg>
       {/if}
     </div>
@@ -735,7 +760,7 @@
   </aside>
   {/if}
   {#if !expressionModalOpen}
-    <ScorePreview {playbackActive} {getPlayingNoteIds} {outline} {trills} {tempoChanges} {clefChanges} {slurs} {dynamicChanges} {hairpins}
+    <ScorePreview {playbackActive} {getPlayingNoteIds} {outline} {trills} {tempoChanges} {clefChanges} {slurs} {dynamicChanges} {hairpins} {glissandi}
       selectedNoteIds={mode !== 'timeline' || playbackPosition !== null || pedalMode || ottavaMode || hairpinMode ? [] : selectedNotes.map(entry => entry.note.id)} activeIndex={previewActiveIndex} />
   {/if}
 </section>
@@ -743,6 +768,9 @@
 <style>
   .slur-links path { stroke: #426078; stroke-width: 2; fill: none; }
   .slur-links path.inactive { opacity: 0.4; }
+  .glissando-links path { stroke: #426078; stroke-width: 2; fill: none; pointer-events: stroke; }
+  .glissando-links path.inactive { opacity: 0.4; }
+  .glissando-links path.unavailable { stroke: #9c531e; }
   .dynamic-mark { position: absolute; z-index: 8; color: #243b45; font: bold italic 18px Georgia, serif; line-height: 20px; pointer-events: none; }
   .tempo-mark { position: absolute; z-index: 8; white-space: nowrap; font-size: 12px; color: #304b55; background: #edf3f3d9; border-radius: 2px; padding: 2px 4px; pointer-events: none; }
   .trill-mark { position:absolute; z-index:7; height:18px; display:flex; align-items:center; color:#243b45; pointer-events:none; font:bold italic 16px Georgia,serif; }
@@ -1242,6 +1270,11 @@
 
   .grace-fingering-badge {
     transform: translateX(-50%);
+  }
+
+  .glissando-badge {
+    background: #123448;
+    color: #8cdeff;
   }
 
   .note-focus-column {

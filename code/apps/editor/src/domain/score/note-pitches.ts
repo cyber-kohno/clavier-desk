@@ -99,6 +99,7 @@ namespace NotePitches {
     substitutionFingering?: PianoFingering): ScoreProject {
     if(!target.graceNoteId && ScoreTrill.forNote(project,target.noteId)) return project;
     if (!target.graceNoteId) {
+      if (fingering !== null && !ScoreFingerings.isAssignable(project, target.noteId)) return project;
       const owner = TieFingerings.resolve(project, target.noteId, target.staff);
       const selected = ScoreTimeline.note(project.outline, target.noteId, target.staff)?.note.pitches[target.pitchIndex];
       if (!owner || !selected) return project;

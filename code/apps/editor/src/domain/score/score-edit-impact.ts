@@ -19,7 +19,7 @@ namespace ScoreEditImpact {
         }
       }
     }
-    for (const span of [...(project.slurs ?? []), ...(project.trills ?? [])]) ids.add(span.id);
+    for (const span of [...(project.slurs ?? []), ...(project.trills ?? []), ...(project.glissandi ?? [])]) ids.add(span.id);
     return { ids, notes };
   }
 

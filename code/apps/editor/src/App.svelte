@@ -369,6 +369,8 @@
     if (result.action === 'expression') openExpressionModal();
     if (result.action === 'add-slur') project = NoteEditor.connectSlur(project, ids);
     if (result.action === 'remove-slur') project = NoteEditor.disconnectSlur(project, ids);
+    if (result.action === 'add-glissando') project = NoteEditor.connectGlissando(project, ids);
+    if (result.action === 'remove-glissando') project = NoteEditor.disconnectGlissando(project, ids);
     if (result.action === 'auto-fingering') {
       playback?.stop(); notePreview?.stop();
       fingeringSession = { project, selection: { staff: timelineCursor.staff, noteIds: ids } };
@@ -1094,6 +1096,7 @@
       expressionModalOpen={noteSettings !== null || hairpinDialog !== null}
       tempoChanges={project.tempoChanges} clefChanges={project.clefChanges} dynamicChanges={project.dynamicChanges}
       slurs={project.slurs}
+      glissandi={project.glissandi}
       mode={mode}
       pitchAnchorId={velocityOffsetInput?.anchorId}
       onPitchAnchor={updateVelocityAnchor}

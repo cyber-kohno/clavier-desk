@@ -132,6 +132,15 @@ export type TrillSpan = {
   endNoteId: string;
   settings: TrillSettings;
 };
+export type GlissandoEndpoint = { noteId: string; midi: number };
+export type Glissando = {
+  id: string;
+  start: GlissandoEndpoint;
+  end: GlissandoEndpoint;
+  lineType: 'solid' | 'dashed' | 'dotted' | 'wavy';
+  text?: string;
+  keySet?: 'white' | 'black';
+};
 export type HairpinAnchor = { measureId: string; offset: Rational };
 export type Hairpin = {
   id: string;
@@ -142,6 +151,7 @@ export type Hairpin = {
   endVelocity?: number;
 };
 export type ScoreProject = {
+  glissandi?: Glissando[];
   slurs?: { id: string; startNoteId: string; endNoteId: string }[];
   clefChanges?: { noteId: string; clef: 'treble' | 'bass' }[];
   /** Global changes anchored to upper-staff voice-1 written notes. */

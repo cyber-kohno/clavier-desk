@@ -1,6 +1,8 @@
 import ScorePlaybackPlan, { keyHoldSeconds, type PlaybackPlan } from './score-playback-plan.ts';
 import ScoreTimeline from '../score/score-timeline.ts';
 import TieFingerings from '../score/tie-fingerings.ts';
+import ScoreGlissando from '../score/score-glissando.ts';
+import { glissandoMotion } from './glissando-performance.ts';
 import type { ScoreProject } from '../score/types.ts';
 import type { Note } from '../motion/motion.ts';
 import AnimationRange, { type AnimationRange as Range } from './animation-range.ts';
@@ -42,6 +44,7 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
   const measureNumbers = new Map(measures.map((measure, index) => [measure.id, index + 1]));
   const locations = new Map<string, { label: string; measure: number }>();
   const issues: AnimationIssue[] = [];
+  const glissandoNotes = ScoreGlissando.fingeringNotes(project);
   for (const staff of ['upperStaff', 'lowerStaff'] as const) {
     const count = Math.max(0, ...measures.map(measure => measure.data[staff].voices.length));
     for (let voice = 0; voice < count; voice++) for (const entry of ScoreTimeline.notes(project.outline, staff, voice)) {
@@ -50,7 +53,7 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
       locations.set(entry.note.id, { label, measure });
       for (const grace of entry.note.beforeGraceNotes ?? []) locations.set(grace.id, { label: `${label}, grace note`, measure });
       // Resolve the same owner/legacy conflicts as editing and automatic fingering.
-      if (relevant.has(entry.note.id) && !entry.note.tieFrom && entry.note.tieTo) {
+      if (relevant.has(entry.note.id) && !glissandoNotes.has(entry.note.id) && !entry.note.tieFrom && entry.note.tieTo) {
         const state = TieFingerings.resolve(project, entry.note.id, staff)!;
         for (const pitchIndex of state.conflicts)
           issues.push({ message: `${label}, MIDI ${entry.note.pitches[pitchIndex].midi}: conflicting finger changes inside a tie are not supported. Resolve the finger on the first tied note.`, noteId: entry.note.id, pitchIndex });
@@ -66,7 +69,9 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
     const source = event.performance?.[index];
     const location = locations.get(source?.noteId ?? '');
     const label = `${location?.label ?? 'Score'}, MIDI ${midiNote}`;
-    if (!source || source.fingering === undefined) {
+    const gesture = glissandoMotion(event, ANIMATION_LEAD_IN);
+    const finger = gesture?.finger ?? source?.fingering;
+    if (!source || finger === undefined) {
       issues.push({ message: `${label}: fingering is missing.`, noteId: source?.noteId, pitchIndex: source?.pitchIndex });
       return;
     }
@@ -84,8 +89,8 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
       origins.push({ noteId: source.noteId, pitchIndex: source.pitchIndex, label, firstMeasure, lastMeasure });
     };
     const note: Note = { time: event.startSeconds + ANIMATION_LEAD_IN, duration, midiNote,
-      hand: source.hand, finger: source.fingering, voice: source.voice };
-    if (source.substitutionFingering === undefined) add(note);
+      hand: source.hand, finger, voice: source.voice, ...gesture };
+    if (gesture || source.substitutionFingering === undefined) add(note);
     else {
       // Prefer the midpoint unless the hand has another attack before then.
       // Use the space before that attack when there is time to depress,
@@ -106,7 +111,7 @@ export function inspectAnimation(project: ScoreProject, range: Range | null = nu
         const overlap = Math.min(0.04, originalDuration * 0.1, (end - handoff) / 2);
         add({ ...note, duration: handoff - note.time + overlap });
         add({ ...note, time: handoff, duration: end - handoff,
-          finger: source.substitutionFingering, action: 'substitute' });
+          finger: source.substitutionFingering, action: 'substitute', glissandoArrival: undefined });
       }
     }
   });

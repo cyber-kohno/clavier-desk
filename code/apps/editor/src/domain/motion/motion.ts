@@ -1,4 +1,4 @@
-import { fingerPoints, curlForDrop, fingers, restPose } from './fingers.ts';
+import { fingerPoints, curlForDrop, fingers, pointsForPose, restPose } from './fingers.ts';
 import type { Vec3, Hand, Finger, JointPose } from './fingers.ts';
 import { planChord, chordPoses } from './chords.ts';
 import type { ChordPlan } from './chords.ts';
@@ -15,7 +15,9 @@ import type { HeldPlan } from './held-motion.ts';
 
 export { keys, WIDTH, KEYBOARD_WIDTH } from './keyboard.ts';
 export type { Vec3, Hand } from './fingers.ts';
-export type Note = { time:number; duration:number; midiNote:number; hand:Hand; finger:Finger; action?:'substitute';voice?:string };
+type GlissandoContact = { id:string; nextMidi:number; attackTime:number; nextTime:number; sweepEndTime:number };
+export type Note = { time:number; duration:number; midiNote:number; hand:Hand; finger:Finger; action?:'substitute';voice?:string;
+  glissando?:GlissandoContact; glissandoArrival?:string };
 export type MotionProgress = {
   phase:'notes'|'chords'|'held'|'sharedKeys'|'runs'|'wrist';
   completed:number;
@@ -27,10 +29,11 @@ export const TRAVEL=0.01, HOVER=0.018;
 export const APPROACH=0.12, RELEASE=0.12, MOVE=0.3;
 export { MIN_REATTACK_GAP_SECONDS as MIN_GAP } from '../theory/performance-timing.ts';
 import { MIN_REATTACK_GAP_SECONDS as MIN_GAP } from '../theory/performance-timing.ts';
-type Group={notes:Note[]; approach:number; release:number; plan?:ChordPlan;held?:HeldPlan;independent?:boolean;windows?:{note:Note;start:number;end:number}[]};
+type Group={notes:Note[]; approach:number; release:number; plan?:ChordPlan;held?:HeldPlan;independent?:boolean;
+  glissando?:string;windows?:{note:Note;start:number;end:number}[]};
 type ContactLimits = { approach?:number; release?:number };
 export type PreparedMotion={notes:Note[];groups:Record<Hand,Group[]>;plan:PerformancePlan};
-const groupEnd=(group:Group)=>Math.max(...group.notes.map(n=>n.time+n.duration));
+const groupEnd=(group:Group)=>Math.max(...group.notes.map(n=>n.glissando?.sweepEndTime??n.time+n.duration));
 const groupCache=new WeakMap<Note[],Record<Hand,Group[]>>();
 const performanceCache=new WeakMap<Note[],PerformancePlan>();
 function groupsFor(notes:Note[],report?:ReportMotionProgress,limits?:Map<Note,ContactLimits>) {
@@ -38,7 +41,10 @@ function groupsFor(notes:Note[],report?:ReportMotionProgress,limits?:Map<Note,Co
   const result:Record<Hand,Group[]>={left:[],right:[]};
   for(const note of notes) {
     const list=result[note.hand],last=list.at(-1);
-    if(last?.notes[0].time===note.time)last.notes.push(note);else list.push({notes:[note],approach:APPROACH,release:RELEASE});
+    const glissando=note.glissando?.id;
+    if(last && (glissando ? last.glissando===glissando : !last.glissando && last.notes[0].time===note.time))
+      last.notes.push(note);
+    else list.push({notes:[note],approach:APPROACH,release:RELEASE,glissando});
   }
   for(const hand of ['left','right'] as const) {
     const merged:Group[]=[];
@@ -52,6 +58,11 @@ function groupsFor(notes:Note[],report?:ReportMotionProgress,limits?:Map<Note,Co
     for(const group of result[hand]) {
       const previous=merged.at(-1);
       const gap=previous?group.notes[0].time-groupEnd(previous):Infinity;
+      if(group.glissando || previous?.glissando) {
+        if(gap < -1e-8) throw new Error(`${hand==='left'?'Left hand':'Right hand'} ${group.notes[0].time.toFixed(3)} s: Another note overlaps the glissando.`);
+        merged.push(group);
+        continue;
+      }
       // Sequential single strikes have their own release and approach windows.
       // A short silence alone does not need a joint path for held contacts.
       const separateStrikes=gap>1e-9&&previous?.notes.length===1&&!previous.independent&&
@@ -64,24 +75,27 @@ function groupsFor(notes:Note[],report?:ReportMotionProgress,limits?:Map<Note,Co
       } else merged.push({...group,independent:group.notes.some(n=>n.duration!==group.notes[0].duration||n.action==='substitute')});
     }
     result[hand]=merged;
-    const fingerEnds=new Map<number,number>(), keyEnds=new Map<number,number>();
+    const lastByFinger=new Map<number,Note>(), keyEnds=new Map<number,number>();
     for(const group of merged) {
       // Within a group, heldEvents checks reuse and validates substitutions.
       // Across groups there is no handoff and the same release gap still applies.
       for(const note of group.notes) {
-        const end=Math.max(fingerEnds.get(note.finger)??-Infinity,keyEnds.get(note.midiNote)??-Infinity);
+        const previous=lastByFinger.get(note.finger);
+        const connected = previous?.glissando && previous.glissando.id === note.glissandoArrival;
+        const end=Math.max(!connected && previous ? previous.time+previous.duration : -Infinity,keyEnds.get(note.midiNote)??-Infinity);
         if(note.time-end<MIN_GAP-1e-9)
           throw new Error(`${hand==='left'?'Left hand':'Right hand'} ${note.time.toFixed(3)} s: Finger ${note.finger}, MIDI${note.midiNote}: insufficient release time. Reusing a finger or key requires at least ${MIN_GAP*1000} ms of release time.`);
       }
       for(const note of group.notes) {
         const end=note.time+note.duration;
-        fingerEnds.set(note.finger,Math.max(fingerEnds.get(note.finger)??-Infinity,end));
+        const previous=lastByFinger.get(note.finger);
+        if(!previous || end > previous.time+previous.duration)lastByFinger.set(note.finger,note);
         keyEnds.set(note.midiNote,Math.max(keyEnds.get(note.midiNote)??-Infinity,end));
       }
     }
   }
   const groups=[...result.left,...result.right];
-  const chords=groups.filter(group=>group.notes.length>1&&!group.independent);
+  const chords=groups.filter(group=>group.notes.length>1&&!group.independent&&!group.glissando);
   for(const [completed,group] of chords.entries()) {
     report?.({phase:'chords',completed,total:chords.length,notes:group.notes});
     const hand=group.notes[0].hand;
@@ -114,6 +128,9 @@ function groupsFor(notes:Note[],report?:ReportMotionProgress,limits?:Map<Note,Co
       group.approach=Math.min(group.approach,limits.get(note)?.approach??Infinity);
       group.release=Math.min(group.release,limits.get(note)?.release??Infinity);
     }
+  }
+  for(const group of groups)if(group.glissando) {
+    group.windows=group.notes.map(note=>({note,start:note.time,end:note.time+note.duration}));
   }
   const held=groups.filter(group=>group.independent);
   for(const [completed,group] of held.entries()) {
@@ -176,6 +193,11 @@ export function validate(input:unknown,report?:ReportMotionProgress):Note[] {
     if(!Number.isFinite(n.time)||n.time<0.12||!Number.isFinite(n.duration)||n.duration<=0||!Number.isFinite(n.time+n.duration)||
       !['left','right'].includes(n.hand)||!Number.isInteger(n.finger)||n.finger<1||n.finger>5||!keys.some(k=>k.midiNote===n.midiNote))
       throw new Error('Invalid motion event: expected time >= 0.12, positive duration, left/right hand, finger 1-5 and MIDI 21-108.');
+    const sweep=n.glissando;
+    if(sweep && (!sweep.id || !Number.isFinite(sweep.attackTime) || !Number.isFinite(sweep.nextTime) ||
+      sweep.attackTime>n.time+1e-8 || !(n.time<sweep.sweepEndTime && sweep.sweepEndTime<=sweep.nextTime) ||
+      !keys.some(key=>key.midiNote===sweep.nextMidi && !key.black) || keys.find(key=>key.midiNote===n.midiNote)!.black))
+      throw new Error('Invalid white-key glissando contact.');
     return {...n};
   }).sort((a,b)=>a.time-b.time);
   const groups=groupsFor(notes,report,reserveSharedKeyHandoffs(notes));
@@ -197,8 +219,16 @@ function anchor(n:Note):Vec3 {
   return target.map((v,i)=>v-tip[i]+(i===1?HOVER:0)) as Vec3;
 }
 const defaultJoints=()=>Object.fromEntries(fingers.map(f=>[f,restPose(f)])) as Record<Finger,JointPose>;
+const sweepJointPoses=new Map(fingers.map(finger=>{
+  const curl=curlForDrop('right',finger,HOVER);
+  return [finger,{...restPose(finger),proximal:-0.15+curl,distal:-0.1+curl*1.6}];
+}));
 function hoverJoints(group?:Group,atEnd=false) {
   const joints=defaultJoints();
+  if(group?.glissando) {
+    const finger=group.notes[0].finger;
+    joints[finger]={...sweepJointPoses.get(finger)!};
+  }
   if(group?.held?.path) {
     const path=group.held.path;
     return heldFrame(group.held,group.notes[0].hand,atEnd?path.times.at(-1)!:path.times[0]).joints;
@@ -212,9 +242,39 @@ function hoverJoints(group?:Group,atEnd=false) {
 }
 const groupAnchor=(group:Group,atEnd=false)=>group.held?.path?
   [...(atEnd?group.held.path.positions.at(-1)!:group.held.path.positions[0])] as Vec3:
+  group.glissando ? sweepAnchor(atEnd?group.notes.at(-1)!:group.notes[0],atEnd?groupEnd(group):group.notes[0].time,HOVER) :
   group.plan ? [...group.plan.position] as Vec3 : anchor(group.notes[0]);
-export type HandFrame={position:Vec3; rotation:Vec3; lift:number; phase:'waiting'|'travel'|'approach'|'press'|'release'; active:Note|undefined; activeNotes:Note[]; targets:Vec3[]; depth:number; depths?:number[]; curl:number; joints:Record<Finger,JointPose>; technique?:'scale'|'thumb-under'|'finger-over'|'held'|'held-travel'|'legato-crossing'|'substitution'; strikeStyle?:StrikeStyle; wristMotion?:boolean;forearmGuide?:Vec3};
+export type HandFrame={position:Vec3; rotation:Vec3; lift:number; phase:'waiting'|'travel'|'approach'|'press'|'release'; active:Note|undefined; activeNotes:Note[]; targets:Vec3[]; depth:number; depths?:number[]; curl:number; joints:Record<Finger,JointPose>; technique?:'scale'|'thumb-under'|'finger-over'|'held'|'held-travel'|'legato-crossing'|'substitution'|'glissando'; strikeStyle?:StrikeStyle; wristMotion?:boolean;forearmGuide?:Vec3};
 export const keyDepth=(frame:HandFrame,midiNote:number)=>Math.max(0,...frame.activeNotes.map((n,i)=>n.midiNote===midiNote?(frame.depths?.[i]??frame.depth):0));
+function sweepAnchor(note:Note,time:number,height:number):Vec3 {
+  const step=note.glissando!;
+  const from=keys[note.midiNote-21].target,to=keys[step.nextMidi-21].target;
+  const contact=pointsForPose(note.hand,note.finger,sweepJointPoses.get(note.finger)!)[2];
+  const progress=Math.max(0,Math.min(1,(time-step.attackTime)/(step.nextTime-step.attackTime)));
+  return [from[0]+(to[0]-from[0])*progress-contact[0],from[1]-contact[1]+height,from[2]-contact[2]];
+}
+function singleContact(note:Note,position:Vec3,drop:number,joints:HandFrame['joints']) {
+  const curl=curlForDrop(note.hand,note.finger,Math.max(0,drop));
+  const rest=fingerPoints(note.hand,note.finger,0)[2],tip=fingerPoints(note.hand,note.finger,curl)[2];
+  // Keep the fingertip at its target in the keyboard plane as it curls.
+  position[0]+=rest[0]-tip[0];position[2]+=rest[2]-tip[2];
+  joints[note.finger]={...restPose(note.finger),proximal:-0.15+curl,distal:-0.1+curl*1.6};
+  return curl;
+}
+function sweepFrame(group:Group,time:number,end:number):HandFrame {
+  const first=group.notes[0];
+  const note=group.notes.find(entry=>time<entry.glissando!.sweepEndTime)??group.notes.at(-1)!;
+  const step=note.glissando!, contactEnd=note.time+note.duration;
+  const phase=time<first.time?'approach':time<end?'press':'release';
+  const ramp=Math.min(0.02,(step.nextTime-step.attackTime)*0.25);
+  const depth=phase==='press'?Math.max(0,Math.min(1,(time-step.attackTime)/ramp,(contactEnd-time)/ramp)):0;
+  const height=phase==='approach'?HOVER*(first.time-time)/group.approach:
+    phase==='release'?HOVER*(time-end)/group.release:-depth*TRAVEL;
+  const position=sweepAnchor(note,Math.max(first.time,Math.min(time,end)),height);
+  return {position,rotation:[0,0,0],lift:0,phase,active:phase==='release'?undefined:note,
+    activeNotes:phase==='release'?[]:[note],targets:phase==='release'?[]:[keys[note.midiNote-21].target],
+    depth,curl:0,joints:hoverJoints(group),technique:'glissando'};
+}
 function evaluateHand(notes:Note[],time:number,hand:Hand,style:TravelStyle):HandFrame {
   const part=groupsFor(notes)[hand];
   const home:Note={time:0,duration:1,midiNote:hand==='left'?48:60,hand,finger:3};
@@ -244,6 +304,11 @@ function evaluateHand(notes:Note[],time:number,hand:Hand,style:TravelStyle):Hand
       position=groupAnchor(group,true);joints=hoverJoints(group,true);
       continue;
     }
+    if(group.glissando) {
+      if(time<end+release)return sweepFrame(group,time,end);
+      position=groupAnchor(group,true);
+      continue;
+    }
     let drop=0,depth=0;
     if(time<n.time){phase='approach';drop=HOVER*(time-n.time+approach)/approach;}
     else if(time<end) {phase='press';depth=Math.min(1,(time-n.time)/0.06);drop=HOVER+depth*TRAVEL;}
@@ -259,11 +324,7 @@ function evaluateHand(notes:Note[],time:number,hand:Hand,style:TravelStyle):Hand
       group.notes.forEach((note,index)=>{joints[note.finger]=poses[index];});
       return {position,rotation,lift,phase,active:n,activeNotes:group.notes,targets:group.plan.contacts.map(c=>c.target),depth,curl:0,joints};
     }
-    const curl=curlForDrop(hand,n.finger,Math.max(0,drop));
-    const rest=fingerPoints(hand,n.finger,0)[2], tip=fingerPoints(hand,n.finger,curl)[2];
-    // Compensate the arc in the keyboard plane; palm height stays fixed during pressing.
-    position[0]+=rest[0]-tip[0];position[2]+=rest[2]-tip[2];
-    joints[n.finger]={...restPose(n.finger),proximal:-0.15+curl,distal:-0.1+curl*1.6};
+    const curl=singleContact(n,position,drop,joints);
     return {position,rotation,lift,phase,active:n,activeNotes:[n],targets:[keys.find(k=>k.midiNote===n.midiNote)!.target],depth,curl,joints};
   }
   return {position,rotation,lift,phase:phase==='travel'?'travel':'waiting',active:undefined,activeNotes:[],targets:[],depth:0,curl:0,joints};

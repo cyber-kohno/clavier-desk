@@ -55,6 +55,9 @@ namespace AnimationRange {
         endSeconds: Math.min(end, part.endSeconds ?? end) - start,
       })).filter(part => part.endSeconds > part.startSeconds);
       events.push({ ...event, startSeconds: onset - start, durationSeconds: Math.max(...durations), pitches,
+        ...(event.glissando ? { glissando: { ...event.glissando,
+          attackSeconds: event.glissando.attackSeconds - start, nextSeconds: event.glissando.nextSeconds - start,
+          sweepEndSeconds: Math.min(end, event.glissando.sweepEndSeconds) - start } } : {}),
         ...(event.rollAnchorSeconds !== undefined ? { rollAnchorSeconds: event.rollAnchorSeconds - start } : {}),
         pitchDurationsSeconds: durations, performance: event.performance ? indices.map(index => event.performance![index]) : undefined,
         ...(event.pitchVelocities ? { pitchVelocities: indices.map(index => event.pitchVelocities![index]) } : {}),

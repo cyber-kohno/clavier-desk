@@ -4,13 +4,19 @@ import Voice from '../../domain/score/score-voice.ts';
 import RestSpelling from '../../domain/score/rest-spelling.ts';
 import WrittenValue from '../../domain/theory/written-value.ts';
 import PitchSpelling from '../../domain/theory/pitch-spelling.ts';
-import type { KeySignature, NoteValue, PianoNote, PianoPitch, PianoRest, PianoStaff, PianoVoiceElement, ScoreProject } from '../../domain/score/types.ts';
+import ScoreGlissando from '../../domain/score/score-glissando.ts';
+import type { Glissando, GlissandoEndpoint, KeySignature, NoteValue, PianoNote, PianoPitch, PianoRest, PianoStaff, PianoVoiceElement, ScoreProject } from '../../domain/score/types.ts';
 
 export type ImportWarning = { code: string; message: string; measure?: number; count: number };
 export type MusicXmlImportResult = { project: ScoreProject; warnings: ImportWarning[] };
 type TupletMark = { type: string; number: string };
+type GlissandoMark = {
+  kind: string | null; number: number; measure: number; lineType?: Glissando['lineType']; text?: string;
+  endpoint?: GlissandoEndpoint; position?: number;
+};
 type Event = { start: number; duration: number; value?: NoteValue; pitches: PianoPitch[];
-  ratio?: { actual: number; normal: number; normalType: string }; tuplets: TupletMark[]; tieStart: boolean; tieStop: boolean };
+  ratio?: { actual: number; normal: number; normalType: string }; tuplets: TupletMark[]; tieStart: boolean; tieStop: boolean;
+  glissandi: { mark: GlissandoMark; midi: number }[] };
 const EPSILON = 1e-8;
 const near = (a: number, b: number) => Math.abs(a - b) < EPSILON;
 const children = (node: Element, name?: string): Element[] => Array.from(node.childNodes)
@@ -89,6 +95,7 @@ namespace ImportMusicXml {
     let divisions = 1, meter = { cnt: 4, unit: 4 }, fifths: KeySignature['fifths'] = 0, transpose = 0;
     const voiceIds = [new Map<string, string>(), new Map<string, string>()];
     const pendingTies = new Map<string, { note: PianoNote; end: number }>();
+    const glissandoMarks: GlissandoMark[] = [];
     let measureStart = 0;
     const written = (node: Element): NoteValue | undefined => {
       const type = text(node, 'type') as NoteValue['type'];
@@ -115,6 +122,19 @@ namespace ImportMusicXml {
 
     measures.forEach((measure, index) => {
       const location = index + 1;
+      const marksByNote = new Map<Element, GlissandoMark[]>();
+      for (const note of children(measure, 'note')) {
+        const marks = children(note, 'notations').flatMap(notation => children(notation, 'glissando').map(element => {
+          const line = element.getAttribute('line-type');
+          const mark: GlissandoMark = {
+            kind: element.getAttribute('type'), number: Number(element.getAttribute('number') || '1'), measure: location,
+            lineType: line === 'solid' || line === 'dashed' || line === 'dotted' || line === 'wavy' ? line : undefined,
+            text: element.textContent?.trim() || undefined,
+          };
+          return mark;
+        }));
+        if (marks.length) { marksByNote.set(note, marks); glissandoMarks.push(...marks); }
+      }
       let cursor = 0, maximum = 0, timingInvalid = false;
       const streams = [new Map<string, Event[]>(), new Map<string, Event[]>()];
       let previous: { event: Event; staff: number; voice: string } | undefined;
@@ -203,6 +223,7 @@ namespace ImportMusicXml {
             const chord = !!child(node, 'chord');
             const start = chord && previous ? previous.event.start : cursor;
             const pitches = pitch(node, location);
+            const glissandi = pitches.length ? (marksByNote.get(node) ?? []).map(mark => ({ mark, midi: pitches[0].midi })) : [];
             const ties = children(node, 'tie');
             const tieStart = ties.some(tie => tie.getAttribute('type') === 'start');
             const tieStop = ties.some(tie => tie.getAttribute('type') === 'stop');
@@ -210,7 +231,8 @@ namespace ImportMusicXml {
             const tuplets = notation ? children(notation, 'tuplet').map(node => ({
               type: node.getAttribute('type') ?? '', number: node.getAttribute('number') || '1',
             })) : [];
-            if (notation && children(notation).some(item => !['tied', 'tuplet'].includes(item.localName)))
+            if (children(node, 'notations').some(notations => children(notations).some(item =>
+              !['tied', 'tuplet', 'glissando'].includes(item.localName))))
               warn('notation', 'Unsupported articulations, ornaments, slurs or technical markings were omitted.', location);
             if (child(node, 'lyric')) warn('lyrics', 'Lyrics were omitted.', location);
             if (staff === 1 || staff === 2) {
@@ -222,13 +244,14 @@ namespace ImportMusicXml {
                   if (event.tieStart !== tieStart || event.tieStop !== tieStop) warn('tie', 'Partial-chord ties cannot be represented and were omitted.', location);
                   event.tieStart &&= tieStart; event.tieStop &&= tieStop;
                   event.pitches.push(...pitches);
+                  event.glissandi.push(...glissandi);
                   for (const mark of tuplets) {
                     if (!event.tuplets.some(existing => existing.type === mark.type && existing.number === mark.number))
                       event.tuplets.push(mark);
                   }
                 } else warn('chord', 'An incompatible or cross-staff chord tone was omitted.', location);
               } else {
-                const event: Event = { start, duration, value, pitches, ratio: validRatio ? ratio : undefined, tuplets, tieStart, tieStop };
+                const event: Event = { start, duration, value, pitches, ratio: validRatio ? ratio : undefined, tuplets, tieStart, tieStop, glissandi };
                 // Duration is authoritative; unsupported written values are handled by the voice fallback.
                 if (modification && !validRatio) event.value = undefined;
                 const stream = streams[staff - 1].get(voice) ?? [];
@@ -339,6 +362,10 @@ namespace ImportMusicXml {
       const upperStaff = staff(0), lowerStaff = staff(1);
       const seen = new Set<string>();
       for (const { scope, note, event } of tiesToApply) {
+        for (const { mark, midi } of event.glissandi) {
+          mark.endpoint = { noteId: note.id, midi };
+          mark.position = measureStart + event.start;
+        }
         seen.add(scope);
         const pending = pendingTies.get(scope);
         // Rest gaps, dropped notes and partial-chord ties must never join unrelated attacks.
@@ -355,6 +382,39 @@ namespace ImportMusicXml {
       measureStart += measureDuration;
     });
     if (pendingTies.size) warn('tie', 'Ties without a continuation at the end of the score were omitted.');
+    const pendingGlissandi = new Map<number, GlissandoMark>();
+    const orphan = (mark: GlissandoMark) =>
+      warn('glissando-endpoint', 'A glissando without two identifiable note endpoints was omitted.', mark.measure);
+    for (const mark of glissandoMarks) {
+      if ((mark.kind !== 'start' && mark.kind !== 'stop') || !Number.isInteger(mark.number) || mark.number < 1 || mark.number > 16) {
+        orphan(mark);
+        continue;
+      }
+      const previous = pendingGlissandi.get(mark.number);
+      if (!previous) { pendingGlissandi.set(mark.number, mark); continue; }
+      if (previous.kind === mark.kind) {
+        orphan(previous);
+        pendingGlissandi.set(mark.number, mark);
+        continue;
+      }
+      // The same number can be reused after a pair in document order. The
+      // first marker can be a stop when the document emits voices separately.
+      pendingGlissandi.delete(mark.number);
+      const [start, end] = mark.kind === 'start' ? [mark, previous] : [previous, mark];
+      if (!start.endpoint || !end.endpoint || start.position === undefined || end.position === undefined ||
+        end.position - start.position < EPSILON) {
+        orphan(!end.endpoint ? end : start);
+        continue;
+      }
+      (project.glissandi ??= []).push({ id: id(), start: start.endpoint, end: end.endpoint, lineType: start.lineType ?? end.lineType ?? 'wavy',
+        ...(start.text || end.text ? { text: start.text || end.text } : {}) });
+    }
+    for (const mark of pendingGlissandi.values()) orphan(mark);
+    const measureNumbers = new Map(project.outline.filter(block => block.type === 'measure')
+      .map((measure, index) => [measure.id, index + 1]));
+    for (const { first, playbackReason } of ScoreGlissando.ranges(project)) {
+      if (playbackReason) warn('glissando-playback', `Glissando notation was retained. ${playbackReason}`, measureNumbers.get(first.measure.id));
+    }
     if (!Validator.isValid(project)) throw new Error('The imported score could not be represented by the editor.');
     return { project, warnings };
   }

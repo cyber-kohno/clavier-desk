@@ -7,6 +7,7 @@ import Integrity from '../../domain/score/score-integrity.ts';
 import Reader from './mcp-score-reader.ts';
 import ScoreTimeline from '../../domain/score/score-timeline.ts';
 import ScoreTrill from '../../domain/score/score-trill.ts';
+import ScoreFingerings from '../../domain/score/score-fingerings.ts';
 import type { PianoFingering, PianoStaffName, ScoreProject } from '../../domain/score/types.ts';
 import type { TimelineCursor } from '../../state/timeline-cursor.ts';
 import type { McpBridgeRequest, McpBridgeResponse, McpCheckoutState } from './mcp-session-controller.ts';
@@ -89,6 +90,8 @@ namespace McpEditorController {
       const cursor: TimelineCursor = { ...timelineCursor, staff: staff as PianoStaffName, voiceIndex: located.voiceIndex,
         focusedNoteId: noteId, focusedPitchIndex: pitchIndex };
       if (ScoreTrill.forNote(project,noteId)) return { error: { code: 'INVALID_ARGUMENT', message: 'Use set_trill settings.fingerings for trill notes. Substitutions are not allowed.' } };
+      if (!ScoreFingerings.isAssignable(project, noteId))
+        return { error: { code: 'INVALID_ARGUMENT', message: 'Glissando notes use a fixed hand shape and do not accept fingering.' } };
       const next = NoteEditor.setPitchFingering(project, cursor, fingering as PianoFingering,
         substitution as PianoFingering | undefined);
       checkout!.project = next;

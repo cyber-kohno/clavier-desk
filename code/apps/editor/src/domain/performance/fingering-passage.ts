@@ -1,11 +1,13 @@
 import FingeringSelection, { type FingeringSelection as Selection, type FingeringIssue } from '../score/fingering-selection.ts';
 import { keyHoldSeconds } from './score-playback-plan.ts';
+import { glissandoMotion } from './glissando-performance.ts';
+import type { Note } from '../motion/motion.ts';
 import type { PianoFingering, ScoreProject } from '../score/types.ts';
 
 export type FingeringTarget = { noteId: string; graceNoteId?: string; trillAttackIndex?: number; pitchIndex: number; fixed?: PianoFingering };
 export type FingeringAttack = { onsetTime?: number; midi: number; duration: number; fixed?: PianoFingering; targets: FingeringTarget[] };
 export type FingeringStep = { time: number; attacks: FingeringAttack[]; label: string };
-export type FingeringPassage = { hand: 'left' | 'right'; steps: FingeringStep[]; missing: number };
+export type FingeringPassage = { hand: 'left' | 'right'; steps: FingeringStep[]; missing: number; gestures?: Note[] };
 
 namespace FingeringPassage {
   /** Use the shared performance clock for the complete expanded hand passage. */
@@ -28,9 +30,21 @@ namespace FingeringPassage {
       });
       targets.set(id, pitches);
     }
-    const events = inspection.events.filter(event => event.performance?.some(identity =>
+    const events = inspection.events.filter(event => !event.glissando && !event.glissandoArrival && event.performance?.some(identity =>
       performanceById.has(FingeringSelection.targetKey(identity.noteId, undefined, identity.trillAttackIndex))));
-    const offset = events[0]?.startSeconds ?? 0;
+    const glissandoIds = new Set(inspection.events.flatMap(event => {
+      if (!event.performance?.some(source => byId.has(source.noteId))) return [];
+      return [event.glissando?.id, event.glissandoArrival?.id].filter(id => id !== undefined);
+    }));
+    const gestures = inspection.events.filter(event =>
+      glissandoIds.has(event.glissando?.id ?? '') || glissandoIds.has(event.glissandoArrival?.id ?? ''));
+    const offset = Math.min(events[0]?.startSeconds ?? Infinity, gestures[0]?.startSeconds ?? Infinity);
+    const motion = gestures.flatMap(event => {
+      const duration = keyHoldSeconds(event, 0);
+      if (duration <= 0) return [];
+      return [{ ...glissandoMotion(event, 0.6 - offset)!, time: event.startSeconds - offset + 0.6, duration,
+        midiNote: event.pitches[0], hand: event.performance![0].hand, voice: event.performance![0].voice }];
+    });
     const steps: FingeringStep[] = [];
     for (const event of events) {
       const identity = event.performance?.[0];
@@ -59,7 +73,8 @@ namespace FingeringPassage {
       timeline.push({ time, attacks: active, label: steps.find(step => Math.abs(step.time-time)<1e-8)!.label });
     }
     if (!steps.length) return { issues: [{ message: 'The selection contains no supported attacks.' }] };
-    return { passage: { hand: selection.staff === 'upperStaff' ? 'right' : 'left', steps: timeline, missing: inspection.missing }, issues: [] };
+    return { passage: { hand: selection.staff === 'upperStaff' ? 'right' : 'left', steps: timeline, missing: inspection.missing,
+      ...(motion.length ? { gestures: motion } : {}) }, issues: [] };
   }
 }
 export default FingeringPassage;

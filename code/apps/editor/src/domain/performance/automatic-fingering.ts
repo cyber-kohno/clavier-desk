@@ -162,7 +162,7 @@ namespace AutomaticFingering {
     let lastError = '';
     for (const [attempt, path] of attempts.entries()) {
       progress({ phase: 'validate', completed: attempt, total: attempts.length });
-      const sequence = unwind(path), notes: Note[] = [];
+      const sequence = unwind(path), notes: Note[] = [...(passage.gestures ?? [])];
       const assignments: FingeringAssignment[] = [], warnings: FingeringIssue[] = [];
       for (const [index, node] of sequence.entries()) {
         const step = passage.steps[index];

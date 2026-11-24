@@ -69,13 +69,21 @@ test('domain refuses sibling collisions atomically and allows reuse of a sibling
   assert.deepEqual(Timeline.note(cleared.outline,'chord').note.pitches[0],{midi:67});
 });
 
-function floatingEditor({ tied = false, graceFocus = false, unassigned = false } = {}) {
-  const initial = Factory.create(), data = Measure.create({ unit: 4, cnt: 4 });
+function floatingEditor({ tied = false, graceFocus = false, unassigned = false, glissando = false } = {}) {
+  let initial = Factory.create();
+  const data = Measure.create({ unit: 4, cnt: 4 });
   data.upperStaff.voices[0].elements = [{ id: 'head', kind: 'note', value: { type: 'quarter', dots: 0 },
     pitches: [{ midi: 60, ...(unassigned ? {} : { fingering: 1, substitutionFingering: 2 }) }],
     ...(tied ? { tieTo: 'tail' } : {}), ...(graceFocus ? { beforeGraceNotes: [grace('g', 59, 4)] } : {}) },
     ...(tied ? [{ id: 'tail', kind: 'note', value: { type: 'quarter', dots: 0 }, pitches: [{ midi: 60 }], tieFrom: 'head' }] : [])];
   initial.outline.push({ id: 'm', type: 'measure', data });
+  if (glissando) {
+    data.upperStaff.voices[0].elements.push(
+      { id: 'end', kind: 'note', value: { type: 'quarter', dots: 0 }, pitches: [{ midi: 67 }] },
+      { id: 'rest', kind: 'rest', value: { type: 'half', dots: 0 } },
+    );
+    initial = NoteEditor.connectGlissando(initial, ['head', 'end']);
+  }
   const source = readFileSync(new URL('../src/App.svelte', import.meta.url), 'utf8').match(/<script lang="ts">([\s\S]*?)<\/script>/)[1];
   const ast = ts.createSourceFile('App.ts', source, ts.ScriptTarget.Latest, true);
   const names = ['openFingeringTextInput', 'controlFloatingText', 'commitFingeringText'];
@@ -130,4 +138,12 @@ test('actual W input keeps invalid text uncommitted and empty confirmation on an
   const empty = floatingEditor({ unassigned: true }), untouched = empty.project;
   empty.open(); empty.key('Enter');
   assert.equal(empty.draft, null); assert.strictEqual(empty.project, untouched); assert.equal(empty.writes, 0);
+});
+
+test('actual W input does not open for a glissando endpoint', () => {
+  const ui = floatingEditor({ glissando: true });
+  assert.equal(ui.project.glissandi.length, 1);
+  assert.equal(ui.open(), false);
+  assert.equal(ui.draft, null);
+  assert.equal(ui.writes, 0);
 });

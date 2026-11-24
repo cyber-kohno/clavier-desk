@@ -1,4 +1,4 @@
-export type PreviewNoteTarget = { noteId: string; measureOffset: number; staffIndex: number; voiceNumber: number; position: number; graceIndex?: number };
+import type { PreviewNoteTarget } from '../musicxml/preview-musicxml.ts';
 type SvgNote = {
   sourceNote?: { ParentVoiceEntry?: { IsGrace?: boolean; Timestamp?: { RealValue: number }; ParentVoice?: { VoiceId: number } } };
   getNoteheadSVGs?: () => Element[]; getStemSVG?: () => Element; getFlagSVG?: () => Element

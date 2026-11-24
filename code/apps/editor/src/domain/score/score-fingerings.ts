@@ -1,5 +1,6 @@
 import type { PianoFingering, PianoNote, PianoStaffName, ScoreProject } from './types.ts';
 import TieFingerings from './tie-fingerings.ts';
+import ScoreGlissando from './score-glissando.ts';
 
 export type FingeringRules = {
   usedFingerings: ReadonlySet<PianoFingering>;
@@ -7,8 +8,12 @@ export type FingeringRules = {
 };
 
 namespace ScoreFingerings {
+  export function isAssignable(project: ScoreProject, noteId: string) {
+    return !ScoreGlissando.fingeringNotes(project).has(noteId);
+  }
+
   export function owner(project: ScoreProject, noteId: string, staff: PianoStaffName) {
-    return TieFingerings.resolve(project, noteId, staff)?.note;
+    return isAssignable(project, noteId) ? TieFingerings.resolve(project, noteId, staff)?.note : undefined;
   }
   /** Only the initial finger reserves a finger on related pitches. Exclude the edited pitch. */
   export function rules(note: PianoNote, pitchIndex: number, graceNoteId?: string): FingeringRules {

@@ -2,6 +2,7 @@ import ScoreStaff from '../../domain/score/score-staff.ts';
 import ScoreTimeline from '../../domain/score/score-timeline.ts';
 
 import ScoreSlur from "../../domain/score/score-slur.ts";
+import ScoreGlissando from '../../domain/score/score-glissando.ts';
 
 import ScoreTempo from "../../domain/score/score-tempo.ts";
 
@@ -151,6 +152,12 @@ namespace NoteEditor {
   }
   export function disconnectSlur(project: ScoreProject, noteIds: string[]) {
     return EditTransaction.commit(project, ScoreSlur.remove(project, noteIds));
+  }
+  export function connectGlissando(project: ScoreProject, noteIds: string[]) {
+    return EditTransaction.commit(project, ScoreGlissando.add(project, noteIds));
+  }
+  export function disconnectGlissando(project: ScoreProject, noteIds: string[]) {
+    return EditTransaction.commit(project, ScoreGlissando.remove(project, noteIds));
   }
   /** All modal fields commit together; no intermediate setting update reaches reconciliation. */
   export function configure(project: ScoreProject, cursor: Timeline.TimelineCursor, settings: NoteSettings): ScoreProject {

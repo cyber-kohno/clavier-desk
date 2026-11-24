@@ -1,11 +1,11 @@
 import type { Vec3 } from './fingers.ts';
+import { isBlackKey } from '../theory/piano-key.ts';
 
 export const WIDTH=0.0235;
 export const KEYBOARD_WIDTH=52*WIDTH;
-const blackPitches=[1,3,6,8,10];
 let white=0;
 export const keys=Array.from({length:88},(_,index)=>{
-  const midiNote=21+index,black=blackPitches.includes(midiNote%12);
+  const midiNote=21+index,black=isBlackKey(midiNote);
   const x=(black?white-0.5:white++)*WIDTH-25.5*WIDTH;
   return {midiNote,black,target:[x,black?0.012:0,black?-0.043:0.025] as Vec3,
     width:WIDTH*(black?0.58:0.96),height:black?0.024:0.018,length:black?0.087:0.15,z:black?-0.043:-0.01};
