@@ -1,5 +1,5 @@
 import type { PlaybackSequence, SequenceCallbacks, SequencePlaybackOptions, SequenceRun } from '../../service/playback/playback-instrument.ts';
-import { createPlaybackMidi } from './playback-midi.ts';
+import { createPlaybackMidi, DEFAULT_PLAYBACK_VELOCITY } from './playback-midi.ts';
 
 export type SequenceEngine = {
   resume(): Promise<void>;
@@ -14,18 +14,18 @@ export type SequenceEngine = {
 export function createWorkletSequencePlayer(engine: SequenceEngine) {
   let generation = 0;
   let active: { generation: number; callbacks: SequenceCallbacks } | undefined;
-  const pending: { generation: number; callbacks: SequenceCallbacks; ready: boolean }[] = [];
+  const pending: { generation: number; callbacks: SequenceCallbacks; ready: boolean; onLoaded?: () => void }[] = [];
   function stop() {
     generation++;
     active = undefined;
     engine.pause();
     engine.silence();
   }
-  function startSequence(sequence: PlaybackSequence, callbacks: SequenceCallbacks, velocity = 88,
-    options?: SequencePlaybackOptions): SequenceRun {
+  function startSequence(sequence: PlaybackSequence, callbacks: SequenceCallbacks, velocity = DEFAULT_PLAYBACK_VELOCITY,
+    options?: SequencePlaybackOptions, onLoaded?: () => void): SequenceRun {
     const binary = createPlaybackMidi(sequence, velocity, options);
     stop();
-    const run = { generation, callbacks, ready: false };
+    const run = { generation, callbacks, ready: false, onLoaded };
     void engine.resume().then(() => {
       if (run.generation !== generation) return;
       pending.push(run);
@@ -45,6 +45,7 @@ export function createWorkletSequencePlayer(engine: SequenceEngine) {
     startSequence, stop,
     loaded() {
       const run = pending.shift();
+      run?.onLoaded?.();
       if (!run || run.generation !== generation) return;
       active = run;
       run.ready = true;

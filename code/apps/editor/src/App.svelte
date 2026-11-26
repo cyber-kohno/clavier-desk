@@ -32,6 +32,7 @@
   import NotePitches, { type WrittenPitchTarget } from './domain/score/note-pitches.ts';
   import ScorePlaybackPlan from './domain/performance/score-playback-plan.ts';
   import EditorDialog from './components/EditorDialog.svelte';
+  import PlaybackPreparationDialog from './components/PlaybackPreparationDialog.svelte';
 
   import NoteSettings, { type NoteSettingsState } from './state/note-settings.ts';
 
@@ -67,14 +68,14 @@
     getEditorState: draftProject => ({ project: draftProject, editor: { mode, outlineCursor: { ...outlineCursor }, timelineCursor: { ...timelineCursor },
       selectedNoteIds: selectedTimelineNotes.map(entry => entry.note.id), pedalMode, pedalCursor: { ...pedalCursor },
       ottavaMode, ottavaCursor: { ...ottavaCursor }, playbackActive: playback?.playing ?? false,
-      hasUncommittedDialogInput: animationOpen || fingeringSession !== null || noteSettings !== null || hairpinDialog !== null ||
+      hasUncommittedDialogInput: playbackPreparation !== null || animationOpen || fingeringSession !== null || noteSettings !== null || hairpinDialog !== null ||
         sectionTextInput !== null || fingeringTextInput !== null || velocityOffsetInput !== null },
       file: { dirty: ScoreProjectFileController.fingerprint(draftProject) !== savedProjectFingerprint, name: currentProjectFile?.name ?? null } }),
     checkoutBlocker: () => {
       if (fingeringSession) return 'Close Auto Fingering before checkout.';
       if (animationOpen) return 'Close the animation view before checkout.';
       if (noteSettings || hairpinDialog || sectionTextInput || fingeringTextInput || velocityOffsetInput) return 'Finish or cancel the current input before checkout.';
-      if (EditorDialogController.isOpen() || menuPath) return 'Close the current dialog or menu before checkout.';
+      if (playbackPreparation || EditorDialogController.isOpen() || menuPath) return 'Close the current dialog or menu before checkout.';
       if (fileOperationInProgress) return 'Wait for the file operation to finish before checkout.';
       if (playback?.playing) return 'Stop playback before checkout.';
       return null;
@@ -129,7 +130,10 @@
   } = $props();
   const playback = notePreview ? ScorePlayback.create(notePreview) : null;
   let playbackPosition = $state<number | null>(null);
-  onDestroy(() => { playback?.dispose(); notePreview?.dispose(); });
+  let playbackPreparation = $state.raw<{
+    controller: AbortController; project: ScoreProject; position: number; completed: number; total: number; ready: boolean;
+  } | null>(null);
+  onDestroy(() => { playbackPreparation?.controller.abort(); playback?.dispose(); notePreview?.dispose(); });
 
   const initialProject = ScoreProjectFactory.create();
   // Editor actions replace immutable snapshots; nested data needs no deep proxy.
@@ -592,6 +596,7 @@
   }
   function applyLoadedProject(handle: ScoreProjectFileController.Handle | null, loadedProject: ScoreProject) {
     if (!uiEditAllowed()) return;
+    cancelPlaybackPreparation();
     project = loadedProject;
     currentProjectFile = handle;
     savedProjectFingerprint = handle ? ScoreProjectFileController.fingerprint(loadedProject) : '';
@@ -746,6 +751,57 @@
     EditorDialogController.alert({ title: 'Paste Unavailable', messageLines: [messages[reason]] });
   }
 
+  function startPlayback(startPosition: number) {
+    if (!playback) return;
+    savedPlaybackFocus = { outlineCursor: { ...outlineCursor }, timelineCursor: { ...timelineCursor } };
+    const started = playback.start(project, startPosition, advancePlaybackPosition, () => {
+      playbackPosition = null;
+      if (savedPlaybackFocus) {
+        outlineCursor = savedPlaybackFocus.outlineCursor;
+        timelineCursor = savedPlaybackFocus.timelineCursor;
+        savedPlaybackFocus = null;
+      }
+    });
+    if (!started) savedPlaybackFocus = null;
+  }
+
+  function cancelPlaybackPreparation() {
+    playbackPreparation?.controller.abort();
+    playbackPreparation = null;
+  }
+
+  function preparePlayback() {
+    if (!playback) return;
+    const position = mode === 'timeline' ? timelineCursor.positionSixteenths
+      : ScoreTimeline.outlinePosition(project.outline, outlineCursor.blockId);
+    const controller = new AbortController();
+    const failed = (error: unknown) => {
+      cancelPlaybackPreparation();
+      EditorDialogController.alert({ title: 'Piano Samples Could Not Be Loaded',
+        messageLines: [error instanceof Error ? error.message : String(error)] });
+    };
+    try {
+      const preparation = playback.prepareAudio(project, position, ({ completed }) => {
+        if (playbackPreparation?.controller === controller) playbackPreparation = { ...playbackPreparation, completed };
+      }, controller.signal);
+      if (!preparation) { startPlayback(position); return; }
+
+      notePreview?.stop();
+      keyHold.reset();
+      playbackPreparation = { controller, project, position, completed: 0, total: preparation.total, ready: false };
+      void preparation.done.then(() => {
+        if (playbackPreparation?.controller === controller) playbackPreparation = { ...playbackPreparation, ready: true };
+      }).catch(error => { if (playbackPreparation?.controller === controller) failed(error); });
+    } catch (error) { failed(error); }
+  }
+
+  function startPreparedPlayback() {
+    const preparation = playbackPreparation;
+    if (!preparation?.ready) return;
+    cancelPlaybackPreparation();
+    if (preparation.project === project && uiEditAllowed()) startPlayback(preparation.position);
+  }
+
   function handleKeydown(event: KeyboardEvent) {
     if (mcpCheckout && event.ctrlKey && event.shiftKey && !event.metaKey && !event.altKey && !event.isComposing && event.key.toLowerCase() === 'm') {
       event.preventDefault();
@@ -753,6 +809,7 @@
       return;
     }
     if (!uiEditAllowed()) { event.preventDefault(); keyHold.reset(); return; }
+    if (playbackPreparation) return;
     if (hairpinDialog) return;
     if (EditorDialogController.controlKey(event)) { keyHold.reset(); return; }
     if (fingeringSession) { keyHold.reset(); return; }
@@ -878,22 +935,7 @@
           } else playback.stop();
         } else playback.stop();
       }
-      else if (playback) {
-        const startPosition = mode === 'timeline' ? timelineCursor.positionSixteenths
-          : ScoreTimeline.outlinePosition(project.outline, outlineCursor.blockId);
-        savedPlaybackFocus = { outlineCursor: { ...outlineCursor }, timelineCursor: { ...timelineCursor } };
-        const started = playback.start(project, startPosition,
-          advancePlaybackPosition,
-          () => {
-            playbackPosition = null;
-            if (savedPlaybackFocus) {
-              outlineCursor = savedPlaybackFocus.outlineCursor;
-              timelineCursor = savedPlaybackFocus.timelineCursor;
-              savedPlaybackFocus = null;
-            }
-          });
-        if (!started) savedPlaybackFocus = null;
-      }
+      else preparePlayback();
       return;
     }
     if (playback?.playing) { event.preventDefault(); return; }
@@ -1142,6 +1184,10 @@
   <FingeringModal project={fingeringSession.project} selection={fingeringSession.selection} apply={applyFingering} close={closeFingering} />
 {/if}
 <EditorDialog />
+{#if playbackPreparation}
+  <PlaybackPreparationDialog completed={playbackPreparation.completed} total={playbackPreparation.total}
+    ready={playbackPreparation.ready} start={startPreparedPlayback} cancel={cancelPlaybackPreparation} />
+{/if}
 
 <style>
   .editor {

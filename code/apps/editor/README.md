@@ -129,7 +129,7 @@ codeはpnpmワークスペースです。ルートのpnpm-lock.yamlと、src-tau
 
 ## 起動と音声プレビュー
 
-Tauri起動時は360×260のスプラッシュを表示し、ピアノSoundFontとAudioWorkletシンセの準備完了後にメイン画面へ切り替えます。SoundFontはpublic/assets/soundfonts/clavierdesk-grand-piano.sf2に配置し、Viteのアセットとして同梱します。読み込みに失敗した場合もエディターを開き、音声プレビューが利用できないことを表示します。
+Tauri起動時は360×260のスプラッシュを表示し、ピアノSoundFontとAudioWorkletシンセの準備完了後にメイン画面へ切り替えます。`public/assets/soundfonts/ivy-audio-piano-in-162-close.sf3` があればローカル試聴用の音源として読み込み、ファイルがなければ同梱の `clavierdesk-grand-piano.sf2` を使います。ローカル試聴用SF3はGit管理外です。読み込みに失敗した場合もエディターを開き、音声プレビューが利用できないことを表示します。
 
 フォーカス中のノートのピッチが編集された場合、そのノートのピッチ（和音なら全音）をscorehackに合わせて0.5秒試聴します。カーソル移動だけでは鳴らしません。音声エンジンはinfra/audio、試聴の音量・長さ・停止規則はservice/playbackが担当します。ブラウザー起動でも音源を読み込めますが、WebAudioの制約により最初のキー操作時にAudioContextを再開します。
 

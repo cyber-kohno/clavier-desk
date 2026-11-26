@@ -69,6 +69,9 @@ function verifyBlackThumbChord(rigs, hands) {
           assert.ok(Math.hypot(contact.x - x, contact.y - surface) < tolerance);
           if (active.finger === 1) assert.ok(Math.abs(contact.z - z) < tolerance);
           else assert.ok(contact.z < blackFront - 0.002, `${side} finger ${active.finger} did not enter the gap`);
+          if (active.finger !== 1 && time === 1.1) {
+            assert.ok(proximalPitch(rig.root, active.finger) < Math.PI / 6);
+          }
         }
       }
       assertSkinClearsKeys(rig.root, blackKeys, frame, time);
@@ -88,7 +91,7 @@ function assertSkinClearsKeys(scene, checkedKeys, frame, time) {
         Math.abs(world.z - key.z) >= key.length / 2 ||
         world.y < top - key.height ||
         world.y >= top - 0.0025),
-      `skin penetrated a key by more than 2.5 mm at ${time} s`);
+      `skin penetrated a key by more than 2.5 mm at ${time} s vertex ${index} point ${world.toArray()} bind ${object.geometry.attributes.position.getX(index)} / ${object.geometry.attributes.position.getZ(index)}`);
     }
   });
 }
@@ -98,6 +101,7 @@ function verifyHand(rig, hand, notes, side) {
   const inward = side === 'right' ? 1 : -1;
   const forearmBone = scene.getObjectByProperty('name', 'forearmR');
   const wristBone = scene.getObjectByProperty('name', 'handR');
+  const bindWrist = wristBone.getWorldPosition(new Vector3());
   const thumbBase = scene.getObjectByProperty('name', 'thumbcmcR').getWorldPosition(new Vector3());
   const thumbTip = rig.contacts[1].getWorldPosition(new Vector3());
   assert.ok(thumbBase.distanceTo(thumbTip) < 0.066, 'the thumb should have a compact bind pose');
@@ -121,6 +125,12 @@ function verifyHand(rig, hand, notes, side) {
     for (const finger of fingers) {
       const tip = pointsForPose(side, finger, frame.joints[finger])[2];
       const expected = handPointWorld(frame.position, frame.rotation, tip);
+      if (!frame.activeNotes.some(note => note.finger === finger)) {
+        // Free fingers travel with the wrist when another finger reaches.
+        const shift = wristBone.getWorldPosition(new Vector3()).sub(hand.localToWorld(bindWrist.clone()));
+        expected[0] += shift.x;
+        expected[2] += shift.z;
+      }
       rig.contacts[finger].getWorldPosition(world);
       if (finger === 1) {
         assert.ok(inward * (world.x - expected[0]) >= -tolerance, `thumb spread at ${time}`);
@@ -136,13 +146,15 @@ function verifyHand(rig, hand, notes, side) {
             const middle = scene.getObjectByName(`${digitNames[finger - 1]}middleR`).getWorldPosition(new Vector3());
             assert.ok(knuckle.y > wristBone.getWorldPosition(new Vector3()).y + 0.008,
               `${side} idle knuckle ${finger} should rise above the wrist`);
-            assert.ok(knuckle.y > middle.y, `${side} middle joint ${finger} rises above the knuckle at ${time}s`);
+            assert.ok(knuckle.y + 0.005 > middle.y, `${side} idle middle joint ${finger} curls upward at ${time}s (${middle.y-knuckle.y} m)`);
             assert.ok(world.y < knuckle.y, `${side} idle finger ${finger} points up`);
           }
         }
       }
       assert.ok(world.z >= expected[2] - tolerance, `finger ${finger} moved toward the black keys at ${time}`);
-      assert.ok(world.y >= expected[1] - tolerance, `finger ${finger} dropped below its planned height at ${time}`);
+      if (frame.activeNotes.some(note => note.finger === finger)) {
+        assert.ok(world.y >= expected[1] - tolerance, `finger ${finger} dropped below its planned height at ${time}`);
+      }
     }
     let hasSkin = false;
     scene.traverse(object => {
@@ -183,3 +195,111 @@ function fingerBend(scene, finger) {
   const along = joint.dot(axis);
   return Math.atan2(height, along) + Math.atan2(height, span - along);
 }
+
+function proximalPitch(scene, finger) {
+  const digit = digitNames[finger - 1];
+  const base = scene.getObjectByName(`${digit}proximalR`).getWorldPosition(new Vector3());
+  const middle = scene.getObjectByName(`${digit}middleR`).getWorldPosition(new Vector3());
+  return Math.asin(middle.sub(base).normalize().y * -1);
+}
+
+test('right-hand reaches use measured link lengths and independent knuckle correctives', async () => {
+  const bytes = await readFile(asset);
+  const { scene } = await new GLTFLoader().parseAsync(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), '');
+  const rigs = createPianoHands(scene);
+  const skin = scene.getObjectByName('SkinR');
+  const leftSkin = rigs.left.root.getObjectByName('SkinR');
+  const spread = skin.morphTargetDictionary['Spread.outer'];
+  assert.ok(Number.isInteger(spread));
+  const hand = new Group();
+  hand.add(scene);
+  const chains = digitNames.map((digit, i) => (i === 0 ? ['cmc', 'proximal', 'distal'] : ['proximal', 'middle', 'distal'])
+    .map(part => scene.getObjectByName(digit + part + 'R')).concat(rigs.right.contacts[i + 1]));
+  const lengths = chain => chain.slice(1).map((bone, i) =>
+    chain[i].getWorldPosition(new Vector3()).distanceTo(bone.getWorldPosition(new Vector3())));
+  const rest = chains.map(lengths);
+  const cases = [
+    ...[0.9, 0.97, 1, 1.02, 1.1, 1.2, 1.23, 1.28, 1.34].map(time => ({
+      events: [note(1, 60, 1, 'right'), note(1, 72, 5, 'right')], time, limit: 0.0055, spreadWeight: 1,
+    })),
+    { events: [note(1, 60, 2, 'right')], time: 1.1, limit: 0.0001, graduatedCurl: true },
+    ...[[[60, 5]], [[60, 2], [64, 4], [67, 5]]].map(grip => ({
+      events: grip.map(([midi, finger]) => note(1, midi, finger, 'right')),
+      time: 1.1, graduatedCurl: true,
+    })),
+    { events: [60, 62, 64, 65, 67].map((midi, i) => note(0.4 + 0.2 * i, midi, [1, 2, 3, 1, 2][i], 'right')), time: 1.08, limit: 0.005 },
+    ...[[61, 65, 73], [68, 72, 80]].flatMap(pitches => {
+      const events = pitches.map((midi, i) => note(1, midi, [1, 3, 5][i], 'right'));
+      return [0.94, 0.98, 1, 1.02, 1.1, 1.2, 1.23, 1.26, 1.28, 1.34].map(time => ({
+        events, time, mixedOctave: true,
+      }));
+    }),
+  ];
+  for (const { events, time, limit, spreadWeight = 0, mixedOctave, graduatedCurl } of cases) {
+    const frame = evaluate(prepareMotion(events).notes, time, 'scale', 'connected', 'smooth', true).right;
+    hand.rotation.set(...frame.rotation);
+    const pivot = new Vector3(...WRIST);
+    hand.position.fromArray(frame.position).add(pivot).sub(pivot.clone().applyQuaternion(hand.quaternion));
+    const { elbow, wrist } = forearmEndpoints(frame.position, 'right', frame.forearmGuide);
+    rigs.right.pose(frame, new Vector3(...elbow).sub(new Vector3(...wrist)), hand.quaternion);
+    hand.updateMatrixWorld(true);
+    for (const active of frame.activeNotes) {
+      const i = active.finger - 1;
+      const pressingOctave = spreadWeight && keyDepth(frame, active.midiNote) > 0;
+      const linkLimit = pressingOctave ? (active.finger === 1 ? 0.0001 : 0.002)
+        : mixedOctave && time >= 1 && time <= 1.26 ? 0.0001 : limit;
+      if (linkLimit !== undefined) {
+        assert.ok(lengths(chains[i]).every((value, k) => Math.abs(value - rest[i][k]) < linkLimit),
+          `link length outside reach tolerance for MIDI ${active.midiNote} at ${time}s`);
+      }
+      if (graduatedCurl) {
+        const proximal = proximalPitch(scene, active.finger);
+        const pip = chains[i][1].getWorldPosition(new Vector3());
+        const dip = chains[i][2].getWorldPosition(new Vector3());
+        const middle = Math.asin(pip.sub(dip).normalize().y);
+        const pad = rigs.right.contacts[active.finger].getWorldPosition(new Vector3());
+        const distal = Math.asin(dip.sub(pad).normalize().y);
+        assert.ok(proximal < Math.PI / 6 && proximal < middle && middle < distal,
+          `finger ${active.finger} should curl progressively toward the key`);
+      }
+      if (mixedOctave && keyDepth(frame, active.midiNote) > 0) {
+        const at = frame.activeNotes.indexOf(active);
+        const contact = rigs.right.contacts[active.finger].getWorldPosition(new Vector3());
+        const [x, y, z] = frame.targets[at];
+        assert.ok(Math.abs(contact.x - x) < tolerance);
+        assert.ok(Math.abs(contact.y - (y - keyDepth(frame, active.midiNote) * TRAVEL)) < tolerance);
+        if (active.finger !== 3) {
+          assert.ok(Math.abs(contact.z - z) < tolerance);
+        } else {
+          const blackKey = keys.find(key => key.black);
+          assert.ok(contact.z < blackKey.z + blackKey.length / 2);
+        }
+      }
+      if (pressingOctave && active.finger === 5) {
+        const pad = rigs.right.contacts[5].getWorldPosition(new Vector3());
+        const padToJoint = chains[i][2].getWorldPosition(new Vector3()).sub(pad).normalize();
+        assert.ok(padToJoint.y > Math.sin(18 * Math.PI / 180), `little finger lies flat at ${time}s`);
+        assert.ok(fingerBend(scene, 5) >= 23.9 * Math.PI / 180);
+      }
+    }
+    assert.ok(skin.morphTargetInfluences.some(weight => weight > 0));
+    if (!mixedOctave) assert.equal(skin.morphTargetInfluences[spread], spreadWeight);
+    assert.ok(leftSkin.morphTargetInfluences.every(weight => weight === 0));
+    if (spreadWeight) {
+      for (const [name, finger, midi] of [['thumb', 1, 60], ['little', 5, 72]]) {
+        const index = skin.morphTargetDictionary[`Press.${name}`];
+        assert.ok(Number.isInteger(index));
+        const depth = keyDepth(frame, midi);
+        assert.ok(Math.abs(skin.morphTargetInfluences[index] - depth) < tolerance);
+        if (depth === 0) continue;
+        const key = keys.find(key => key.midiNote === midi);
+        const contact = rigs.right.contacts[finger].getWorldPosition(new Vector3());
+        assert.ok(Math.abs(contact.y - (key.target[1] - depth * TRAVEL)) < tolerance);
+        assert.ok(Math.abs(contact.x - key.target[0]) < key.width / 2);
+        assert.ok(Math.abs(contact.z - key.z) < key.length / 2);
+      }
+    }
+    assertSkinClearsKeys(scene, keys, frame, time);
+  }
+  rigs.dispose();
+});

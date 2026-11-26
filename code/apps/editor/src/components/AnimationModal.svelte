@@ -5,7 +5,7 @@
   import type { AnimationProgress } from '../service/playback/animation-generation.ts';
   import { createAnimationCalculation } from '../service/playback/animation-calculation.ts';
   import { createAnimationTransport } from '../service/playback/animation-transport.ts';
-  import type { PlaybackInstrumentPort } from '../service/playback/playback-instrument.ts';
+  import type { PlaybackInstrumentPort, SamplePreparationProgress } from '../service/playback/playback-instrument.ts';
   import EditorDialogController from '../service/dialog/editor-dialog-controller.ts';
   import { editorDialogStore } from '../state/editor-dialog.ts';
   import type { createScene } from '../infra/motion/scene.ts';
@@ -27,6 +27,9 @@
   let speed = $state(1);
   let loading = $state(false);
   let progress = $state.raw<AnimationProgress>();
+  let audioProgress = $state.raw<SamplePreparationProgress>();
+  let motionReady = $state(false);
+  let generation: AbortController | undefined;
   const calculation = createAnimationCalculation();
   let sceneReady = $state(false);
   let sceneError = $state('');
@@ -67,13 +70,16 @@
   function finishGeneration() {
     loading = false;
     progress = undefined;
+    audioProgress = undefined;
+    motionReady = false;
+    generation = undefined;
     panel?.focus();
   }
   function generationFailed(message: string) {
     finishGeneration();
     showError('Animation Generation Failed', message);
   }
-  function generate() {
+  async function generate() {
     if (loading || !sceneReady) return;
     transport.pause(); playing = false;
     if (inspection.issues.length) {
@@ -84,22 +90,34 @@
     }
     const input = inspection.performance;
     const source = { project, range };
+    const controller = new AbortController();
+    generation = controller;
     loading = true; progress = undefined; result = null; saveSnapshot(null); position = 0;
     try {
-      calculation.start($state.snapshot({ notes: input.notes, origins: input.origins }), {
-        progress: value => { progress = value; },
-        complete: notes => {
-          const performance = { ...input, notes };
-          try {
-            transport.setSequence(animationAudio(performance));
-            result = { ...source, performance };
-            saveSnapshot(result);
-            finishGeneration();
-          } catch (error) { generationFailed(error instanceof Error ? error.message : String(error)); }
-        },
-        failed: generationFailed,
+      const sequence = animationAudio(input);
+      const preparation = instrument?.prepareSequence?.(sequence, value => {
+        if (!controller.signal.aborted) audioProgress = value;
+      }, controller.signal);
+      if (preparation) audioProgress = { completed: 0, total: preparation.total };
+      const motion = new Promise<AnimationPerformance['notes']>((resolve, reject) => {
+        calculation.start($state.snapshot({ notes: input.notes, origins: input.origins }), {
+          progress: value => { progress = value; },
+          complete: notes => { motionReady = true; resolve(notes); },
+          failed: message => reject(new Error(message)),
+        });
       });
-    } catch (error) { generationFailed(error instanceof Error ? error.message : String(error)); }
+      const [notes] = await Promise.all([motion, preparation?.done]);
+      if (controller.signal.aborted) return;
+      transport.setSequence(sequence);
+      result = { ...source, performance: { ...input, notes } };
+      saveSnapshot(result);
+      finishGeneration();
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      controller.abort();
+      calculation.cancel();
+      generationFailed(error instanceof Error ? error.message : String(error));
+    }
   }
   function toggle() {
     if (!result || loading) return;
@@ -177,7 +195,7 @@
       } catch (error) { sceneError = '3D rendering is unavailable.'; showError('3D Rendering Failed', `${sceneError} ${error instanceof Error ? error.message : String(error)}`); }
     }).catch(() => { if (alive) { sceneError = 'The 3D renderer could not be loaded.'; showError('3D Rendering Failed', sceneError); } });
     return () => {
-      alive = false; calculation.cancel(); cancelAnimationFrame(frame); transport.dispose(); scene?.dispose(); cameraKeys.reset();
+      alive = false; generation?.abort(); calculation.cancel(); cancelAnimationFrame(frame); transport.dispose(); scene?.dispose(); cameraKeys.reset();
       window.removeEventListener('keyup', release);
       window.removeEventListener('blur', resetCameraKeys);
       document.removeEventListener('visibilitychange', visibility);
@@ -201,15 +219,22 @@
       {#if loading}
         <div class="placeholder">
           <div class="generation-progress">
-            <p role="status">{progressLabel}…</p>
-            {#if progress}
-              <progress aria-label={progressLabel} max={progress.total} value={progress.completed}></progress>
-              <div class="generation-detail">
-                <span>{measureLabel}{measureLabel && progress.hand ? ' · ' : ''}{progress.hand === 'left' ? 'Left hand' : progress.hand === 'right' ? 'Right hand' : ''}</span>
-                <span>{progress.completed} / {progress.total}</span>
-              </div>
-            {:else}
-              <progress aria-label={progressLabel}></progress>
+            {#if !motionReady}
+              <p role="status">{progressLabel}…</p>
+              {#if progress}
+                <progress aria-label={progressLabel} max={progress.total} value={progress.completed}></progress>
+                <div class="generation-detail">
+                  <span>{measureLabel}{measureLabel && progress.hand ? ' · ' : ''}{progress.hand === 'left' ? 'Left hand' : progress.hand === 'right' ? 'Right hand' : ''}</span>
+                  <span>{progress.completed} / {progress.total}</span>
+                </div>
+              {:else}
+                <progress aria-label={progressLabel}></progress>
+              {/if}
+            {/if}
+            {#if audioProgress}
+              <p role="status">{audioProgress.completed === audioProgress.total ? 'Piano samples ready' : 'Loading piano samples…'}</p>
+              <progress aria-label="Piano samples loaded" max={audioProgress.total} value={audioProgress.completed}></progress>
+              <div class="generation-detail"><span></span><span>{audioProgress.completed} / {audioProgress.total}</span></div>
             {/if}
           </div>
         </div>

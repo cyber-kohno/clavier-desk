@@ -1,5 +1,5 @@
 import { createPlaybackHighlight } from './playback-highlight.ts';
-import type { PlaybackInstrumentPort } from './playback-instrument.ts';
+import type { PlaybackInstrumentPort, SamplePreparation, SamplePreparationProgress } from './playback-instrument.ts';
 import ScorePlaybackPlan from '../../domain/performance/score-playback-plan.ts';
 import type { ScoreProject } from '../../domain/score/types.ts';
 
@@ -10,6 +10,8 @@ namespace ScorePlayback {
     readonly soundingNoteIds: readonly string[];
     invalidate(project: ScoreProject): void;
     prepare(project: ScoreProject): void;
+    prepareAudio(project: ScoreProject, startPosition: number, progress: (value: SamplePreparationProgress) => void,
+      signal: AbortSignal): SamplePreparation | undefined;
     start(project: ScoreProject, startPosition: number, onPosition: (position: number) => void, onStop: () => void): boolean;
     stop(): void;
     dispose(): void;
@@ -26,6 +28,11 @@ namespace ScorePlayback {
     let cachedPlan: ReturnType<typeof ScorePlaybackPlan.create> | undefined;
     let soundingNow: (() => readonly string[]) | undefined;
     let positionNow: (() => number) | undefined;
+    function planAt(project: ScoreProject, startPosition: number) {
+      value.prepare(project);
+      if (cachedPlan?.startPosition !== startPosition) cachedPlan = prepared!.create(startPosition);
+      return cachedPlan;
+    }
     const value: Value = {
       get playing() { return playing; },
       get soundingNoteIds() { return playing ? soundingNow?.() ?? [] : []; },
@@ -43,12 +50,13 @@ namespace ScorePlayback {
         preparedProject = project;
         cachedPlan = undefined;
       },
+      prepareAudio(project, startPosition, progress, signal) {
+        return instrument.prepareSequence?.(planAt(project, startPosition), progress, signal);
+      },
       start(project, startPosition, updatePosition, stopped) {
         if (playing) return false;
-        value.prepare(project);
+        const nextPlan = planAt(project, startPosition);
         const snapshot = prepared!;
-        const nextPlan = cachedPlan?.startPosition === startPosition ? cachedPlan : snapshot.create(startPosition);
-        cachedPlan = nextPlan;
         if (nextPlan.durationSeconds <= 0 || nextPlan.events.length === 0) return false;
         onPosition = updatePosition;
         onStop = stopped;

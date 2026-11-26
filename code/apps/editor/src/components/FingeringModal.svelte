@@ -4,6 +4,8 @@
   import type { ScoreProject } from '../domain/score/types.ts';
   import type { FingeringProgress, FingeringResult } from '../domain/performance/automatic-fingering.ts';
   import FingeringCalculation from '../service/fingering/fingering-calculation.ts';
+  import { controlDialogChoices } from '../ui/keyboard/dialog-choices.ts';
+  import './keyboard-dialog.css';
 
   let { project, selection, apply, close }: { project: ScoreProject; selection: Selection;
     apply: (assignments: readonly FingeringAssignment[]) => void; close: () => void } = $props();
@@ -41,18 +43,7 @@
       if (scrollArea) scrollArea.scrollTop += event.key === 'ArrowUp' ? -48 : 48;
       return;
     }
-    if (!['ArrowLeft', 'ArrowRight', 'Enter'].includes(event.key)) return;
-    event.preventDefault();
-    const choices = Array.from(dialog.querySelectorAll<HTMLButtonElement>('footer button:not(:disabled)'));
-    if (!choices.length) return;
-    const focused = choices.indexOf(document.activeElement as HTMLButtonElement);
-    const current = focused >= 0 ? focused : Math.max(0, choices.indexOf(primary!));
-    if (event.key === 'Enter') {
-      if (!event.repeat) choices[current].click();
-    } else {
-      const direction = event.key === 'ArrowLeft' ? -1 : 1;
-      choices[Math.max(0, Math.min(choices.length - 1, current + direction))].focus();
-    }
+    controlDialogChoices(event, dialog, primary);
   }
   function calculate() {
     if (phase === 'running' || inspection.issues.length || !inspection.missing) return;
@@ -73,7 +64,7 @@
   function pitchName(midi: number) { return `${['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][midi % 12]}${Math.floor(midi / 12) - 1}`; }
 </script>
 
-<dialog class="fingering-modal" bind:this={dialog} tabindex="-1" aria-labelledby="fingering-title"
+<dialog class="fingering-modal keyboard-dialog" bind:this={dialog} tabindex="-1" aria-labelledby="fingering-title"
   onkeydown={controlKey}
   oncancel={event => { event.preventDefault(); if (phase === 'running') cancelCalculation(); else close(); }}>
   <header>
@@ -149,10 +140,8 @@
 </dialog>
 
 <style>
-  .fingering-modal { width: min(720px, calc(100vw - 48px)); height: 640px; max-height: calc(100vh - 48px); padding: 0; box-sizing: border-box; overflow: hidden; border: 1px solid #9bb4b4; border-radius: 6px; background: #f7fafa; color: #233b3b; box-shadow: 0 18px 60px #0005; }
+  .fingering-modal { width: min(720px, calc(100vw - 48px)); height: 640px; max-height: calc(100vh - 48px); overflow: hidden; }
   .fingering-modal[open] { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
-  .fingering-modal::backdrop { background: #10252588; }
-  header { flex-shrink: 0; padding: 20px 24px 16px; background: #e7efef; border-bottom: 1px solid #bccdcd; }
   h2 { margin: 0 0 8px; font-size: 20px; } h3 { font-size: 15px; margin: 16px 0 8px; }
   p { line-height: 1.55; margin: 8px 0; font-size: 13px; } header p { margin: 0; }
   .content { min-height: 0; display: flex; flex-direction: column; padding: 18px 24px; overflow: hidden; }
@@ -164,14 +153,7 @@
   .hint { color: #526b6b; } .issues { color: #8b3434; } .warnings { color: #755019; }
   ul { padding-left: 20px; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
   li { margin: 8px 0; }
-  progress { width: 100%; margin: 14px 0; accent-color: #326b6b; }
   .result-table { border: 1px solid #c3d2d2; border-radius: 3px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; }
   th { position: sticky; top: 0; z-index: 1; background: #e7efef; } th, td { padding: 7px 12px; border-bottom: 1px solid #dce5e5; }
-  footer { flex-shrink: 0; padding: 14px 24px; border-top: 1px solid #bccdcd; }
-  .choices { display: flex; justify-content: flex-end; gap: 10px; }
-  .keyboard-hint { margin: 12px 0 0; font-size: 11px; color: #526b6b; text-align: right; }
-  button { min-width: 86px; border: 1px solid #698892; border-radius: 4px; padding: 7px 14px; background: #edf4f4; color: #20363d; font: inherit; font-size: 14px; cursor: pointer; outline: none; }
-  button:disabled { opacity: 0.45; cursor: default; }
-  button:focus { background: #426e78; color: white; font-weight: 700; }
 </style>

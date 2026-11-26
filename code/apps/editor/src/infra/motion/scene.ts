@@ -81,7 +81,7 @@ function createKeyGeometry(width: number, height: number, length: number, black:
 
 function addWhiteKeyWoodSides(material: THREE.MeshPhysicalMaterial, height: number, length: number) {
   material.onBeforeCompile = shader => {
-    shader.uniforms.woodColor = { value: new THREE.Color('#ad8256') };
+    shader.uniforms.woodColor = { value: new THREE.Color('#70543a') };
     shader.uniforms.capBottom = { value: height / 2 - 0.002 };
     shader.uniforms.woodEnd = { value: length / 2 - 0.002 };
     shader.vertexShader = 'varying vec3 keyLocalPosition;\nvarying float keySide;\n' +
@@ -132,8 +132,9 @@ export function createScene(container: HTMLElement) {
     left: -0.72, right: 0.72, top: 0.32, bottom: -0.32, near: 0.1, far: 1.4,
   });
   light.shadow.camera.updateProjectionMatrix();
-  light.shadow.normalBias = 0.0007;
-  light.shadow.bias = -0.00015;
+  // Keep the curved skin from sampling its own quantized shadow depth.
+  light.shadow.normalBias = 0.0028;
+  light.shadow.bias = -0.00038;
   light.shadow.radius = 2;
   scene.add(light);
   // A low front fill reveals the sloped faces that point away from the main light.
@@ -148,8 +149,9 @@ export function createScene(container: HTMLElement) {
   const keyReflection = createKeyReflection(renderer);
   const leftGlow = new THREE.Color(noteColors.left);
   const rightGlow = new THREE.Color(noteColors.right);
-  const whiteKeyColor = new THREE.Color('#89867f');
-  const blackKeyColor = new THREE.Color('#111114');
+  // Darken the piano surfaces without dimming the hands, background, or LEDs.
+  const whiteKeyColor = new THREE.Color('#56544f');
+  const blackKeyColor = new THREE.Color('#090a0c');
   const ledZ = -0.091;
   const ledGeometry = new RoundedBoxGeometry(0.007, 0.002, 0.004, 2, 0.0008);
   const ledRail = box(KEYBOARD_WIDTH, 0.009, 0.008, '#171c23');
@@ -157,7 +159,7 @@ export function createScene(container: HTMLElement) {
   scene.add(ledRail);
   // Every key can glow. A fixed pool lights the surrounding keys and hands.
   const ledLights = Array.from({ length: 10 }, () => {
-    const led = new THREE.PointLight(0xffffff, 0, 0.12, 2);
+    const led = new THREE.PointLight(0xffffff, 0, 0.22, 1.6);
     scene.add(led);
     return led;
   });
@@ -169,7 +171,7 @@ export function createScene(container: HTMLElement) {
       clearcoat: k.black ? 0.55 : 0.45,
       clearcoatRoughness: k.black ? 0.19 : 0.25,
       envMap: keyReflection.texture,
-      envMapIntensity: k.black ? 0.55 : 0.40,
+      envMapIntensity: k.black ? 0.20 : 0.16,
     });
     if (!k.black) addWhiteKeyWoodSides(material, k.height, k.length);
     const mesh = new THREE.Mesh(geometry, material);
@@ -322,7 +324,7 @@ export function createScene(container: HTMLElement) {
       const pressed = keyMeshes.filter(key => key.depth > 0).sort((a, b) => b.depth - a.depth);
       for (const [index, light] of ledLights.entries()) {
         const state = pressed[index];
-        light.intensity = state ? 0.075 * state.depth : 0;
+        light.intensity = state ? 0.38 * state.depth : 0;
         if (!state) continue;
         const surfaceY = state.key.target[1] - state.depth * TRAVEL;
         light.position.set(state.key.target[0], surfaceY + 0.028, state.key.target[2]);

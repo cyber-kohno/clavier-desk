@@ -4,8 +4,13 @@ import type { PlaybackSequence, SequencePlaybackOptions } from '../../service/pl
 // 10000 ticks per quarter at 120 BPM gives 50 microsecond event resolution.
 const TICKS_PER_SECOND = 20000;
 const CHANNELS = Array.from({ length: 16 }, (_, channel) => channel).filter(channel => channel !== 9);
+export const DEFAULT_PLAYBACK_VELOCITY = 88;
 
-export function createPlaybackMidi(sequence: PlaybackSequence, velocity = 88,
+export function playbackVelocity(event: PlaybackSequence['events'][number], pitchIndex: number, velocity: number): number {
+  return Math.min(127, Math.max(0, Math.round(event.pitchVelocities?.[pitchIndex] ?? event.velocity ?? velocity)));
+}
+
+export function createPlaybackMidi(sequence: PlaybackSequence, velocity = DEFAULT_PLAYBACK_VELOCITY,
   { reverbDepth = 0 }: SequencePlaybackOptions = {}): ArrayBuffer {
   const events: { tick: number; priority: number; bytes: number[] }[] = [];
   const tickAt = (seconds: number) => {
@@ -29,7 +34,7 @@ export function createPlaybackMidi(sequence: PlaybackSequence, velocity = 88,
   }
   const attacks = sequence.events.flatMap(event => event.pitches.map((pitch, index) => {
     const start = tickAt(event.startSeconds);
-    const noteVelocity = Math.min(127, Math.max(0, Math.round(event.pitchVelocities?.[index] ?? event.velocity ?? velocity)));
+    const noteVelocity = playbackVelocity(event, index, velocity);
     return { pitch, start, end: Math.max(start + 1, tickAt(event.startSeconds + (event.pitchDurationsSeconds?.[index] ?? event.durationSeconds))), velocity: noteVelocity };
   })).sort((a, b) => a.start - b.start || a.end - b.end);
   // SpessaSynth releases repeated pitches FIFO. Separate overlapping instances

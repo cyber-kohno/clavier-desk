@@ -1,0 +1,34 @@
+.keyboard-dialog {
+  box-sizing: border-box;
+  padding: 0;
+  border: 1px solid #9bb4b4;
+  border-radius: 6px;
+  background: #f7fafa;
+  color: #233b3b;
+  box-shadow: 0 18px 60px #0005;
+}
+.keyboard-dialog::backdrop { background: #10252588; }
+.keyboard-dialog > header {
+  flex-shrink: 0;
+  padding: 20px 24px 16px;
+  background: #e7efef;
+  border-bottom: 1px solid #bccdcd;
+}
+.keyboard-dialog > footer { flex-shrink: 0; padding: 14px 24px; border-top: 1px solid #bccdcd; }
+.keyboard-dialog progress { width: 100%; margin: 14px 0; accent-color: #326b6b; }
+.keyboard-dialog .choices { display: flex; justify-content: flex-end; gap: 10px; }
+.keyboard-dialog .keyboard-hint { margin: 12px 0 0; font-size: 11px; color: #526b6b; text-align: right; }
+.keyboard-dialog .choices button {
+  min-width: 86px;
+  border: 1px solid #698892;
+  border-radius: 4px;
+  padding: 7px 14px;
+  background: #edf4f4;
+  color: #20363d;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  outline: none;
+}
+.keyboard-dialog .choices button:disabled { opacity: 0.45; cursor: default; }
+.keyboard-dialog .choices button:focus { background: #426e78; color: white; font-weight: 700; }

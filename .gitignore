@@ -6,3 +6,4 @@
 **/src-tauri/gen/
 temp/
 **/.pnpm-store/
+code/apps/editor/public/assets/soundfonts/ivy-audio-piano-in-162-close.sf3
